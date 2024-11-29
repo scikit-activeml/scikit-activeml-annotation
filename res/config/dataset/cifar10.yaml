@@ -1,0 +1,12 @@
+name: "Cifar10"
+class_definition:
+  _target_: torchvision.datasets.CIFAR10
+params:
+  test_size: 0.3
+train_params:
+  train: True
+eval_params:
+  train: False 
+num_workers: 4
+dataloader_batch_size: 32
+n_classes: 10

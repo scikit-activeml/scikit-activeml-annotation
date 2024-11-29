@@ -1,0 +1,12 @@
+name: "digits_toy"
+definition:
+  _target_: sklearn.datasets.load_digits
+  n_class: 10
+  return_X_y: True
+  as_frame: False
+  
+train_params:
+  train: True
+eval_params:
+  train: False 
+n_classes: 10

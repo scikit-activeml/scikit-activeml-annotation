@@ -1,0 +1,3 @@
+name: "RandomSampling"
+definition:
+  _target_: skactiveml.pool.RandomSampling

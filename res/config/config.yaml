@@ -1,0 +1,8 @@
+defaults:
+  - dataset: digits_toy
+  - preprocessor: null
+  - model: logistic_regression
+  - prequery: null
+  - query_strategy: random_sampling
+  - _self_
+random_seed: 0

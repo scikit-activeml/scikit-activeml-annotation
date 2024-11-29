@@ -1,1 +1,4 @@
 .venv
+examples
+outputs
+__pycache__/
