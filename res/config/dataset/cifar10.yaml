@@ -1,8 +1,8 @@
 name: "Cifar10"
-class_definition:
+definition:
   _target_: torchvision.datasets.CIFAR10
-params:
   test_size: 0.3
+  
 train_params:
   train: True
 eval_params:

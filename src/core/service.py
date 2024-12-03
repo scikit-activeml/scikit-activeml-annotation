@@ -1,62 +1,38 @@
-# Std
-from dataclasses import dataclass, field
-from typing import Callable
+from inspect import signature
 from functools import partial
+from dataclasses import dataclass, field
+from typing import Dict, Callable, Generator
 
-# 3rd Party
-import hydra
-from hydra import initialize, compose
-from hydra.utils import instantiate, call
-from hydra.core.config_store import ConfigStore
-from omegaconf import DictConfig, OmegaConf, MISSING
-
+import numpy as np
 from numpy import ndarray
+
+from hydra.utils import instantiate, call
+from omegaconf import OmegaConf
 
 from skactiveml.utils import call_func, MISSING_LABEL
 from skactiveml.classifier import SklearnClassifier
 from skactiveml.pool import SubSamplingWrapper
 from skactiveml.base import QueryStrategy
 
-import numpy as np
-
-# own
-from util.path import (ROOT_PATH, CONFIG_PATH, DATA_CONFIG_PATH)
-from util.deserialize import parse_yaml_config_dir, parse_yaml_file, compose_config
-from core.service import SessionConfig, fetch_session_config
-from core.service import (finish_label_session, req_annotation)
-
-# tmp
-from inspect import signature
-
-# These variable will come from the gui:
-
-# TODO Use this to tell each config. What fields it has to have.
-@dataclass
-class DataLoaderConfig:
-    pass
+from .schema import *
+from util.deserialize import compose_config
 
 @dataclass
-class DatasetConfig:
-    name: str = MISSING
-    n_classes: int = MISSING
-
-@dataclass 
-class ModelConfig:
-    pass
+class SessionConfig:
+    n_cycles: int = 10
+    batch_size: int = 1
+    max_candidates: int | float = 1000
 
 @dataclass
-class QueryStrategyConfig:
-    pass
+class SessionState:
+    n_labeled: int = 0
 
-@dataclass
-class ActiveMlConfig:
-    random_seed: int = MISSING
-    model: ModelConfig = MISSING
-    dataset: DatasetConfig = MISSING
-    query_strategy: QueryStrategyConfig = MISSING
 
-cs = ConfigStore().instance()
-cs.store(name='base_config', node=ActiveMlConfig)
+def fetch_session_config() -> SessionConfig:
+    # TODO actually request data from UI.
+    # for now return dummy data
+    return SessionConfig()
+
 
 def load_data(cfg: ActiveMlConfig) -> tuple[ndarray, ndarray]:
     X, Y = instantiate(cfg.dataset.definition)
@@ -69,7 +45,6 @@ def build_classifier(
         random_state: np.random.RandomState
     ) -> SklearnClassifier:
     n_classes = dataset_cfg.n_classes
-
     model_package_name = str(model_cfg.definition._target_).split(".")[0]
     if "skactiveml" == model_package_name:
         return instantiate(model_cfg.definition, random_state=random_state, classes=np.arange(n_classes))
@@ -81,10 +56,6 @@ def build_classifier(
 
 def create_regressor(cfg: ModelConfig, random_state: np.random.RandomState):
     raise NotImplementedError
-
-
-""" def start_active_learning_cycle(qs: ):
-    for _ in range(n_cycles): """
 
 
 def filter_kwargs(func: Callable, **kwargs) -> Callable:
@@ -101,12 +72,11 @@ def filter_kwargs(func: Callable, **kwargs) -> Callable:
 
     return partial(func, **filtered_kwargs)
 
-# GLOBAL VARIABLE
-@hydra.main(version_base=None, config_path=str(CONFIG_PATH), config_name="config.yaml")
-def build_activeMl_pipeline(cfg: ActiveMlConfig) -> None:
-    # print(OmegaConf.to_yaml(cfg))
 
-    # Allow partially labeled datasets?
+def get_label_names():
+    pass
+
+def _build_activeMl_pipeline(cfg: ActiveMlConfig):
     X, y_true = load_data(cfg)
     y = np.full(len(X), MISSING_LABEL)
 
@@ -121,24 +91,45 @@ def build_activeMl_pipeline(cfg: ActiveMlConfig) -> None:
 
     # Don't fit classifier in query function. To avoid fitting twice.
     query_func: Callable = filter_kwargs(qs.query, batch_size=session_config.batch_size, clf=clf, fit_clf=False, discriminator=clf)
-    
-    c = 0
-    while c < session_config.n_cycles:
-        query_indices = query_func(X=X, y=y)
-        print(query_indices)
 
-        # blocking call
-        y_labeled = req_annotation(query_indices, cfg.dataset.n_classes, random_state)
-        y[query_indices] = y_labeled
+    def pipeline():
+        c = 0
+        while c < session_config.n_cycles:
+            query_indices = query_func(X=X, y=y)
+            print(query_indices)
 
-        clf.fit(X=X, y=y)
-        c += 1
+            # blocking call
+            # y_labeled = req_annotation(query_indices, cfg.dataset.n_classes, random_state)
+            y_labeled = yield query_indices[0]
+            y[query_indices] = y_labeled
+
+            clf.fit(X=X, y=y)
+            c += 1
+
+    return pipeline
+
+def setup_activeMl_cycle(session_cfg: SessionConfig, overrides: Dict[str, str] | None = None) -> Generator:
+    cfg: ActiveMlConfig = compose_config(overrides)
+    return _build_activeMl_pipeline(cfg)
 
 
-def start_activeML_cycle(cfg: ActiveMlConfig):
-    pass
+def stop_labelling_session():
+    raise NotImplementedError
 
 
-if __name__ == '__main__':
-    build_activeMl_pipeline()
-    pass
+def req_annotation(query_indices: np.ndarray, n_classes: int, random_state: np.random.RandomState) -> np.ndarray:
+    """
+    Returns np array-like of shape (query_indices)
+    """
+
+    # TODO for now select random classes for each requested label.
+    return random_state.randint(0, n_classes, size=len(query_indices))
+
+
+def finish_label_session():
+    # Notify UI that. There is not more labels to label.
+    print("Not Implemented")
+
+
+def retrain():
+    raise NotImplementedError
