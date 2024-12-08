@@ -5,6 +5,7 @@ from enum import Enum, auto
 import dash
 from dash import html, dcc, Input, Output, no_update
 from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import plotly.express as px
 
@@ -75,7 +76,7 @@ def get_label_names(bunch) -> list[str]:
 
 def layout(**kwargs):
     return (
-        dcc.Loading(
+        # dcc.Loading(
             html.Div(
                 [
                     dcc.Store(id='session-store-annotation', storage_type='session'),
@@ -105,7 +106,7 @@ def layout(**kwargs):
                 ],
                 # style={'border': '2px dashed black'},
             )
-        )
+        # ),
     )
 
 
@@ -160,117 +161,79 @@ def create_sidebar():
         )
     )
 
-def create_hero_section(label_names: list[str], label_idx: int, dataset_name: str, image):
+def create_hero_section(label_names: list[str], label_idx: int, dataset_name: str, image, progress: float):
     print("create_hero_section with (label_idx, and dataset_name): ", label_idx, dataset_name)
     return (
         dbc.Container(
             [
-                dbc.Row(
-                    [
-                        dbc.Col(
-                            html.Div(
-                                [   
-                                    dcc.Graph(
-                                        figure=px.imshow(
-                                                image,
-                                                # color_continuous_scale="Greys",
-                                                labels = {},
-                                            )
-                                    ),
-                                    # html.Img(
-                                    #     src=image,
-                                    #    # src="https://via.placeholder.com/600x400",
-                                    #    style={'max-width': '100%', 'margin': '0 auto'}
-                                    #)
-                                ],
-                                # style={'textAlign': 'center'}
-                            ),
-                            # width=12
-                        ),
-                    ],
-                    # justify="center"
-                ),
+                # Data display
                 dbc.Row(
                     dbc.Col(
-                        [   
-                            # Radio Items
-                            dbc.Row(
-                                [
-                                    dbc.Col(
-                                        [
-                                            html.H4('Select Label'),
-                                            dcc.RadioItems(
-                                                id='label-radio',
-                                                options=[{'label': l_name, 'value': idx} for idx, l_name in enumerate(label_names)],
-                                                value=0,  # Default to the first label
-                                                labelStyle={'display': 'block', 'margin': '10px 0'},
-                                                # className='d-flex justify-content-center'
-                                                style={'textAlign': 'center'}
-                                            )
-                                        ],
-                                        style={
-                                            'marginTop': '20px', 
-                                            'border': '2px dashed brown'
-                                        },
-                                        # width=6
-                                    ),
-                                ],
-                                justify="center",
-                                style={
-                                    'marginTop': '20px', 
-                                    # 'border': '2px solid gold'
-                                }
-                            ),
-                            # Confirm button
-                            dbc.Row(
-                                [
-                                    dbc.Col(
-                                        dbc.Button(
-                                            'Confirm Selection',
-                                            id='confirm-button',
-                                            color='dark',
-                                            class_name='d-flex justify-content-center'
-                                        ),
-                                        # width=12
-                                    )
-                                ],
-                                style={'marginTop': '20px'},
-                                justify='center',
-                            ),
-                            dbc.Row(
-                                dbc.Col(
-                                    dbc.Progress(
-                                        ["Progress"],
-                                        striped=True,
-                                        color='blue'
-                                    ),
-                                    # width=
+                        dcc.Loading(
+                            dcc.Graph(
+                                figure=px.imshow(
+                                    image,
+                                    labels={},
                                 ),
-                            )
+                            ),
+                        ),
+                    ),
+                    # style={'marginBottom': '5px'},
+                    style={'border': '4px dotted pink'}
+                ),
+
+                # Label selection
+                dbc.Row(
+                    dbc.Col(
+                        [
+                            html.H4('Select Label'),
+                            dcc.RadioItems(
+                                id='label-radio',
+                                options=[{'label': l_name, 'value': idx} for idx, l_name in enumerate(label_names)],
+                                value=0,  # Default to the first label
+                                labelStyle={
+                                    'display': 'block', 
+                                    'margin': '10px 0'
+                                },
+                            ),
                         ],
                         style={
-                            'border': '3px solid orange',
-                            'display': 'flex',  # Enable flex layout for the entire column
-                            'flexDirection': 'column',  # Align items vertically
-                            'justifyContent': 'center',  # Center vertically
-                            'alignItems': 'center'  # Center horizontally
+                            'textAlign': 'center', 
+                            # 'marginTop': '5px'
                         },
                     ),
-                    style={
-                    # 'border': '5px dashed green',
-                    #'display': 'flex',
-                    #'justifyContent': 'center',
-                    #'alignItems': 'center'
-                    },
-                    # style={'textAlign': 'center'},
-                    #justify='center'
+                    style={'marginBottom': '20px'},
+                ),
+
+                # Confirm button
+                dbc.Row(
+                    dbc.Col(
+                        dbc.Button(
+                            'Confirm Selection',
+                            id='confirm-button',
+                            color='dark',
+                        ),
+                        style={'textAlign': 'center'},
+                    ),
+                    style={'marginBottom': '20px'},
+                ),
+
+                # Progress bar
+                dbc.Row(
+                    dbc.Col(
+                        dbc.Progress(
+                            id='batch-progress-annotation',
+                            label="Batch Progress",
+                            min=0,
+                            max=1,
+                            value=progress,
+                        ),
+                    ),
+                    style={'marginBottom': '10px'}
                 ),
             ],
-            # width=9,
-            style={'border': '4px dashed green'},
             fluid=True,
-            # class_name='px-0'
-            # class_name='d-flex justify-content-start'
+            style={'border': '4px dashed green'},
         )
     )
 
@@ -329,8 +292,11 @@ def setup_annotations_page(pathname, data):
     # TODO generalize
     image = load_image(bunch, query_idx)
 
+
+    progress = idx / len(batch.indices)
+
     # print("data after setup page is: ", data)
-    return data, create_sidebar(), create_hero_section(label_names, query_idx, dataset_name, image)
+    return data, create_sidebar(), create_hero_section(label_names, query_idx, dataset_name, image, progress)
 
 @dash.callback(
     Output('session-store-annotation', 'data'),
@@ -342,13 +308,7 @@ def setup_annotations_page(pathname, data):
 )
 def on_button_click(n_clicks: int, value: int, data: dict):
     if n_clicks is None or n_clicks == 0:
-        return no_update, no_update 
-    
-    # print("on button click. n_clicks = ", n_clicks)
-
-    # TODO Invoked when an annotation is confirmed. 
-    # Should store the annotation in Batch State
-    # and advance to the next annotation
+        raise PreventUpdate
 
     print("Annotated label: ", value)
 
