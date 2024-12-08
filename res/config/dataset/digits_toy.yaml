@@ -1,8 +1,8 @@
 name: "digits_toy"
 
 data_type: 
-  _target_: src.core.schema.DataType
-  _args_: Image
+  _target_: core.schema.DataType
+  _args_: [Image]
 
 raw_data:
   _target_: sklearn.datasets.load_digits

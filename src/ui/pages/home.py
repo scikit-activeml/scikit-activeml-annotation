@@ -5,14 +5,16 @@ from dash import html, dcc, callback, Input, Output, State
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 
-from core.api import load_dataset_options
+from hydra.utils import instantiate
+
+from core.api import get_dataset_config_options
 
 dash.register_page(__name__, path='/')
 
 # path variables and query string are captured from the URL and passed into kwargs!
 def layout(**kwargs):
     # TODO load other options aswell.
-    dataset_options = load_dataset_options()
+    dataset_options = get_dataset_config_options()
     return (
         dbc.Container([
             dcc.Store(id='session-store-home'),
@@ -29,21 +31,21 @@ def layout(**kwargs):
                                     dcc.RadioItems(
                                         id="dataset-select",
                                         options=[
-                                            {"label": f"{dataset_name}", "value": f"{dataset_name}"}
-                                            for dataset_name in dataset_options
+                                            {"label": f"{cfg.name} - ({instantiate(cfg.data_type).value})", "value": f"{cfg.name}"}
+                                            for cfg in dataset_options
                                         ],
                                         value=None,  # Default selection
                                         labelStyle={"display": "block"},  # Makes each option appear like a list
                                         className="form-check",  # Adds Bootstrap form-check styling to the radio items
                                     ),
                                 ],
-                                title="Datasets",
+                                title="Select a Dataset",
                             ),
                         ],
                         active_item=False,
                         class_name='mb-5'
                     ),
-                    dbc.Button('Select', n_clicks=0, id='select-button', color='dark', class_name='w-100', disabled=True),
+                    dbc.Button('Confirm Selection', n_clicks=0, id='select-button', color='dark', class_name='w-100', disabled=True),
                 ], 
                 width="auto")  # "auto" for auto-width and centering the column
             , 

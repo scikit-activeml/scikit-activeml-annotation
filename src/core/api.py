@@ -18,7 +18,7 @@ from skactiveml.base import QueryStrategy
 
 from .schema import *
 from util.deserialize import compose_config, parse_yaml_config_dir
-from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH
+from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH
 
 
 def _load_data_raw(cfg: ActiveMlConfig) -> ndarray:
@@ -79,13 +79,16 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> Callable:
 #### API ####
 
 # stateless
-def load_dataset_options() -> list[str]:
-    out = []
-    config_options = parse_yaml_config_dir(DATA_CONFIG_PATH)
-    for config in config_options:
-        out.append(config.name)
+def get_dataset_config_options() -> list[DatasetConfig]:
+    # out = []
+    config_options: list[DatasetConfig] = parse_yaml_config_dir(DATA_CONFIG_PATH)
+    return config_options
+    """ for dataset_cfg in config_options:
+        out.append(dataset_cfg.name) """
     return out
 
+def get_qs_config_options() -> list[QueryStrategyConfig]:
+    return parse_yaml_config_dir(QS_CONFIG_PATH)
 
 def get_human_readable_sample(data_type: DataType, dataset_name, idx: int):
     """Allow the ui to request human readable sample"""

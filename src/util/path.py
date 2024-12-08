@@ -7,6 +7,7 @@ CONFIG_PATH = RES_PATH / 'config'
 ANNOTATED_PATH = RES_PATH / 'annotated'
 
 DATA_CONFIG_PATH = CONFIG_PATH / 'dataset'
+QS_CONFIG_PATH = CONFIG_PATH / 'query_strategy'
 
 SRC_PATH = ROOT_PATH / 'src'
 

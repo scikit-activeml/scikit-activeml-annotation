@@ -1,8 +1,8 @@
 name: "olivetti_faces"
 
 data_type: 
-  _target_: src.core.schema.DataType
-  _args_: Image
+  _target_: core.schema.DataType
+  _args_: [Image]
   
 raw_data:
   _target_: sklearn.datasets.fetch_olivetti_faces
