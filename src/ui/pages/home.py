@@ -7,7 +7,7 @@ import dash_bootstrap_components as dbc
 
 from hydra.utils import instantiate
 
-from core.api import get_dataset_config_options
+from core.api import get_dataset_config_options, get_qs_config_options
 
 dash.register_page(__name__, path='/')
 
@@ -15,51 +15,97 @@ dash.register_page(__name__, path='/')
 def layout(**kwargs):
     # TODO load other options aswell.
     dataset_options = get_dataset_config_options()
+    qs_options = get_qs_config_options()
+
     return (
-        dbc.Container([
-            dcc.Store(id='session-store-home'),
-            dcc.Location(id='url-home', refresh=True),
-            dbc.Row(
-                dbc.Col([
-                    html.H1("Welcome to scikit-activeml-annotation", className='text-center'),
-                    html.H2('Select a Dataset', className='text-center'),
-                    
-                    dbc.Accordion(
-                        [   
-                            dbc.AccordionItem(
+        dbc.Container(
+            [
+                dcc.Store(id='session-store-home'),
+                dcc.Location(id='url-home', refresh=True),
+
+                # Top Text
+                dbc.Row(
+                    dbc.Col(
+                        [
+                            html.H1("Welcome to scikit-activeml-annotation", className='text-center'),
+                            html.H2('Configure your Pipeline', className='text-center'),
+                        ],
+                        width="auto",
+                    ),
+                    justify="center",
+                    class_name='my-5', 
+                ),
+
+                # Configure Section
+                dbc.Row(
+                    dbc.Col(
+                        [
+
+                            # Dataset selection
+                            dbc.Accordion(
                                 [
-                                    dcc.RadioItems(
-                                        id="dataset-select",
-                                        options=[
-                                            {"label": f"{cfg.name} - ({instantiate(cfg.data_type).value})", "value": f"{cfg.name}"}
-                                            for cfg in dataset_options
+                                    dbc.AccordionItem(
+                                        [
+                                            dcc.RadioItems(
+                                                id="dataset-select",
+                                                options=[
+                                                    {"label": f"{cfg.name} - ({instantiate(cfg.data_type).value})", "value": f"{cfg.name}"}
+                                                    for cfg in dataset_options
+                                                ],
+                                                value=None,  # Default selection
+                                                className="form-check mx-1",  # Adds Bootstrap form-check styling to the radio items
+                                                inputStyle={'margin-right': '4px'}
+                                            ),
                                         ],
-                                        value=None,  # Default selection
-                                        labelStyle={"display": "block"},  # Makes each option appear like a list
-                                        className="form-check",  # Adds Bootstrap form-check styling to the radio items
+                                        title="Select a Dataset",
+                                        id='dataset-accordion-home'
                                     ),
                                 ],
-                                title="Select a Dataset",
+                                active_item=False,
+                                class_name='mb-3'
                             ),
+
+                            # Query Strategy
+                            dbc.Accordion(
+                                [
+                                    dbc.AccordionItem(
+                                        [
+                                            dcc.RadioItems(
+                                                id="qs-select",
+                                                options=[
+                                                    {"label": f"{cfg.name}", "value": f"{cfg.name}"}
+                                                    for cfg in qs_options
+                                                ],
+                                                value=None,  # Default selection
+                                                className="form-check mx-1",  # Adds Bootstrap form-check styling to the radio items
+                                                inputStyle={'margin-right': '4px'}
+                                            ),
+                                        ],
+                                        title="Select a Query Strategy",
+                                        id='qs-accordion-home'
+                                    ),
+                                ],
+                                active_item=False,
+                                class_name='mb-3'
+                            ),
+
+                            dbc.Button('Confirm Selection', n_clicks=0, id='select-button', color='dark', class_name='w-100', disabled=True),
                         ],
-                        active_item=False,
-                        class_name='mb-5'
+                        width=3
                     ),
-                    dbc.Button('Confirm Selection', n_clicks=0, id='select-button', color='dark', class_name='w-100', disabled=True),
-                ], 
-                width="auto")  # "auto" for auto-width and centering the column
-            , 
-            justify="center")  # Centers the column (hence the button)
-        ]),
+                    justify='center',
+                    class_name='my-20'
+                )
+            ],
+            # fluid=True
+        )
     )
 
 @callback(
-    # Output('session-store-home', 'data'),
     Output('url-home', 'pathname'),
     # Output('url-home', 'search'),
     Input('select-button', 'n_clicks'),
     State('dataset-select', 'value'),
-    # State('session-store-home', 'data'),
     prevent_initial_call=True
 )
 def on_button_confirm_home(n_clicks: int, value):
@@ -73,14 +119,15 @@ def on_button_confirm_home(n_clicks: int, value):
 # Validation
 @callback(
     Output('select-button', 'disabled'),
+    Output('dataset-accordion-home', 'title'),
     Input('dataset-select', 'value'),
     prevent_initial_call=True
 )
 def enable_button(value):
     if value is None:
         # No dataset was selected. Leave the button in the disabled state.
-        return True
+        return True, value
     
-    return False
-    
+    return False, value
+
 

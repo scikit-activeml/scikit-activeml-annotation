@@ -34,7 +34,7 @@ app.layout = (
             )
         ],
         fluid=True,
-        style={'padding': 0}
+        class_name='px-0'
     )
 )
 
