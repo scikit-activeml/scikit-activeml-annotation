@@ -1,14 +1,12 @@
-import dash_bootstrap_components as dbc
 import dash
-from dash import Input, Output, State, html, callback
-from dash_bootstrap_components._components.Container import Container
+from dash import html
+import dash_bootstrap_components as dbc
 
 def create_navbar(**kwargs):
     return (
         dbc.Navbar(
             dbc.Container(
                 [
-                    # Navbar links (aligned to the left)
                     dbc.Nav(
                         [
                             dbc.NavItem(
@@ -25,8 +23,9 @@ def create_navbar(**kwargs):
                     )
                 ]
             ),
-        color="dark",
-        dark=True,         
+            color="dark",
+            dark=True, 
+            class_name='sticky-top'
         ) 
     )
 

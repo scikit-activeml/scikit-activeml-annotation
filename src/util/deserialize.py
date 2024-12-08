@@ -5,7 +5,6 @@ from omegaconf import DictConfig, OmegaConf
 
 ###### 
 
-import logging
 from dataclasses import dataclass, field
 
 import hydra
@@ -18,9 +17,6 @@ from omegaconf import DictConfig, OmegaConf, MISSING
 
 from util.path import CONFIG_PATH
 from core.schema import ActiveMlConfig;
-
-logging.basicConfig(format='[%(levelname)s]: %(message)s')
-
 
 def _dict_overrides_to_list(overrides: Dict[str, str]) -> list[str]:
     out = [None] * len(overrides)
@@ -53,12 +49,15 @@ def compose_config(overrides: Dict[str, str] | None) -> ActiveMlConfig:
             print(OmegaConf.to_yaml(cfg)) """
             return cfg
         except Exception as e:
-            logging.error(f'Validation of Schema failed because: {e}')
+            print(f'Validation of Schema failed because: {e}')
             exit(-1)
 
 ######################
 
 def parse_yaml_config_dir(dir_path: Path | str) -> list[DictConfig]:
+    """
+    Parse top a config without composing it, for instance to get all available the top level options.
+    """
     if isinstance(dir_path, str):
         dir_path = Path(dir_path)
 

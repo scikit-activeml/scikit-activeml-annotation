@@ -2,7 +2,10 @@ from pathlib import Path
 
 ROOT_PATH = Path(__file__).parent.parent.parent
 RES_PATH = ROOT_PATH / 'res'
+
 CONFIG_PATH = RES_PATH / 'config'
+ANNOTATED_PATH = RES_PATH / 'annotated'
+
 DATA_CONFIG_PATH = CONFIG_PATH / 'dataset'
 
 SRC_PATH = ROOT_PATH / 'src'

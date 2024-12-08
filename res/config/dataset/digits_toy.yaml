@@ -1,10 +1,21 @@
 name: "digits_toy"
-definition:
+
+data_type: 
+  _target_: src.core.schema.DataType
+  _args_: Image
+
+raw_data:
   _target_: sklearn.datasets.load_digits
   n_class: 10
   return_X_y: True
   as_frame: False
-  
+
+human_adapter:
+  _target_: sklearn.datasets.load_digits
+  n_class: 10
+  return_X_y: False
+  as_frame: False
+
 train_params:
   train: True
 eval_params:

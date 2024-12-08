@@ -1,3 +1,5 @@
+import logging
+
 import dash
 from dash import Dash, Input, Output
 from dash import html, dcc
@@ -14,20 +16,28 @@ app = Dash(
     use_pages=True,
     pages_folder=str(PAGES_PATH),
     external_stylesheets=[dbc.themes.BOOTSTRAP],
+    # Allows to register callbacks on components that will be created by other callbacks,
+    # and are therefore not in the initial layout.
+    suppress_callback_exceptions=True, 
+    prevent_initial_callbacks=True, 
 )
 
 app.layout = (
-    html.Div(
+    dbc.Container(
         [
             create_navbar(),
             dbc.Container(
                 dash.page_container,
-                fluid=True
+                fluid=True,
+                #style={'border': '5px dashed red',},
+                # class_name='px-0'
             )
-        ]
+        ],
+        fluid=True,
+        style={'padding': 0}
     )
 )
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run(debug=True)

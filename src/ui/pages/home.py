@@ -1,34 +1,21 @@
-import dash
-from dash import html, dcc, callback, Input, Output
+from urllib.parse import urlencode
 
+import dash
+from dash import html, dcc, callback, Input, Output, State
+from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 
-from dash.dependencies import Input, Output
-
-from util.deserialize import parse_yaml_config_dir
-from util.path import DATA_CONFIG_PATH
-
-# Dummy data for dropdown
-dropdown_options = [
-    {'label': 'Option 1', 'value': 'opt1'},
-    {'label': 'Option 2', 'value': 'opt2'},
-    {'label': 'Option 3', 'value': 'opt3'}
-]
+from core.api import load_dataset_options
 
 dash.register_page(__name__, path='/')
 
-def load_dataset_options() -> list[str]:
-    out = []
-    config_options = parse_yaml_config_dir(DATA_CONFIG_PATH)
-    for config in config_options:
-        out.append(config.name)
-    return out
-
-
 # path variables and query string are captured from the URL and passed into kwargs!
 def layout(**kwargs):
+    # TODO load other options aswell.
+    dataset_options = load_dataset_options()
     return (
         dbc.Container([
+            dcc.Store(id='session-store-home'),
             dcc.Location(id='url-home', refresh=True),
             dbc.Row(
                 dbc.Col([
@@ -43,9 +30,9 @@ def layout(**kwargs):
                                         id="dataset-select",
                                         options=[
                                             {"label": f"{dataset_name}", "value": f"{dataset_name}"}
-                                            for dataset_name in load_dataset_options()
+                                            for dataset_name in dataset_options
                                         ],
-                                        value="item_1",  # Default selection
+                                        value=None,  # Default selection
                                         labelStyle={"display": "block"},  # Makes each option appear like a list
                                         className="form-check",  # Adds Bootstrap form-check styling to the radio items
                                     ),
@@ -56,7 +43,7 @@ def layout(**kwargs):
                         active_item=False,
                         class_name='mb-5'
                     ),
-                    dbc.Button('Select', n_clicks=0, id='select-button', color='dark', class_name='w-100'),
+                    dbc.Button('Select', n_clicks=0, id='select-button', color='dark', class_name='w-100', disabled=True),
                 ], 
                 width="auto")  # "auto" for auto-width and centering the column
             , 
@@ -65,12 +52,33 @@ def layout(**kwargs):
     )
 
 @callback(
+    # Output('session-store-home', 'data'),
     Output('url-home', 'pathname'),
+    # Output('url-home', 'search'),
     Input('select-button', 'n_clicks'),
+    State('dataset-select', 'value'),
+    # State('session-store-home', 'data'),
     prevent_initial_call=True
 )
-def on_button_click(n_clicks):
-    if n_clicks:
-        return "/annotation"
+def on_button_confirm_home(n_clicks: int, value):
+    if n_clicks == 0:
+        return None, None, # stay on the same page
+
+    dataset_name = value
+    print("[Home] Selected dataset: ", dataset_name)
+    return f'/annotation/{dataset_name}'
+
+# Validation
+@callback(
+    Output('select-button', 'disabled'),
+    Input('dataset-select', 'value'),
+    prevent_initial_call=True
+)
+def enable_button(value):
+    if value is None:
+        # No dataset was selected. Leave the button in the disabled state.
+        return True
     
-    return None # stay on the same page
+    return False
+    
+
