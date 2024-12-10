@@ -277,12 +277,6 @@ def setup_annotations_page(pathname, data):
             # Store labeling data to disk
             completed_batch(dataset_name, batch)
 
-            labels = load_label_data(dataset_name)
-
-            for x in labels:
-                if not np.isnan(x):
-                    print(x)
-
             # Initialize the next batch
             batch = request_batch(activeMl_cfg, session_cfg)
             data[StoreKey.BATCH_STATE.value] = batch.to_json()
@@ -291,7 +285,6 @@ def setup_annotations_page(pathname, data):
     query_idx = batch.indices[idx]
     # TODO generalize
     image = load_image(bunch, query_idx)
-
 
     progress = idx / len(batch.indices)
 

@@ -40,10 +40,10 @@ def layout(**kwargs):
                 dbc.Row(
                     dbc.Col(
                         [
-
-                            # Dataset selection
                             dbc.Accordion(
                                 [
+
+                                    # Dataset selection
                                     dbc.AccordionItem(
                                         [
                                             dcc.RadioItems(
@@ -60,14 +60,8 @@ def layout(**kwargs):
                                         title="Select a Dataset",
                                         id='dataset-accordion-home'
                                     ),
-                                ],
-                                active_item=False,
-                                class_name='mb-3'
-                            ),
 
-                            # Query Strategy
-                            dbc.Accordion(
-                                [
+                                    # Query Strategy selection
                                     dbc.AccordionItem(
                                         [
                                             dcc.RadioItems(
@@ -83,10 +77,12 @@ def layout(**kwargs):
                                         ],
                                         title="Select a Query Strategy",
                                         id='qs-accordion-home'
-                                    ),
+                                    )
                                 ],
+                                id='accordion-home',
                                 active_item=False,
-                                class_name='mb-3'
+                                class_name='mb-3',
+                                always_open=True,
                             ),
 
                             dbc.Button('Confirm Selection', n_clicks=0, id='select-button', color='dark', class_name='w-100', disabled=True),
@@ -119,15 +115,27 @@ def on_button_confirm_home(n_clicks: int, value):
 # Validation
 @callback(
     Output('select-button', 'disabled'),
-    Output('dataset-accordion-home', 'title'),
     Input('dataset-select', 'value'),
     prevent_initial_call=True
 )
 def enable_button(value):
     if value is None:
         # No dataset was selected. Leave the button in the disabled state.
-        return True, value
+        return True # , f'Dataset: {value}', [] 
     
-    return False, value
+    return False #, f'Dataset: {value}', []
+
+# Accordion
+@callback(
+    Output('dataset-accordion-home', 'title'),
+    Output('accordion-home', 'active_item'),
+    State('accordion-home', 'active_item'),
+    Input('dataset-select', 'value'),
+    prevent_initial_call=True
+)
+def collapse_accordion_item(active_item, value):
+    print(active_item)
+    print(value)
+    return f'Dataset: {value}', []
 
 
