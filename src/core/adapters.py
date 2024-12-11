@@ -57,9 +57,9 @@ class SklearnImageDataAdapter(DataLoaderAdapter):
     def _init_label_names(self, bunch: Bunch) -> list[str]:
         if 'target_names' in bunch:
             label_names = bunch.target_names
-
-        # Some datasets dont return target_names
-        label_names = np.unique(bunch.target)
+        else:
+            # Some datasets dont return target_names
+            label_names = np.unique(bunch.target)
         return label_names
     
 
