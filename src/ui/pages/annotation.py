@@ -18,6 +18,7 @@ from hydra.utils import instantiate
 from util.deserialize import compose_config
 from core.api import request_query, load_label_data, completed_batch
 from core.schema import *;
+from core.adapters import DataLoaderAdapter
 
 class StoreKey(Enum):
     def _generate_next_value_(name, start, count, last_values):
@@ -172,6 +173,7 @@ def display_image(image):
                 figure=px.imshow(
                     image,
                     labels={},
+                    # color_continuous_scale='gray'
                 ),
             ),
         ),
@@ -281,13 +283,11 @@ def setup_annotations_page(pathname, data):
         'dataset': dataset_name,
     }
 
+    # print("CALL TO COMPOSE\n")
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
-
-    # TODO generalize. How the human readable data and how the label names are fetched.
-    # From Cache?
-    bunch = instantiate(dataset_cfg.human_adapter)
-    label_names = get_label_names(bunch)
+    # print("DATASET_CFG")
+    # print(type(dataset_cfg))
 
     if data is None:
         # New Session
@@ -310,10 +310,20 @@ def setup_annotations_page(pathname, data):
     
     idx = batch.progress
     query_idx = batch.indices[idx]
-    # TODO generalize
-    image = load_image(bunch, query_idx)
-
     progress = idx / len(batch.indices)
+
+    # TODO generalize. How the human readable data and how the label names are fetched.
+    # From Cache?
+
+    print("Instantiate adapter")
+    adapter: DataLoaderAdapter = instantiate(dataset_cfg.adapter_cfg, _recursive_=False)
+    label_names = adapter.get_all_label_names()
+    print("GET IMAGE")
+    image = adapter.get_human_data(query_idx)
+
+    # bunch = instantiate(dataset_cfg.human_adapter)
+    # label_names = get_label_names(bunch)
+    # image = load_image(bunch, query_idx)
 
     # print("data after setup page is: ", data)
     return data, create_sidebar(), create_hero_section(label_names, dataset_cfg, image, progress)

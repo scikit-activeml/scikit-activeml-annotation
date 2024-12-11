@@ -1,20 +1,18 @@
 name: "olivetti_faces"
+n_classes: 10
 
 data_type: 
   _target_: core.schema.DataType
   _args_: [Image]
+
+adapter_cfg:
+  _target_: core.adapters.SklearnImageDataAdapter
+  dataloader:
+    _target_: sklearn.datasets.fetch_olivetti_faces
+    return_X_y: False
   
 raw_data:
   _target_: sklearn.datasets.fetch_olivetti_faces
   return_X_y: True
 
-human_adapter:
-  _target_: sklearn.datasets.fetch_olivetti_faces
 
-train_params:
-  train: True
-eval_params:
-  train: False 
-num_workers: 4
-dataloader_batch_size: 32
-n_classes: 10

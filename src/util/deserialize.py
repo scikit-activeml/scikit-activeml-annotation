@@ -32,11 +32,12 @@ def compose_config(overrides: Dict[str, str] | None) -> ActiveMlConfig:
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
         # TODO here we can override default config.yaml
 
+        schema: DictConfig = OmegaConf.structured(ActiveMlConfig)
+
         if not overrides is None: 
             overrides = _dict_overrides_to_list(overrides)
-        cfg: DictConfig = compose('config', overrides=overrides)
 
-        schema: ActiveMlConfig = OmegaConf.structured(ActiveMlConfig)
+        cfg: DictConfig = compose('config', overrides=overrides)
 
         # Make sure cfg has at least the attributes that schema has.
         try:

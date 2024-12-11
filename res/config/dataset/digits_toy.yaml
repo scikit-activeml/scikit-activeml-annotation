@@ -1,8 +1,16 @@
 name: "digits_toy"
 
+n_classes: 10
+
 data_type: 
   _target_: core.schema.DataType
   _args_: [Image]
+
+adapter_cfg:
+  _target_: core.adapters.SklearnImageDataAdapter
+  dataloader:
+    _target_: sklearn.datasets.load_digits
+    return_X_y: False
 
 raw_data:
   _target_: sklearn.datasets.load_digits
@@ -10,14 +18,3 @@ raw_data:
   return_X_y: True
   as_frame: False
 
-human_adapter:
-  _target_: sklearn.datasets.load_digits
-  n_class: 10
-  return_X_y: False
-  as_frame: False
-
-train_params:
-  train: True
-eval_params:
-  train: False 
-n_classes: 10
