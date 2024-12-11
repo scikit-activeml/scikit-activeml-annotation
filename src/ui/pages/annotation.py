@@ -64,6 +64,9 @@ def load_image(bunch, idx: int) -> bytes:
     # image_url = encode_base64(images[idx])
     # return image_url
 
+def load_text(bunch, idx: int):
+    pass
+
 
 def get_label_names(bunch) -> list[str]:
     if 'target_names' in bunch:
@@ -161,22 +164,45 @@ def create_sidebar():
         )
     )
 
-def create_hero_section(label_names: list[str], label_idx: int, dataset_name: str, image, progress: float):
-    print("create_hero_section with (label_idx, and dataset_name): ", label_idx, dataset_name)
+
+def display_image(image):
+    return (
+        dcc.Loading(
+            dcc.Graph(
+                figure=px.imshow(
+                    image,
+                    labels={},
+                ),
+            ),
+        ),
+    )
+                     
+
+def display_text(text):
+    raise NotImplementedError
+
+
+def display_audio(autdio):
+    raise NotImplementedError
+
+
+def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, image, progress: float):
+    # TODO instantiate the data_type enum somewhere else
+    from hydra.utils import instantiate
+    data_type: DataType = instantiate(dataset_cfg.data_type)
+
+    if data_type.IMAGE == DataType.IMAGE:
+        rendered_data = display_image(image)
+    else:
+        rendered_data = display_image(image)
+
     return (
         dbc.Container(
             [
                 # Data display
                 dbc.Row(
                     dbc.Col(
-                        dcc.Loading(
-                            dcc.Graph(
-                                figure=px.imshow(
-                                    image,
-                                    labels={},
-                                ),
-                            ),
-                        ),
+                        rendered_data
                     ),
                     # style={'marginBottom': '5px'},
                     style={'border': '4px dotted pink'}
@@ -258,7 +284,8 @@ def setup_annotations_page(pathname, data):
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
 
-    # TODO generalize
+    # TODO generalize. How the human readable data and how the label names are fetched.
+    # From Cache?
     bunch = instantiate(dataset_cfg.human_adapter)
     label_names = get_label_names(bunch)
 
@@ -289,7 +316,7 @@ def setup_annotations_page(pathname, data):
     progress = idx / len(batch.indices)
 
     # print("data after setup page is: ", data)
-    return data, create_sidebar(), create_hero_section(label_names, query_idx, dataset_name, image, progress)
+    return data, create_sidebar(), create_hero_section(label_names, dataset_cfg, image, progress)
 
 @dash.callback(
     Output('session-store-annotation', 'data'),

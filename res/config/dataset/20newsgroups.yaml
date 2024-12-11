@@ -1,0 +1,21 @@
+name: "20 News Groups"
+
+data_type: 
+  _target_: core.schema.DataType
+  _args_: [Text]
+
+raw_data:
+  _target_: sklearn.datasets.fetch_20newsgroups
+  return_X_y: True
+  shuffle: False
+  download_if_missing: True
+  subset: train
+
+human_adapter:
+  _target_: sklearn.datasets.fetch_20newsgroups
+  return_X_y: False
+  shuffle: False
+  download_if_missing: True
+  subset: train
+
+n_classes: 20
