@@ -19,10 +19,14 @@ from skactiveml.base import QueryStrategy
 from .schema import *
 from util.deserialize import compose_config, parse_yaml_config_dir
 from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH
+from core.adapters import DataLoaderAdapter
 
 
 def _load_data_raw(cfg: ActiveMlConfig) -> ndarray:
+    print("LOADING DATA")
     X, _ = instantiate(cfg.dataset.raw_data)
+    print("FINISH LOADING DATA")
+    print(type(X))
     return X
 
 
@@ -108,11 +112,19 @@ def load_label_data(dataset_name: str):
             labels = pickle.load(f)
             return labels
     
-def request_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> np.ndarray:
+def request_query(
+        cfg: ActiveMlConfig, 
+        session_cfg: SessionConfig,
+        adapter: DataLoaderAdapter
+    ) -> np.ndarray:
 
     pickle_file_path = ANNOTATED_PATH / f'{cfg.dataset.name}.pkl'
 
-    X = _load_data_raw(cfg)
+    X = adapter.get_raw_data()
+    # X = _load_data_raw(cfg)
+    print(type(X))
+    # print("SHAPE")
+    # print(X.shape)
 
     if pickle_file_path.exists():
         with pickle_file_path.open('rb') as f:

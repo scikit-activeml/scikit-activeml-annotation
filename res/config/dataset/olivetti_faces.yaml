@@ -1,4 +1,6 @@
 name: "olivetti_faces"
+display_name: "Olivetti Faces"
+
 n_classes: 10
 
 data_type: 

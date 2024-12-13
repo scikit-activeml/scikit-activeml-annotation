@@ -1,3 +1,4 @@
+from typing import Any
 import base64
 from io import BytesIO
 from enum import Enum, auto
@@ -181,22 +182,39 @@ def display_image(image):
                      
 
 def display_text(text):
+    return (
+        dbc.Container(
+            dbc.Row(
+                dbc.Col(
+                    dcc.Markdown(
+                        text,  # Provide your text data here
+                        className="markdown-content",
+                        # Add additional Markdown options if necessary
+                    ),
+                    className="p-3",
+                ),
+                className="justify-content-center",
+            ),
+            className="text-container",
+        )
+    )
+
+
+def display_audio(audio):
     raise NotImplementedError
 
 
-def display_audio(autdio):
-    raise NotImplementedError
-
-
-def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, image, progress: float):
+def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, human_data: Any, progress: float):
     # TODO instantiate the data_type enum somewhere else
     from hydra.utils import instantiate
     data_type: DataType = instantiate(dataset_cfg.data_type)
 
-    if data_type.IMAGE == DataType.IMAGE:
-        rendered_data = display_image(image)
+    if data_type.value == DataType.IMAGE.value:
+        rendered_data = display_image(human_data)
+    elif data_type.value == DataType.TEXT.value:
+        rendered_data = display_text(human_data) 
     else:
-        rendered_data = display_image(image)
+        rendered_data = display_image(human_data)
 
     return (
         dbc.Container(
@@ -283,15 +301,14 @@ def setup_annotations_page(pathname, data):
         'dataset': dataset_name,
     }
 
-    # print("CALL TO COMPOSE\n")
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
-    # print("DATASET_CFG")
-    # print(type(dataset_cfg))
+    # TODO data is loaded over and over again. when it not even needed.
+    adapter: DataLoaderAdapter = instantiate(dataset_cfg.adapter_cfg, _recursive_=False)
 
     if data is None:
         # New Session
-        batch = request_batch(activeMl_cfg, session_cfg)
+        batch = request_batch(activeMl_cfg, adapter, session_cfg)
         data = {}
         data[StoreKey.BATCH_STATE.value] = batch.to_json()
 
@@ -305,7 +322,7 @@ def setup_annotations_page(pathname, data):
             completed_batch(dataset_name, batch)
 
             # Initialize the next batch
-            batch = request_batch(activeMl_cfg, session_cfg)
+            batch = request_batch(activeMl_cfg, adapter, session_cfg)
             data[StoreKey.BATCH_STATE.value] = batch.to_json()
     
     idx = batch.progress
@@ -314,19 +331,16 @@ def setup_annotations_page(pathname, data):
 
     # TODO generalize. How the human readable data and how the label names are fetched.
     # From Cache?
-
     print("Instantiate adapter")
-    adapter: DataLoaderAdapter = instantiate(dataset_cfg.adapter_cfg, _recursive_=False)
     label_names = adapter.get_all_label_names()
-    print("GET IMAGE")
-    image = adapter.get_human_data(query_idx)
+    human_data = adapter.get_human_data(query_idx)
 
     # bunch = instantiate(dataset_cfg.human_adapter)
     # label_names = get_label_names(bunch)
     # image = load_image(bunch, query_idx)
 
     # print("data after setup page is: ", data)
-    return data, create_sidebar(), create_hero_section(label_names, dataset_cfg, image, progress)
+    return data, create_sidebar(), create_hero_section(label_names, dataset_cfg, human_data, progress)
 
 @dash.callback(
     Output('session-store-annotation', 'data'),
@@ -359,8 +373,8 @@ def on_button_click(n_clicks: int, value: int, data: dict):
 
 
 # Helper 
-def request_batch(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> Batch:
-    query_indices = request_query(cfg, session_cfg)
+def request_batch(cfg: ActiveMlConfig, adapter: DataLoaderAdapter, session_cfg: SessionConfig) -> Batch:
+    query_indices = request_query(cfg, session_cfg, adapter)
     batch_state = Batch(
         indices=query_indices.tolist(),
         progress=0,

@@ -49,7 +49,7 @@ def layout(**kwargs):
                                             dcc.RadioItems(
                                                 id="dataset-select",
                                                 options=[
-                                                    {"label": f"{cfg.name} - ({instantiate(cfg.data_type).value})", "value": f"{cfg.name}"}
+                                                    {"label": f"{cfg.display_name} - ({instantiate(cfg.data_type).value})", "value": f"{cfg.name}"}
                                                     for cfg in dataset_options
                                                 ],
                                                 value=None,  # Default selection
@@ -87,7 +87,7 @@ def layout(**kwargs):
 
                             dbc.Button('Confirm Selection', n_clicks=0, id='select-button', color='dark', class_name='w-100', disabled=True),
                         ],
-                        width=3
+                        width=4
                     ),
                     justify='center',
                     class_name='my-20'

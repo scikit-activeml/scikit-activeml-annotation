@@ -1,7 +1,7 @@
-name: "digits_toy"
-display_name: "Handwritten Digits 8x8"
+name: "lfw"
+display_name: "Labeled Faces in the Wild"
 
-n_classes: 10
+n_classes: 5749
 
 data_type: 
   _target_: core.schema.DataType
@@ -10,12 +10,10 @@ data_type:
 adapter_cfg:
   _target_: core.adapters.SklearnImageDataAdapter
   dataloader:
-    _target_: sklearn.datasets.load_digits
+    _target_: sklearn.datasets.fetch_lfw_people
+    color: True
     return_X_y: False
 
 raw_data:
-  _target_: sklearn.datasets.load_digits
-  n_class: 10
+  _target_: sklearn.datasets.fetch_lfw_people
   return_X_y: True
-  as_frame: False
-
