@@ -17,9 +17,10 @@ from PIL import Image
 from hydra.utils import instantiate
 
 from util.deserialize import compose_config
-from core.api import request_query, load_label_data, completed_batch
-from core.schema import *;
+from core.api import request_query, load_label_data, completed_batch, get_human_readable_sample
+from core.schema import *
 from core.adapters import DataLoaderAdapter
+
 
 class StoreKey(Enum):
     def _generate_next_value_(name, start, count, last_values):
@@ -27,8 +28,9 @@ class StoreKey(Enum):
 
     BATCH_STATE = auto()
 
+
 dash.register_page(
-    __name__, 
+    __name__,
     path_template='/annotation/<dataset_name>',
     description='The main annotation page',
 )
@@ -39,12 +41,12 @@ def encode_base64(image: np.ndarray) -> str:
     if image.max() > 1:  # Handle images already in range 0-255
         image = 255 * (image / image.max())
     image = image.astype(np.uint8)
-    
+
     # Convert NumPy array to PIL Image
     pil_image = Image.fromarray(image)
     # print(pil_image.size)
     pil_image = pil_image.resize((250, 250), Image.Resampling.NEAREST)
-    
+
     # Save image to a BytesIO stream in PNG format
     buffer = BytesIO()
     pil_image.save(buffer, format="PNG")
@@ -52,7 +54,7 @@ def encode_base64(image: np.ndarray) -> str:
 
     # Encode the image as Base64
     image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    
+
     # Return the data URI
     return f"data:image/png;base64,{image_base64}"
 
@@ -60,16 +62,18 @@ def encode_base64(image: np.ndarray) -> str:
 # Triggers with each reload.
 def load_image(bunch, idx: int) -> bytes:
     images = bunch.images
-    
+
     image = images[idx]
     return image
     # image_url = encode_base64(images[idx])
     # return image_url
 
+
 def load_text(bunch, idx: int):
     pass
 
 
+# TODO No longer needed.
 def get_label_names(bunch) -> list[str]:
     if 'target_names' in bunch:
         label_names = bunch.target_names
@@ -82,35 +86,35 @@ def get_label_names(bunch) -> list[str]:
 def layout(**kwargs):
     return (
         # dcc.Loading(
-            html.Div(
-                [
-                    dcc.Store(id='session-store-annotation', storage_type='session'),
-                    dcc.Location(id='url-annotation', refresh=True),
-                    dbc.Row(
-                        [
-                            dbc.Col(
-                                id="sidebar-container-annotation",
-                                width=3,
-                                style= {'border': '4px solid red'}
-                            ),
-                            dbc.Col(
-                                id="hero-container-annotation",
-                                width=6,
-                                class_name='d-flex justify-content-start',
-                                style= {'border': '4px solid blue'}
-                            ),
-                            dbc.Col(
-                                width=3,
-                                style= {'border': '4px solid red'}
-                            )
-                        ],
-                        # style={'border': '2px solid red'}
-                        class_name='px-0',
-                        justify='start'
-                    )
-                ],
-                # style={'border': '2px dashed black'},
-            )
+        html.Div(
+            [
+                dcc.Store(id='session-store-annotation', storage_type='session'),
+                dcc.Location(id='url-annotation', refresh=True),
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            id="sidebar-container-annotation",
+                            width=3,
+                            style={'border': '4px solid red'}
+                        ),
+                        dbc.Col(
+                            id="hero-container-annotation",
+                            width=6,
+                            class_name='d-flex justify-content-start',
+                            style={'border': '4px solid blue'}
+                        ),
+                        dbc.Col(
+                            width=3,
+                            style={'border': '4px solid red'}
+                        )
+                    ],
+                    # style={'border': '2px solid red'}
+                    class_name='px-0',
+                    justify='start'
+                )
+            ],
+            # style={'border': '2px dashed black'},
+        )
         # ),
     )
 
@@ -146,17 +150,6 @@ def create_sidebar():
                                 style={'width': '100%'}
                             ),
                             html.Br(),
-                            html.Br(),
-                            # Cycles selection
-                            html.Label('Cycles'),
-                            dcc.Input(
-                                id='cycles-input',
-                                type='number',
-                                value=10,
-                                min=1,
-                                step=1,
-                                style={'width': '100%'}
-                            ),
                         ])
                     ],
                 )
@@ -179,7 +172,7 @@ def display_image(image):
             ),
         ),
     )
-                     
+
 
 def display_text(text):
     return (
@@ -212,7 +205,7 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
     if data_type.value == DataType.IMAGE.value:
         rendered_data = display_image(human_data)
     elif data_type.value == DataType.TEXT.value:
-        rendered_data = display_text(human_data) 
+        rendered_data = display_text(human_data)
     else:
         rendered_data = display_image(human_data)
 
@@ -238,13 +231,13 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
                                 options=[{'label': l_name, 'value': idx} for idx, l_name in enumerate(label_names)],
                                 value=0,  # Default to the first label
                                 labelStyle={
-                                    'display': 'block', 
+                                    'display': 'block',
                                     'margin': '10px 0'
                                 },
                             ),
                         ],
                         style={
-                            'textAlign': 'center', 
+                            'textAlign': 'center',
                             # 'marginTop': '5px'
                         },
                     ),
@@ -293,18 +286,20 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
     prevent_initial_call=True
 )
 def setup_annotations_page(pathname, data):
-    dataset_name = pathname.split('/')[-1]
-    print("[Annot] init annotation page with dataset: ", dataset_name)
+    dataset_id = pathname.split('/')[-1]
+    print("[Annot] init annotation page with dataset: ", dataset_id)
     session_cfg = SessionConfig(batch_size=5)
 
     overrides = {
-        'dataset': dataset_name,
+        'dataset': dataset_id,
     }
 
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
     # TODO data is loaded over and over again. when it not even needed.
-    adapter: DataLoaderAdapter = instantiate(dataset_cfg.adapter_cfg, _recursive_=False)
+    # adapter: DataLoaderAdapter = instantiate(dataset_cfg.adapter_cfg, _recursive_=False)
+
+    # TODO Human Readable data
 
     if data is None:
         # New Session
@@ -319,12 +314,12 @@ def setup_annotations_page(pathname, data):
         if batch_completed:
             print("BATCH IS COMPLETED")
             # Store labeling data to disk
-            completed_batch(dataset_name, batch)
+            completed_batch(dataset_id, batch)
 
             # Initialize the next batch
             batch = request_batch(activeMl_cfg, adapter, session_cfg)
             data[StoreKey.BATCH_STATE.value] = batch.to_json()
-    
+
     idx = batch.progress
     query_idx = batch.indices[idx]
     progress = idx / len(batch.indices)
@@ -332,8 +327,9 @@ def setup_annotations_page(pathname, data):
     # TODO generalize. How the human readable data and how the label names are fetched.
     # From Cache?
     print("Instantiate adapter")
-    label_names = adapter.get_all_label_names()
-    human_data = adapter.get_human_data(query_idx)
+    label_names = dataset_cfg.label_names
+    # human_data = adapter.get_human_data(query_idx)
+    human_data = get_human_readable_sample(dataset_cfg, query_idx)
 
     # bunch = instantiate(dataset_cfg.human_adapter)
     # label_names = get_label_names(bunch)
@@ -341,6 +337,7 @@ def setup_annotations_page(pathname, data):
 
     # print("data after setup page is: ", data)
     return data, create_sidebar(), create_hero_section(label_names, dataset_cfg, human_data, progress)
+
 
 @dash.callback(
     Output('session-store-annotation', 'data'),

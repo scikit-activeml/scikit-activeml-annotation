@@ -1,5 +1,6 @@
 import pickle
 import pathlib
+from pathlib import Path
 from inspect import signature
 from functools import partial
 from dataclasses import dataclass, field
@@ -17,9 +18,9 @@ from skactiveml.pool import SubSamplingWrapper
 from skactiveml.base import QueryStrategy
 
 from .schema import *
+from .adapters import DataLoaderAdapter
 from util.deserialize import compose_config, parse_yaml_config_dir
-from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH
-from core.adapters import DataLoaderAdapter
+from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, DATASETS_PATH
 
 
 def _load_data_raw(cfg: ActiveMlConfig) -> ndarray:
@@ -31,19 +32,19 @@ def _load_data_raw(cfg: ActiveMlConfig) -> ndarray:
 
 
 def _build_classifier(
-        model_cfg: ModelConfig, 
+        model_cfg: ModelConfig,
         dataset_cfg: DatasetConfig,
         random_state: np.random.RandomState
-    ) -> SklearnClassifier:
+) -> SklearnClassifier:
     n_classes = dataset_cfg.n_classes
     model_package_name = str(model_cfg.definition._target_).split(".")[0]
     if "skactiveml" == model_package_name:
         return instantiate(model_cfg.definition, random_state=random_state, classes=np.arange(n_classes))
-        
+
     else:
         clf = instantiate(model_cfg.definition)
         return SklearnClassifier(clf, random_state=random_state, classes=np.arange(n_classes))
-          
+
 
 def _create_regressor(cfg: ModelConfig, random_state: np.random.RandomState):
     raise NotImplementedError
@@ -59,7 +60,7 @@ def _filter_kwargs(func: Callable, **kwargs) -> Callable:
         return partial(func, **kwargs)
 
     # Otherwise, filter only the kwargs that match func's signature
-    filtered_kwargs = {p_name: p_obj for p_name, p_obj in kwargs.items() if p_name in param_names}   
+    filtered_kwargs = {p_name: p_obj for p_name, p_obj in kwargs.items() if p_name in param_names}
 
     return partial(func, **filtered_kwargs)
 
@@ -72,32 +73,41 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> Callable:
 
     # max_candidates for subsampling.
     qs: QueryStrategy = instantiate(cfg.query_strategy.definition, random_state=random_state)
-    qs: SubSamplingWrapper = SubSamplingWrapper(qs, max_candidates=session_cfg.max_candidates, random_state=random_state)
+    qs: SubSamplingWrapper = SubSamplingWrapper(qs, max_candidates=session_cfg.max_candidates,
+                                                random_state=random_state)
 
     # Don't fit classifier in query function. To avoid fitting twice.
-    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=clf, fit_clf=False, discriminator=clf)
+    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=clf, fit_clf=False,
+                                          discriminator=clf)
     return query_func
     """ query_indices = query_func(X=X, y=y)
     return partial(query_func, X=X, y=y) """
 
-#### API ####
 
-# stateless
-def get_dataset_config_options() -> list[DatasetConfig]:
-    # out = []
-    config_options: list[DatasetConfig] = parse_yaml_config_dir(DATA_CONFIG_PATH)
+# region API
+def get_dataset_config_options() -> dict[str, DatasetConfig]:
+    config_options: dict[str, DatasetConfig] = parse_yaml_config_dir(DATA_CONFIG_PATH)
     return config_options
-    """ for dataset_cfg in config_options:
-        out.append(dataset_cfg.name) """
-    return out
 
-def get_qs_config_options() -> list[QueryStrategyConfig]:
+
+def get_qs_config_options() -> dict[str, QueryStrategyConfig]:
     return parse_yaml_config_dir(QS_CONFIG_PATH)
 
-def get_human_readable_sample(data_type: DataType, dataset_name, idx: int):
-    """Allow the ui to request human readable sample"""
+
+def get_human_readable_sample(dataset_cfg: DatasetConfig, idx: int):
+    """Allow the ui to request human readable sample
+       Assumption: Each file represents one sample from the dataset aka an image.
+    """
+    data_type = dataset_cfg.data_type
     if data_type == DataType.AUDIO or data_type == DataType.TEXT:
         raise NotImplementedError
+
+    path = dataset_cfg.data_path
+
+    if not Path(path).is_absolute():
+        path = DATA_CONFIG_PATH / path
+
+    print(path)
 
 
 def get_all_label_options():
@@ -111,13 +121,13 @@ def load_label_data(dataset_name: str):
         with pickle_file_path.open('rb') as f:
             labels = pickle.load(f)
             return labels
-    
+
+
 def request_query(
-        cfg: ActiveMlConfig, 
+        cfg: ActiveMlConfig,
         session_cfg: SessionConfig,
         adapter: DataLoaderAdapter
-    ) -> np.ndarray:
-
+) -> np.ndarray:
     pickle_file_path = ANNOTATED_PATH / f'{cfg.dataset.name}.pkl'
 
     X = adapter.get_raw_data()
@@ -134,7 +144,7 @@ def request_query(
         labels = np.full(len(X), MISSING_LABEL)
         with pickle_file_path.open("wb") as f:
             pickle.dump(labels, f)
-    
+
     query_func = _setup_query(cfg, session_cfg)
     query_indices = query_func(X=X, y=labels)
     return query_indices
@@ -155,6 +165,9 @@ def completed_batch(dataset_name: str, batch: Batch):
     # Write back updated labels
     with pickle_file_path.open("wb") as f:
         pickle.dump(labels, f)
+
+
+# endregion
 
 
 def finish_label_session():

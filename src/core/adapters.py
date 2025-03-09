@@ -4,35 +4,34 @@ from pathlib import Path
 
 from hydra.utils import instantiate
 
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.utils import Bunch
 import numpy as np
 
 from core.schema import DataLoaderConfig
 
-
+# TODO no longer needed?
 class DataLoaderAdapter(ABC):
     @abstractmethod
-    def get_raw_data():
+    def get_raw_data(self):
         raise NotImplementedError
-    
+
     @abstractmethod
-    def get_human_data(idx: int):
+    def get_human_data(self, idx: int):
         raise NotImplementedError
-    
+
     @abstractmethod
-    def get_all_label_names() -> list[str]:
+    def get_all_label_names(self) -> list[str]:
         raise NotImplementedError
-    
+
 
 class SklearnImageDataAdapter(DataLoaderAdapter):
     def __init__(
-            self,
-            dataloader: DataLoaderConfig, 
-            cache: bool = False,
-            cache_path: Path = None, 
-        ):
+        self,
+        dataloader: DataLoaderConfig,
+        cache: bool = False,
+        cache_path: Path = None,
+    ):
         super().__init__()
 
         print("Instantiate data_loader")
@@ -42,7 +41,6 @@ class SklearnImageDataAdapter(DataLoaderAdapter):
         # TODO normalize these images?
         self.images = bunch.images
         self.label_names = self._init_label_names(bunch)
-
 
     def get_raw_data(self) -> np.ndarray:
         # TODO this is not used.
@@ -57,20 +55,21 @@ class SklearnImageDataAdapter(DataLoaderAdapter):
         """
         return self.label_names
 
-    def _init_label_names(self, bunch: Bunch) -> list[str]:
+    @staticmethod
+    def _init_label_names(bunch: Bunch) -> list[str]:
         if 'target_names' in bunch:
             label_names = bunch.target_names
         else:
             # Some datasets dont return target_names
             label_names = np.unique(bunch.target)
         return label_names
-    
+
 
 class SklearnTextDataAdapter(DataLoaderAdapter):
     def __init__(
             self,
-            dataloader: DataLoaderConfig, 
-        ):
+            dataloader: DataLoaderConfig,
+    ):
         super().__init__()
 
         bunch: Bunch = instantiate(dataloader)
@@ -90,11 +89,11 @@ class SklearnTextDataAdapter(DataLoaderAdapter):
     def get_all_label_names(self) -> list[str]:
         return self.labels
 
-    def _init_label_names(self, bunch: Bunch) -> list[str]:
+    @staticmethod
+    def _init_label_names(bunch: Bunch) -> list[str]:
         if 'target_names' in bunch:
             label_names = bunch.target_names
         else:
             # Some datasets dont return target_names
             label_names = np.unique(bunch.target)
         return label_names
-    

@@ -15,26 +15,25 @@ from hydra.initialize import initialize_config_dir
 
 from omegaconf import DictConfig, OmegaConf, MISSING
 
-from util.path import CONFIG_PATH
-from core.schema import ActiveMlConfig;
+from .path import CONFIG_PATH
+from core.schema import ActiveMlConfig
+
 
 def _dict_overrides_to_list(overrides: Dict[str, str]) -> list[str]:
     out = [None] * len(overrides)
     for idx, (key, value) in enumerate(overrides.items()):
         out[idx] = f'{key}={value}'
 
-    return out    
+    return out
 
-def compose_config() -> ActiveMlConfig:
-    return compose_config(None)
 
-def compose_config(overrides: Dict[str, str] | None) -> ActiveMlConfig:
+def compose_config(overrides: Dict[str, str] | None = None) -> ActiveMlConfig:
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
         # TODO here we can override default config.yaml
 
         schema: DictConfig = OmegaConf.structured(ActiveMlConfig)
 
-        if not overrides is None: 
+        if overrides is not None:
             overrides = _dict_overrides_to_list(overrides)
 
         cfg: DictConfig = compose('config', overrides=overrides)
@@ -53,24 +52,40 @@ def compose_config(overrides: Dict[str, str] | None) -> ActiveMlConfig:
             print(f'Validation of Schema failed because: {e}')
             exit(-1)
 
+
 ######################
 
-def parse_yaml_config_dir(dir_path: Path | str) -> list[DictConfig]:
+from pathlib import Path
+from omegaconf import OmegaConf, DictConfig
+
+
+def parse_yaml_config_dir(dir_path: Path | str) -> dict[str, DictConfig]:
     """
-    Parse top a config without composing it, for instance to get all available the top level options.
+    Parses YAML config files in a directory and returns a dictionary mapping
+    file names (without extension) to their DictConfig objects.
+
+    # TODO cleanup comments
+    Args:
+        dir_path (Path | str): Path to the directory containing YAML files.
+
+    Returns:
+        dict[str, DictConfig]: A dictionary where keys are config file names
+                               (without .yaml) and values are DictConfig objects.
     """
     if isinstance(dir_path, str):
         dir_path = Path(dir_path)
 
-    out = []
+    configs = {}
     for path in dir_path.iterdir():
         if path.is_file() and path.suffix.lower() == '.yaml':
             try:
-                out.append(OmegaConf.load(path))
+                config_name = path.stem  # Get file name without extension
+                configs[config_name] = OmegaConf.load(path)
             except Exception as e:
                 print(f"Failed to parse YAML file {path}: {e}")
 
-    return out
+    return configs
+
 
 def parse_yaml_file(file_path: Path | str) -> DictConfig | None:
     if isinstance(file_path, str):

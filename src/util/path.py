@@ -1,6 +1,7 @@
 from pathlib import Path
 
-ROOT_PATH = Path(__file__).parent.parent.parent
+# ROOT_PATH = Path(__file__).parent.parent.parent
+ROOT_PATH = Path.cwd()
 RES_PATH = ROOT_PATH / 'res'
 
 CONFIG_PATH = RES_PATH / 'config'
@@ -14,3 +15,6 @@ SRC_PATH = ROOT_PATH / 'src'
 # UI
 UI_PATH = SRC_PATH / 'ui'
 PAGES_PATH = UI_PATH / 'pages'
+
+# Datasets preconfigured dir
+DATASETS_PATH = ROOT_PATH / 'datasets'

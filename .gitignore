@@ -2,3 +2,5 @@
 examples
 outputs
 __pycache__/
+.idea
+.vscode
