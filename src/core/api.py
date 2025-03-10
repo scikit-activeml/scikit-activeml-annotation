@@ -1,25 +1,19 @@
 import pickle
-import pathlib
-from pathlib import Path
 from inspect import signature
 from functools import partial
-from dataclasses import dataclass, field
-from typing import Dict, Callable, Generator
+from typing import Callable
 
-import numpy as np
 from numpy import ndarray
-
-from hydra.utils import instantiate, call
-from omegaconf import OmegaConf
 
 from skactiveml.utils import call_func, MISSING_LABEL
 from skactiveml.classifier import SklearnClassifier
 from skactiveml.pool import SubSamplingWrapper
 from skactiveml.base import QueryStrategy
 
-from .schema import *
-from .adapters import DataLoaderAdapter
-from util.deserialize import compose_config, parse_yaml_config_dir
+from core.schema import *
+from core.adapter import *
+
+from util.deserialize import parse_yaml_config_dir
 from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, DATASETS_PATH
 
 
@@ -36,7 +30,7 @@ def _build_classifier(
         dataset_cfg: DatasetConfig,
         random_state: np.random.RandomState
 ) -> SklearnClassifier:
-    n_classes = dataset_cfg.n_classes
+    n_classes = len(dataset_cfg.label_names)
     model_package_name = str(model_cfg.definition._target_).split(".")[0]
     if "skactiveml" == model_package_name:
         return instantiate(model_cfg.definition, random_state=random_state, classes=np.arange(n_classes))
@@ -95,19 +89,33 @@ def get_qs_config_options() -> dict[str, QueryStrategyConfig]:
 
 
 def get_human_readable_sample(dataset_cfg: DatasetConfig, idx: int):
-    """Allow the ui to request human readable sample
-       Assumption: Each file represents one sample from the dataset aka an image.
+    """Allow the UI to request a human-readable sample.
+       Assumption: Each file in the directory represents one sample (an image).
     """
     data_type = dataset_cfg.data_type
-    if data_type == DataType.AUDIO or data_type == DataType.TEXT:
-        raise NotImplementedError
+    if data_type in (DataType.AUDIO, DataType.TEXT):
+        raise NotImplementedError("Human readable sample for AUDIO or TEXT is not implemented.")
 
     path = dataset_cfg.data_path
 
+    # Ensure the path is absolute using DATASETS_PATH if necessary.
     if not Path(path).is_absolute():
-        path = DATA_CONFIG_PATH / path
+        path = DATASETS_PATH / path
 
-    print(path)
+    # List and sort files in the directory for a deterministic order.
+    files = sorted([
+        str(file)
+        for file in Path(path).iterdir()
+        if file.is_file()
+    ])
+
+    if idx < 0 or idx >= len(files):
+        raise IndexError(f"Index {idx} is out of bounds for dataset with {len(files)} files.")
+
+    sample_file = files[idx]
+    # Load and return the image.
+    sample_image = Image.open(sample_file).convert("RGB")
+    return sample_image
 
 
 def get_all_label_options():
@@ -126,15 +134,17 @@ def load_label_data(dataset_name: str):
 def request_query(
         cfg: ActiveMlConfig,
         session_cfg: SessionConfig,
-        adapter: DataLoaderAdapter
+        adapter: BaseAdapter
 ) -> np.ndarray:
-    pickle_file_path = ANNOTATED_PATH / f'{cfg.dataset.name}.pkl'
+    pickle_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.pkl'
 
-    X = adapter.get_raw_data()
+    X = adapter.process_directory(cfg.dataset)
+
+    # X = adapter.get_raw_data()
     # X = _load_data_raw(cfg)
     print(type(X))
     # print("SHAPE")
-    # print(X.shape)
+    print(X.shape)
 
     if pickle_file_path.exists():
         with pickle_file_path.open('rb') as f:

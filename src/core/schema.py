@@ -26,11 +26,11 @@ class AdapterConfig:
 
 @dataclass
 class DatasetConfig:
-    # name: str = MISSING
+    id: str = MISSING
     display_name: str = MISSING  # Name that will be displayed in ui for that dataset
     label_names: list[str] = MISSING  # All the possible data labels.
     data_path: str = MISSING  # Path to data dir. Path has to be Absolute or relative to datasets dir.
-
+    preprocessor: str = MISSING
     data_type: DataType = MISSING
     # adapter_cfg: AdapterConfig = MISSING
 

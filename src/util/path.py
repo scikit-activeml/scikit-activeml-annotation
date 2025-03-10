@@ -2,10 +2,12 @@ from pathlib import Path
 
 # ROOT_PATH = Path(__file__).parent.parent.parent
 ROOT_PATH = Path.cwd()
-RES_PATH = ROOT_PATH / 'res'
 
-CONFIG_PATH = RES_PATH / 'config'
-ANNOTATED_PATH = RES_PATH / 'annotated'
+OUTPUT_PATH = ROOT_PATH / 'output'
+
+CONFIG_PATH = ROOT_PATH / 'config'
+ANNOTATED_PATH = OUTPUT_PATH / 'annotated'
+CACHE_PATH = OUTPUT_PATH / 'cache'
 
 DATA_CONFIG_PATH = CONFIG_PATH / 'dataset'
 QS_CONFIG_PATH = CONFIG_PATH / 'query_strategy'

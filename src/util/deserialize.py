@@ -42,6 +42,10 @@ def compose_config(overrides: Dict[str, str] | None = None) -> ActiveMlConfig:
         try:
             # TODO how do get validation right without losing fields?
             cfg: ActiveMlConfig = OmegaConf.merge(cfg, schema)
+
+            # Allow additional fields
+            OmegaConf.set_struct(cfg, False)
+
             """ cfg: DictConfig = OmegaConf.merge(cfg, schema)
             OmegaConf.resolve(cfg)
             cfg: ActiveMlConfig = OmegaConf.to_object(cfg)

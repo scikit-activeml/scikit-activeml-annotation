@@ -19,7 +19,7 @@ from hydra.utils import instantiate
 from util.deserialize import compose_config
 from core.api import request_query, load_label_data, completed_batch, get_human_readable_sample
 from core.schema import *
-from core.adapters import DataLoaderAdapter
+from core.adapter import *
 
 
 class StoreKey(Enum):
@@ -298,14 +298,14 @@ def setup_annotations_page(pathname, data):
     dataset_cfg = activeMl_cfg.dataset
     # TODO data is loaded over and over again. when it not even needed.
     # adapter: DataLoaderAdapter = instantiate(dataset_cfg.adapter_cfg, _recursive_=False)
+    adapter: BaseAdapter = instantiate(dataset_cfg.preprocessor)
 
     # TODO Human Readable data
 
     if data is None:
         # New Session
         batch = request_batch(activeMl_cfg, adapter, session_cfg)
-        data = {}
-        data[StoreKey.BATCH_STATE.value] = batch.to_json()
+        data = {StoreKey.BATCH_STATE.value: batch.to_json()}
 
     else:
         # Existing Session
@@ -370,7 +370,7 @@ def on_button_click(n_clicks: int, value: int, data: dict):
 
 
 # Helper 
-def request_batch(cfg: ActiveMlConfig, adapter: DataLoaderAdapter, session_cfg: SessionConfig) -> Batch:
+def request_batch(cfg: ActiveMlConfig, adapter: BaseAdapter, session_cfg: SessionConfig) -> Batch:
     query_indices = request_query(cfg, session_cfg, adapter)
     batch_state = Batch(
         indices=query_indices.tolist(),
