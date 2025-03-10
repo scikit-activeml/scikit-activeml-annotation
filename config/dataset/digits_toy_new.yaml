@@ -4,17 +4,16 @@ label_names: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 data_path: 'digits_images'
 
 preprocessor:
-  _target_: core.adapter.TorchVisionAdapter
+  _target_: core.adapter.SimpleFlattenAdapter
+
+embedding:
+  _target_:
 
 data_type:
   _target_: core.schema.DataType
   _args_: [Image]
 
 transforms:
-  _target_:
-
-
-embedding:
   _target_:
 
 

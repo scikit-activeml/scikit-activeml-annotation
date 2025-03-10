@@ -3,8 +3,9 @@ from sklearn import datasets
 from PIL import Image
 import numpy as np
 
+from util.path import DATASETS_PATH
 
-def save_digits_images(output_dir="../datasets/digits_images"):
+def save_digits_images(output_dir=str(DATASETS_PATH / 'digits_images')):
     # Load digits dataset
     digits = datasets.load_digits()
     images = digits.images

@@ -11,6 +11,7 @@ CACHE_PATH = OUTPUT_PATH / 'cache'
 
 DATA_CONFIG_PATH = CONFIG_PATH / 'dataset'
 QS_CONFIG_PATH = CONFIG_PATH / 'query_strategy'
+MODEL_CONFIG_PATH = CONFIG_PATH / 'model'
 
 SRC_PATH = ROOT_PATH / 'src'
 

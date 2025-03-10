@@ -37,12 +37,12 @@ class DatasetConfig:
 
 @dataclass
 class ModelConfig:
-    pass
+    display_name: str = MISSING
 
 
 @dataclass
 class QueryStrategyConfig:
-    pass
+    display_name: str = MISSING
 
 
 @dataclass

@@ -1,7 +1,6 @@
 from typing import Any
 import base64
 from io import BytesIO
-from enum import Enum, auto
 
 import dash
 from dash import html, dcc, Input, Output, no_update
@@ -20,14 +19,7 @@ from util.deserialize import compose_config
 from core.api import request_query, load_label_data, completed_batch, get_human_readable_sample
 from core.schema import *
 from core.adapter import *
-
-
-class StoreKey(Enum):
-    def _generate_next_value_(name, start, count, last_values):
-        return name  # Automatically use the name of the member as its value
-
-    BATCH_STATE = auto()
-
+from ui.storekey import StoreKey
 
 dash.register_page(
     __name__,
@@ -88,7 +80,7 @@ def layout(**kwargs):
         # dcc.Loading(
         html.Div(
             [
-                dcc.Store(id='session-store-annotation', storage_type='session'),
+                dcc.Store(id='session-store', storage_type='session'),
                 dcc.Location(id='url-annotation', refresh=True),
                 dbc.Row(
                     [
@@ -278,21 +270,32 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
 
 
 @dash.callback(
-    Output('session-store-annotation', 'data', allow_duplicate=True),
+    Output('session-store', 'data', allow_duplicate=True),
     Output('sidebar-container-annotation', 'children'),
     Output('hero-container-annotation', 'children'),
     Input('url-annotation', 'pathname'),
-    State('session-store-annotation', 'data'),
+    State('session-store', 'data'),
     prevent_initial_call=True
 )
-def setup_annotations_page(pathname, data):
+def setup_annotations_page(pathname, store_data):
     dataset_id = pathname.split('/')[-1]
     print("[Annot] init annotation page with dataset: ", dataset_id)
     session_cfg = SessionConfig(batch_size=5)
 
+    # Todo overrides of lower lvl config can be done like so:
+    # cfg = compose(config_name="config", overrides=["database.host=remote_server"])
+
+    print(store_data)
+
+    selections = store_data[StoreKey.SELECTIONS.value]
+
     overrides = {
         'dataset': dataset_id,
+        'query_strategy': selections['qs_id'],
+        'model': selections['model_id']
     }
+
+    print("Overrides", overrides)
 
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
@@ -302,14 +305,14 @@ def setup_annotations_page(pathname, data):
 
     # TODO Human Readable data
 
-    if data is None:
+    if StoreKey.SELECTIONS not in store_data:
         # New Session
         batch = request_batch(activeMl_cfg, adapter, session_cfg)
-        data = {StoreKey.BATCH_STATE.value: batch.to_json()}
-
+        # store_data = {StoreKey.BATCH_STATE.value: batch.to_json()}
+        store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
     else:
         # Existing Session
-        batch: Batch = Batch.from_json(data[StoreKey.BATCH_STATE.value])
+        batch: Batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
         batch_completed = len(batch.indices) <= batch.progress
         if batch_completed:
             print("BATCH IS COMPLETED")
@@ -318,7 +321,7 @@ def setup_annotations_page(pathname, data):
 
             # Initialize the next batch
             batch = request_batch(activeMl_cfg, adapter, session_cfg)
-            data[StoreKey.BATCH_STATE.value] = batch.to_json()
+            store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
 
     idx = batch.progress
     query_idx = batch.indices[idx]
@@ -336,15 +339,15 @@ def setup_annotations_page(pathname, data):
     # image = load_image(bunch, query_idx)
 
     # print("data after setup page is: ", data)
-    return data, create_sidebar(), create_hero_section(label_names, dataset_cfg, human_data, progress)
+    return store_data, create_sidebar(), create_hero_section(label_names, dataset_cfg, human_data, progress)
 
 
 @dash.callback(
-    Output('session-store-annotation', 'data'),
+    Output('session-store', 'data', allow_duplicate=True),
     Output('url-annotation', 'pathname'),
     Input('confirm-button', 'n_clicks'),
     State('label-radio', 'value'),
-    State('session-store-annotation', 'data'),
+    State('session-store', 'data'),
     prevent_initial_call=True,
 )
 def on_button_click(n_clicks: int, value: int, data: dict):

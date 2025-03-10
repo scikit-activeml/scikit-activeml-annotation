@@ -14,7 +14,7 @@ from core.schema import *
 from core.adapter import *
 
 from util.deserialize import parse_yaml_config_dir
-from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, DATASETS_PATH
+from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, DATASETS_PATH, MODEL_CONFIG_PATH
 
 
 def _load_data_raw(cfg: ActiveMlConfig) -> ndarray:
@@ -86,6 +86,10 @@ def get_dataset_config_options() -> dict[str, DatasetConfig]:
 
 def get_qs_config_options() -> dict[str, QueryStrategyConfig]:
     return parse_yaml_config_dir(QS_CONFIG_PATH)
+
+
+def get_model_config_options() -> dict[str, ModelConfig]:
+    return parse_yaml_config_dir(MODEL_CONFIG_PATH)
 
 
 def get_human_readable_sample(dataset_cfg: DatasetConfig, idx: int):

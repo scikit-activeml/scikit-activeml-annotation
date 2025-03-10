@@ -7,7 +7,8 @@ import dash_bootstrap_components as dbc
 
 from hydra.utils import instantiate
 
-from core.api import get_dataset_config_options, get_qs_config_options
+from core.api import get_dataset_config_options, get_qs_config_options, get_model_config_options
+from ui.storekey import StoreKey
 
 dash.register_page(__name__, path='/')
 
@@ -16,12 +17,13 @@ dash.register_page(__name__, path='/')
 def layout(**kwargs):
     # TODO load other options aswell.
     dataset_options = get_dataset_config_options()
+    model_options = get_model_config_options()
     qs_options = get_qs_config_options()
 
     return (
         dbc.Container(
             [
-                dcc.Store(id='session-store-home'),
+                dcc.Store(id='session-store'),
                 dcc.Location(id='url-home', refresh=True),
 
                 # Top Text
@@ -43,7 +45,6 @@ def layout(**kwargs):
                         [
                             dbc.Accordion(
                                 [
-
                                     # Dataset selection
                                     dbc.AccordionItem(
                                         [
@@ -62,8 +63,27 @@ def layout(**kwargs):
                                                 inputStyle={'margin-right': '4px'}
                                             ),
                                         ],
-                                        title="Select a Dataset",
+                                        title="Select Dataset",
                                         id='dataset-accordion-home'
+                                    ),
+
+                                    # ActiveMl Model selection
+                                    dbc.AccordionItem(
+                                        [
+                                            dcc.RadioItems(
+                                                id="model-select",
+                                                options=[
+                                                    {"label": f"{model_cfg.display_name}", "value": f"{cfg_name}"}
+                                                    for cfg_name, model_cfg in model_options.items()
+                                                ],
+                                                value=None,  # Default selection
+                                                className="form-check mx-1",
+                                                # Adds Bootstrap form-check styling to the radio items
+                                                inputStyle={'margin-right': '4px'}
+                                            ),
+                                        ],
+                                        title="Select active ML Model",
+                                        id='model-accordion-home'
                                     ),
 
                                     # Query Strategy selection
@@ -72,8 +92,8 @@ def layout(**kwargs):
                                             dcc.RadioItems(
                                                 id="qs-select",
                                                 options=[
-                                                    {"label": f"{cfg.name}", "value": f"{cfg_name}"}
-                                                    for cfg_name, cfg in qs_options.items()
+                                                    {"label": f"{query_cfg.display_name}", "value": f"{cfg_name}"}
+                                                    for cfg_name, query_cfg in qs_options.items()
                                                 ],
                                                 value=None,  # Default selection
                                                 className="form-check mx-1",
@@ -81,7 +101,7 @@ def layout(**kwargs):
                                                 inputStyle={'margin-right': '4px'}
                                             ),
                                         ],
-                                        title="Select a Query Strategy",
+                                        title="Select Query Strategy",
                                         id='qs-accordion-home'
                                     )
                                 ],
@@ -89,6 +109,11 @@ def layout(**kwargs):
                                 active_item=False,
                                 class_name='mb-3',
                                 always_open=True,
+
+                                style={
+                                    'overflowY': 'scroll',
+                                    "maxHeight": "50vh"  # TODO hardcoded scrolling
+                                }
                             ),
 
                             dbc.Button('Confirm Selection', n_clicks=0, id='select-button', color='dark',
@@ -108,17 +133,32 @@ def layout(**kwargs):
 @callback(
     Output('url-home', 'pathname'),
     # Output('url-home', 'search'),
+    Output('session-store', 'data', allow_duplicate=True),
     Input('select-button', 'n_clicks'),
     State('dataset-select', 'value'),
-    prevent_initial_call=True
+    State('model-select', 'value'),
+    State('qs-select', 'value'),
+    State('cl', 'data'),
+    prevent_initial_call=True,
 )
-def on_button_confirm_home(n_clicks: int, value):
+def on_button_confirm_home(n_clicks: int, dataset_id, model_id, qs_id, store_data):
     if n_clicks == 0:
-        return None, None,  # stay on the same page
+        return dash.no_update, dash.no_update  # stay on the same page
 
-    dataset_name = value
-    print("[Home] Selected dataset: ", dataset_name)
-    return f'/annotation/{dataset_name}'
+    dataset_name = dataset_id
+    print("[Home] Selected dataset: ", dataset_id, model_id, qs_id)
+
+    if store_data is None:
+        store_data = {}
+
+    # Use your enum key for the batch state
+    store_data[StoreKey.SELECTIONS.value] = {
+        'dataset_id': dataset_id,
+        'model_id': model_id,
+        'qs_id': qs_id,
+    }
+
+    return f'/annotation/{dataset_name}', store_data
 
 
 # Validation
@@ -136,14 +176,15 @@ def enable_button(value):
 
 
 # Accordion
-@callback(
-    Output('dataset-accordion-home', 'title'),
-    Output('accordion-home', 'active_item'),
-    State('accordion-home', 'active_item'),
-    Input('dataset-select', 'value'),
-    prevent_initial_call=True
-)
-def collapse_accordion_item(active_item, value):
-    print(active_item)
-    print(value)
-    return f'Dataset: {value}', []
+# TODO
+# @callback(
+#     Output('dataset-accordion-home', 'title'),
+#     Output('accordion-home', 'active_item'),
+#     State('accordion-home', 'active_item'),
+#     Input('dataset-select', 'value'),
+#     prevent_initial_call=True
+# )
+# def collapse_accordion_item(active_item, value):
+#     print(active_item)
+#     print(value)
+#     return f'Dataset: {value}', []

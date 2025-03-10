@@ -25,6 +25,7 @@ app = Dash(
 app.layout = (
     dbc.Container(
         [
+            dcc.Store('session-store', ),
             create_navbar(),
             dbc.Container(
                 dash.page_container,
