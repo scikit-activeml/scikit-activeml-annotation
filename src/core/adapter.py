@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import torch
-import torchvision.transforms as T
+import torchvision.transforms as transforms
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
@@ -30,12 +30,11 @@ class BaseAdapter(ABC):
         dataset_id = dataset_cfg.id
         directory = dataset_cfg.data_path
 
-        # Convert to an absolute path if necessary.
         directory = Path(directory)
         if not directory.is_absolute():
             directory = DATASETS_PATH / directory
 
-        # Create a unique cache key based on dataset id and the class name.
+        # Unique key
         cache_key = f"{dataset_id}_{self.__class__.__name__}"
         print(f"cache key: {cache_key}")
 
@@ -73,27 +72,25 @@ class ImageDataset(Dataset):
             return None
 
 
-# --- Concrete Implementation Using DINOv2 via torch.hub (with batching) ---
 class TorchVisionAdapter(BaseAdapter):
     def __init__(self,
                  batch_size: int = 16,
-                 model_variant: str = "dinov2_vitb14"):
+                 ):
         self.batch_size = batch_size
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.transform = T.Compose([
-            T.Resize(256),
-            T.CenterCrop(224),
-            T.ToTensor(),
-            T.Normalize(mean=[0.485, 0.456, 0.406],
-                        std=[0.229, 0.224, 0.225]),
+        self.transform = transforms.Compose([
+            transforms.Resize(32),
+            transforms.CenterCrop(26),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
         ])
 
         try:
-            self.model = torch.hub.load("facebookresearch/dinov2", model_variant, pretrained=True)
-            print(f"Using DINOv2 model variant: {model_variant}")
+            self.model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
         except Exception as e:
             raise RuntimeError(
-                "DINOv2 model not available. Please update your torch.hub or torchvision version."
+                "DINOv2 model not available"
             ) from e
 
         self.model = self.model.to(self.device)
@@ -106,7 +103,7 @@ class TorchVisionAdapter(BaseAdapter):
         """
         dataset = ImageDataset(directory, self.transform)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, num_workers=4)
-        features_list = []
+        embeddings_list = []
         for batch in dataloader:
             # Filter out any failed image loads.
             batch = [img for img in batch if img is not None]
@@ -114,12 +111,11 @@ class TorchVisionAdapter(BaseAdapter):
                 continue
             batch_tensor = torch.stack(batch).to(self.device)
             with torch.no_grad():
-                output = self.model(batch_tensor)
-                if output.dim() == 4:
-                    output = F.adaptive_avg_pool2d(output, (1, 1))
-                    output = output.view(output.size(0), -1)
-            features_list.append(output.cpu().numpy())
-        return np.concatenate(features_list, axis=0)
+                embeddings = self.model(batch_tensor)
+
+            embeddings_list.append(embeddings.cpu().numpy())
+
+        return np.concatenate(embeddings_list, axis=0)
 
 
 # --- Concrete Implementation Without Batching ---
