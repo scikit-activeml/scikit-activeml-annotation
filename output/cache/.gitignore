@@ -1,4 +1,3 @@
-# Ignore everything in this directory
-.gitignore
-# Except this file
+# Ignore everything except this gitignore to make sure the directory is in VCS
+*
 !.gitignore

@@ -70,7 +70,7 @@ def get_label_names(bunch) -> list[str]:
     if 'target_names' in bunch:
         label_names = bunch.target_names
 
-    # Some datasets dont return target_names
+    # Some dataset dont return target_names
     label_names = np.unique(bunch.target)
     return label_names
 
@@ -80,7 +80,6 @@ def layout(**kwargs):
         # dcc.Loading(
         html.Div(
             [
-                dcc.Store(id='session-store', storage_type='session'),
                 dcc.Location(id='url-annotation', refresh=True),
                 dbc.Row(
                     [
@@ -285,8 +284,6 @@ def setup_annotations_page(pathname, store_data):
     # Todo overrides of lower lvl config can be done like so:
     # cfg = compose(config_name="config", overrides=["database.host=remote_server"])
 
-    print(store_data)
-
     selections = store_data[StoreKey.SELECTIONS.value]
 
     overrides = {
@@ -294,8 +291,6 @@ def setup_annotations_page(pathname, store_data):
         'query_strategy': selections['qs_id'],
         'model': selections['model_id']
     }
-
-    print("Overrides", overrides)
 
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset

@@ -3,15 +3,17 @@ display_name: "Handwritten Digits 8x8"
 label_names: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 data_path: 'digits_images'
 
+data_type:
+  _target_: core.schema.DataType
+  _args_: [Image]
+
 preprocessor:
   _target_: core.adapter.SimpleFlattenAdapter
 
 embedding:
   _target_:
 
-data_type:
-  _target_: core.schema.DataType
-  _args_: [Image]
+
 
 transforms:
   _target_:
@@ -20,11 +22,11 @@ transforms:
 #adapter_cfg:
 #  _target_: core.adapters.SklearnImageDataAdapter
 #  dataloader:
-#    _target_: sklearn.datasets.load_digits
+#    _target_: sklearn.dataset.load_digits
 #    return_X_y: False
 
 #raw_data:
-#  _target_: sklearn.datasets.load_digits
+#  _target_: sklearn.dataset.load_digits
 #  n_class: 10
 #  return_X_y: True
 #  as_frame: False

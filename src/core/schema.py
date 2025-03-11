@@ -29,7 +29,7 @@ class DatasetConfig:
     id: str = MISSING
     display_name: str = MISSING  # Name that will be displayed in ui for that dataset
     label_names: list[str] = MISSING  # All the possible data labels.
-    data_path: str = MISSING  # Path to data dir. Path has to be Absolute or relative to datasets dir.
+    data_path: str = MISSING  # Path to data dir. Path has to be Absolute or relative to dataset dir.
     preprocessor: str = MISSING
     data_type: DataType = MISSING
     # adapter_cfg: AdapterConfig = MISSING

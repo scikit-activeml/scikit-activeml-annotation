@@ -23,7 +23,6 @@ def layout(**kwargs):
     return (
         dbc.Container(
             [
-                dcc.Store(id='session-store'),
                 dcc.Location(id='url-home', refresh=True),
 
                 # Top Text
@@ -133,12 +132,12 @@ def layout(**kwargs):
 @callback(
     Output('url-home', 'pathname'),
     # Output('url-home', 'search'),
-    Output('session-store', 'data', allow_duplicate=True),
+    Output('session-store', 'data'),
     Input('select-button', 'n_clicks'),
     State('dataset-select', 'value'),
     State('model-select', 'value'),
     State('qs-select', 'value'),
-    State('cl', 'data'),
+    State('session-store', 'data'),
     prevent_initial_call=True,
 )
 def on_button_confirm_home(n_clicks: int, dataset_id, model_id, qs_id, store_data):

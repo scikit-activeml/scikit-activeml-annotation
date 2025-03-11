@@ -44,6 +44,7 @@ def _create_regressor(cfg: ModelConfig, random_state: np.random.RandomState):
     raise NotImplementedError
 
 
+# TODO can use from skactiveml.utils import call_func instead?
 def _filter_kwargs(func: Callable, **kwargs) -> Callable:
     params = signature(func).parameters
     param_names = params.keys()
@@ -55,6 +56,8 @@ def _filter_kwargs(func: Callable, **kwargs) -> Callable:
 
     # Otherwise, filter only the kwargs that match func's signature
     filtered_kwargs = {p_name: p_obj for p_name, p_obj in kwargs.items() if p_name in param_names}
+
+    # print("filtered_kwargs", filtered_kwargs)
 
     return partial(func, **filtered_kwargs)
 
@@ -70,8 +73,8 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> Callable:
     qs: SubSamplingWrapper = SubSamplingWrapper(qs, max_candidates=session_cfg.max_candidates,
                                                 random_state=random_state)
 
-    # Don't fit classifier in query function. To avoid fitting twice.
-    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=clf, fit_clf=False,
+    # TODO seperate query from fitting?
+    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=clf, fit_clf=True,
                                           discriminator=clf)
     return query_func
     """ query_indices = query_func(X=X, y=y)
@@ -144,11 +147,9 @@ def request_query(
 
     X = adapter.process_directory(cfg.dataset)
 
-    # X = adapter.get_raw_data()
-    # X = _load_data_raw(cfg)
-    print(type(X))
+    # print(type(X))
     # print("SHAPE")
-    print(X.shape)
+    # print(X.shape)
 
     if pickle_file_path.exists():
         with pickle_file_path.open('rb') as f:
@@ -160,6 +161,7 @@ def request_query(
             pickle.dump(labels, f)
 
     query_func = _setup_query(cfg, session_cfg)
+    print("Querying the active ML model ...")
     query_indices = query_func(X=X, y=labels)
     return query_indices
 
