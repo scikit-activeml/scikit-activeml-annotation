@@ -300,7 +300,7 @@ def setup_annotations_page(pathname, store_data):
 
     # TODO Human Readable data
 
-    if StoreKey.SELECTIONS not in store_data:
+    if StoreKey.BATCH_STATE.value not in store_data:
         # New Session
         batch = request_batch(activeMl_cfg, adapter, session_cfg)
         # store_data = {StoreKey.BATCH_STATE.value: batch.to_json()}
@@ -324,7 +324,6 @@ def setup_annotations_page(pathname, store_data):
 
     # TODO generalize. How the human readable data and how the label names are fetched.
     # From Cache?
-    print("Instantiate adapter")
     label_names = dataset_cfg.label_names
     # human_data = adapter.get_human_data(query_idx)
     human_data = get_human_readable_sample(dataset_cfg, query_idx)
@@ -345,14 +344,14 @@ def setup_annotations_page(pathname, store_data):
     State('session-store', 'data'),
     prevent_initial_call=True,
 )
-def on_button_click(n_clicks: int, value: int, data: dict):
+def on_button_click(n_clicks: int, value: int, session_data: dict):
     if n_clicks is None or n_clicks == 0:
         raise PreventUpdate
 
     print("Annotated label: ", value)
 
     # Update the Session's Batch State
-    batch_state_json = data[StoreKey.BATCH_STATE.value]
+    batch_state_json = session_data[StoreKey.BATCH_STATE.value]
     batch_state: Batch = Batch.from_json(batch_state_json)
     # print("pre", batch_state)
     idx = batch_state.progress
@@ -361,10 +360,10 @@ def on_button_click(n_clicks: int, value: int, data: dict):
     print("post", batch_state)
 
     # Override existing batchstate
-    data[StoreKey.BATCH_STATE.value] = batch_state.to_json()
+    session_data[StoreKey.BATCH_STATE.value] = batch_state.to_json()
 
     # Refresh page by passing None.
-    return data, None
+    return session_data, None
 
 
 # Helper 
