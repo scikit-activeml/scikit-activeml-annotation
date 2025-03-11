@@ -2,4 +2,5 @@ display_name: "Uncertainty Sampling"
 
 definition:
   _target_: skactiveml.pool.UncertaintySampling
+  method: "entropy"
 
