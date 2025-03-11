@@ -1,4 +1,3 @@
-import pickle
 from inspect import signature
 from functools import partial
 from typing import Callable
@@ -15,6 +14,8 @@ from core.adapter import *
 
 from util.deserialize import parse_yaml_config_dir
 from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, DATASETS_PATH, MODEL_CONFIG_PATH
+
+MISSING_LABEL_JSON = "Missing"
 
 
 def _load_data_raw(cfg: ActiveMlConfig) -> ndarray:
@@ -130,58 +131,60 @@ def get_all_label_options():
 
 
 def load_label_data(dataset_name: str):
-    pickle_file_path = ANNOTATED_PATH / f'{dataset_name}.pkl'
-
-    if pickle_file_path.exists():
-        with pickle_file_path.open('rb') as f:
-            labels = pickle.load(f)
+    json_file_path = ANNOTATED_PATH / f'{dataset_name}.json'
+    if json_file_path.exists():
+        with json_file_path.open('r') as f:
+            labels = json.load(f)
             return labels
+    return None
 
 
-def request_query(
-        cfg: ActiveMlConfig,
-        session_cfg: SessionConfig,
-        adapter: BaseAdapter
-) -> np.ndarray:
-    pickle_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.pkl'
+def request_query(cfg: ActiveMlConfig,
+                  session_cfg: SessionConfig,
+                  adapter: BaseAdapter) -> np.ndarray:
+    json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
 
     X = adapter.process_directory(cfg.dataset)
 
-    # print(type(X))
-    # print("SHAPE")
-    # print(X.shape)
-
-    if pickle_file_path.exists():
-        with pickle_file_path.open('rb') as f:
-            labels: dict[int, int] = pickle.load(f)
+    if json_file_path.exists():
+        with json_file_path.open('r') as f:
+            labels = json.load(f)
     else:
-        # Initialize pickle file.
-        labels = np.full(len(X), MISSING_LABEL)
-        with pickle_file_path.open("wb") as f:
-            pickle.dump(labels, f)
+        # No annotations yet initialize new JSON File putting labels to missing.
+        labels = {idx: MISSING_LABEL for idx in range(len(X))}
+        with json_file_path.open("w") as f:
+            json.dump(labels, f, indent=4)
+
+    # Ensure all sample indices are present in the dict.
+    for idx in range(len(X)):
+        if idx not in labels:
+            labels[idx] = MISSING_LABEL
 
     query_func = _setup_query(cfg, session_cfg)
     print("Querying the active ML model ...")
-    query_indices = query_func(X=X, y=labels)
+    # If the query function expects an array, create one based on ordered indices.
+    labels_list = [labels.get(idx, MISSING_LABEL) for idx in range(len(X))]
+    query_indices = query_func(X=X, y=np.array(labels_list))
     return query_indices
 
 
 def completed_batch(dataset_name: str, batch: Batch):
-    pickle_file_path = ANNOTATED_PATH / f'{dataset_name}.pkl'
+    json_file_path = ANNOTATED_PATH / f'{dataset_name}.json'
 
-    if not pickle_file_path.exists():
-        raise RuntimeError("Pickle file should allready exist here!")
+    if not json_file_path.exists():
+        raise RuntimeError("JSON file should already exist here!")
 
-    with pickle_file_path.open('rb') as f:
-        labels = pickle.load(f)
+    with json_file_path.open('r') as f:
+        labels = json.load(f)
 
-    # Update labeled data with new annotations
-    labels[batch.indices] = batch.annotations
+    # Update labeled data with new annotations.
+    # Assume batch.indices and batch.annotations are lists.
+    for idx, annotation in zip(batch.indices, batch.annotations):
+        labels[idx] = annotation
 
-    # Write back updated labels
-    with pickle_file_path.open("wb") as f:
-        pickle.dump(labels, f)
-
+    # Write back the updated labels.
+    with json_file_path.open("w") as f:
+        json.dump(labels, f, indent=4)
 
 # endregion
 
