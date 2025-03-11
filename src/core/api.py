@@ -2,6 +2,7 @@ from inspect import signature
 from functools import partial
 from typing import Callable
 
+import numpy as np
 from numpy import ndarray
 
 from skactiveml.utils import call_func, MISSING_LABEL
@@ -130,46 +131,40 @@ def get_all_label_options():
     raise NotImplementedError
 
 
-def load_label_data(dataset_name: str):
-    json_file_path = ANNOTATED_PATH / f'{dataset_name}.json'
-    if json_file_path.exists():
-        with json_file_path.open('r') as f:
-            labels = json.load(f)
-            return labels
-    return None
-
-
 def request_query(cfg: ActiveMlConfig,
                   session_cfg: SessionConfig,
                   adapter: BaseAdapter) -> np.ndarray:
-    json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
 
     X = adapter.process_directory(cfg.dataset)
+    labels = _load_or_init_annotations(X, cfg.dataset.id)
+
+    query_func = _setup_query(cfg, session_cfg)
+    print("Querying the active ML model ...")
+    # If the query function expects an array, create one based on ordered indices.
+    labels_list = [labels.get(str(idx), MISSING_LABEL) for idx in range(len(X))]
+    query_indices = query_func(X=X, y=np.array(labels_list))
+    return query_indices
+
+
+def _load_or_init_annotations(X: np.ndarray, dataset_id: str) -> dict:
+    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
 
     if json_file_path.exists():
         with json_file_path.open('r') as f:
             labels = json.load(f)
     else:
         # No annotations yet initialize new JSON File putting labels to missing.
-        labels = {idx: MISSING_LABEL for idx in range(len(X))}
+        labels = {str(idx): MISSING_LABEL for idx in range(len(X))}
         with json_file_path.open("w") as f:
             json.dump(labels, f, indent=4)
-
-    # Ensure all sample indices are present in the dict.
-    for idx in range(len(X)):
-        if idx not in labels:
-            labels[idx] = MISSING_LABEL
-
-    query_func = _setup_query(cfg, session_cfg)
-    print("Querying the active ML model ...")
-    # If the query function expects an array, create one based on ordered indices.
-    labels_list = [labels.get(idx, MISSING_LABEL) for idx in range(len(X))]
-    query_indices = query_func(X=X, y=np.array(labels_list))
-    return query_indices
+    return labels
 
 
-def completed_batch(dataset_name: str, batch: Batch):
-    json_file_path = ANNOTATED_PATH / f'{dataset_name}.json'
+def completed_batch(dataset_id: str, batch: Batch):
+    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
+
+    print("completed batch")
+    print(json_file_path)
 
     if not json_file_path.exists():
         raise RuntimeError("JSON file should already exist here!")
@@ -178,13 +173,14 @@ def completed_batch(dataset_name: str, batch: Batch):
         labels = json.load(f)
 
     # Update labeled data with new annotations.
-    # Assume batch.indices and batch.annotations are lists.
+    # Use string keys to avoid duplicates.
     for idx, annotation in zip(batch.indices, batch.annotations):
-        labels[idx] = annotation
+        labels[str(idx)] = annotation
 
-    # Write back the updated labels.
+    # Write back the updated labels (this overwrites the existing file).
     with json_file_path.open("w") as f:
         json.dump(labels, f, indent=4)
+
 
 # endregion
 

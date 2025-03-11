@@ -16,7 +16,7 @@ from PIL import Image
 from hydra.utils import instantiate
 
 from util.deserialize import compose_config
-from core.api import request_query, load_label_data, completed_batch, get_human_readable_sample
+from core.api import request_query, completed_batch, get_human_readable_sample
 from core.schema import *
 from core.adapter import *
 from ui.storekey import StoreKey

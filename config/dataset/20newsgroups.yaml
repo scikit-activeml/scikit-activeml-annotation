@@ -1,4 +1,4 @@
-name: "20newsgroups"
+id: "20newsgroups"
 display_name: "20 News Groups"
 n_classes: 20
 
