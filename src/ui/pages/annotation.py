@@ -302,6 +302,7 @@ def setup_annotations_page(pathname, store_data):
 
     # TODO this will have to change if one file contains multiple samples.
     X, file_names = adapter.get_or_compute_embeddings(activeMl_cfg.dataset)
+    print("Shape of X:", X.shape)
 
     # TODO Human Readable data
     if StoreKey.BATCH_STATE.value not in store_data:

@@ -4,8 +4,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch
 import torchvision.transforms as transforms
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from PIL import Image
 
 from util.path import DATASETS_PATH
@@ -158,7 +157,7 @@ class TorchVisionAdapter(BaseAdapter):
 
 class SimpleFlattenAdapter(BaseAdapter):
     def __init__(self):
-        self.transform = None  # No transform is applied by default.
+        pass
 
     def compute_embeddings(self, directory: str) -> tuple[np.ndarray, list[str]]:
         """
@@ -166,21 +165,29 @@ class SimpleFlattenAdapter(BaseAdapter):
         and return the stacked feature matrix.
         """
         feature_list = []
+        # iterdir does not ensure order of files in dir.
         files = [str(file) for file in Path(directory).iterdir() if file.is_file()]
 
         # TODO check if this implementation even makes sense?
         for file in files:
             try:
-                # TODO why convert to RGB?
                 # img = Image.open(file).convert("RGB")
                 img = Image.open(file)
-                if self.transform:
-                    img = self.transform(img)
+                if img.mode == "L":
+                    # Greyscale image
+                    img_data = np.array(img)  # Shape (H, W)
                 else:
-                    img = np.array(img)
-                # Flatten the image and add an extra dimension.
-                feature = img.flatten()[None, :]
+                    # RGB image
+                    img_data = np.array(img.convert("RGB"))  # Shape (H, W, 3)
+
+                feature = img_data.flatten().reshape(1, -1)
                 feature_list.append(feature)
             except Exception as e:
                 print(f"Error processing {file}: {e}")
-        return np.concatenate(feature_list, axis=0), files
+
+        try:
+            feature_matrix = np.concatenate(feature_list, axis=0)
+        except Exception as e:
+            raise RuntimeError(f"Some images are RBG while others are Greyscale: {e}")
+
+        return feature_matrix, files
