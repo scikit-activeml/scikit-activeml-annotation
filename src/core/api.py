@@ -13,13 +13,13 @@ from core.schema import *
 from core.adapter import *
 
 from util.deserialize import parse_yaml_config_dir
-from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, DATASETS_PATH, MODEL_CONFIG_PATH
+from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, MODEL_CONFIG_PATH
 
 
 def _build_classifier(
-        model_cfg: ModelConfig,
-        dataset_cfg: DatasetConfig,
-        random_state: np.random.RandomState
+    model_cfg: ModelConfig,
+    dataset_cfg: DatasetConfig,
+    random_state: np.random.RandomState
 ) -> SklearnClassifier:
     n_classes = len(dataset_cfg.label_names)
     model_package_name = str(model_cfg.definition._target_).split(".")[0]
@@ -80,11 +80,12 @@ def get_model_config_options() -> dict[str, ModelConfig]:
     return parse_yaml_config_dir(MODEL_CONFIG_PATH)
 
 
-def request_query(cfg: ActiveMlConfig,
-                  session_cfg: SessionConfig,
-                  X: np.ndarray,
-                  file_names: list[str],
-                  ) -> np.ndarray:
+def request_query(
+    cfg: ActiveMlConfig,
+    session_cfg: SessionConfig,
+    X: np.ndarray,
+    file_names: list[str],
+) -> np.ndarray:
 
     labels = _load_or_init_annotations(X, file_names, cfg.dataset.id)
 
@@ -124,9 +125,11 @@ def _load_labels(json_path: Path) -> np.ndarray:
     return labels
 
 
-def _load_or_init_annotations(X: np.ndarray,
-                              file_names: list[str],
-                              dataset_id: str) -> np.ndarray:
+def _load_or_init_annotations(
+    X: np.ndarray,
+    file_names: list[str],
+    dataset_id: str
+) -> np.ndarray:
     """Load existing labels or initialize with missing labels."""
     json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
 
