@@ -16,8 +16,6 @@ from core.adapter import *
 from util.deserialize import parse_yaml_config_dir
 from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, DATASETS_PATH, MODEL_CONFIG_PATH
 
-MISSING_LABEL_JSON = "Missing"
-
 
 def _load_data_raw(cfg: ActiveMlConfig) -> ndarray:
     print("LOADING DATA")
@@ -97,6 +95,7 @@ def get_model_config_options() -> dict[str, ModelConfig]:
     return parse_yaml_config_dir(MODEL_CONFIG_PATH)
 
 
+# TODO this is not longer correct. Have to account for change in order.
 def get_human_readable_sample(dataset_cfg: DatasetConfig, idx: int):
     """Allow the UI to request a human-readable sample.
        Assumption: Each file in the directory represents one sample (an image).
@@ -133,30 +132,68 @@ def get_all_label_options():
 
 def request_query(cfg: ActiveMlConfig,
                   session_cfg: SessionConfig,
-                  adapter: BaseAdapter) -> np.ndarray:
+                  X: np.ndarray,
+                  file_names: list[str],
+                  ) -> np.ndarray:
+    # TODO process_directory returns filepaths aka samplepaths
+    # X, file_names = adapter.get_or_compute_embeddings(cfg.dataset)
+    # TODO here there should be a ordered list of labels that has the same order as x
+    labels = _load_or_init_annotations(X, file_names, cfg.dataset.id)
 
-    X = adapter.process_directory(cfg.dataset)
-    labels = _load_or_init_annotations(X, cfg.dataset.id)
+    # TODO Should the file_names be absolute paths?
+    # print(file_names)
 
     query_func = _setup_query(cfg, session_cfg)
     print("Querying the active ML model ...")
     # If the query function expects an array, create one based on ordered indices.
-    labels_list = [labels.get(str(idx), MISSING_LABEL) for idx in range(len(X))]
-    query_indices = query_func(X=X, y=np.array(labels_list))
+    query_indices = query_func(X=X, y=labels)
     return query_indices
 
 
-def _load_or_init_annotations(X: np.ndarray, dataset_id: str) -> dict:
+def _deserialize_annotations(json_path: Path) -> list[Annotation]:
+    with json_path.open('r') as f:
+        annotations_data: dict = json.load(f)
+
+    annotations = [Annotation(**ann) for ann in annotations_data]
+    return annotations
+
+
+def _serialize_annotations(path: Path, annotations: list[Annotation]):
+    with path.open("w") as f:
+        json.dump([asdict(ann) for ann in annotations], f, indent=4)
+
+
+def _load_labels(json_path: Path) -> np.ndarray:
+    """Load labels from a JSON file and return as a numpy array."""
+    with json_path.open('r') as f:
+        annotations = json.load(f)
+        num_annotations = len(annotations)
+
+        labels = np.empty(num_annotations, dtype=float)
+
+        # TODO check if there is still some missing labels.
+        # Else there is nothing more to label.
+        for i, ann in enumerate(annotations):
+            labels[i] = ann['label']
+
+    return labels
+
+
+def _load_or_init_annotations(X: np.ndarray,
+                              file_names: list[str],
+                              dataset_id: str) -> np.ndarray:
+    """Load existing labels or initialize with missing labels."""
     json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
 
     if json_file_path.exists():
-        with json_file_path.open('r') as f:
-            labels = json.load(f)
+        labels = _load_labels(json_file_path)
     else:
-        # No annotations yet initialize new JSON File putting labels to missing.
-        labels = {str(idx): MISSING_LABEL for idx in range(len(X))}
-        with json_file_path.open("w") as f:
-            json.dump(labels, f, indent=4)
+        # No annotations yet, initialize new JSON File putting labels to missing.
+        annotations = [Annotation(file_name=f_name, label=MISSING_LABEL) for f_name in file_names]
+        _serialize_annotations(json_file_path, annotations)
+        # Initialize all labels to missing.
+        labels = np.full(len(X), MISSING_LABEL, dtype=float)
+
     return labels
 
 
@@ -169,19 +206,16 @@ def completed_batch(dataset_id: str, batch: Batch):
     if not json_file_path.exists():
         raise RuntimeError("JSON file should already exist here!")
 
-    with json_file_path.open('r') as f:
-        labels = json.load(f)
+    annotations: list[Annotation] = _deserialize_annotations(json_file_path)
 
     # Update labeled data with new annotations.
     # Use string keys to avoid duplicates.
-    for idx, annotation in zip(batch.indices, batch.annotations):
-        labels[str(idx)] = annotation
+    for idx, annotation_val in zip(batch.indices, batch.annotations):
+        # labels[idx] = annotation_val
+        annotations[idx].label = annotation_val
 
-    # Write back the updated labels (this overwrites the existing file).
-    with json_file_path.open("w") as f:
-        json.dump(labels, f, indent=4)
-
-
+    # Write back the updated labels overwriting existing file.
+    _serialize_annotations(json_file_path, annotations)
 # endregion
 
 

@@ -1,4 +1,0 @@
-defaults:
-  - embedding: null
-  - preprocess_func: null;
-  - _self_

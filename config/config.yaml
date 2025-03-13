@@ -1,6 +1,6 @@
 defaults:
   - dataset: digits_toy
-  - preprocessor: null
+  - preprocessor: flatten_image
   - model: logistic_regression
   - prequery: null
   - query_strategy: random_sampling

@@ -30,8 +30,8 @@ class DatasetConfig:
     display_name: str = MISSING  # Name that will be displayed in ui for that dataset
     label_names: list[str] = MISSING  # All the possible data labels.
     data_path: str = MISSING  # Path to data dir. Path has to be Absolute or relative to dataset dir.
-    preprocessor: str = MISSING
     data_type: DataType = MISSING
+    # preprocessor: str = MISSING
     # adapter_cfg: AdapterConfig = MISSING
 
 
@@ -51,7 +51,8 @@ class ActiveMlConfig:
     model: ModelConfig | None = field(default_factory=ModelConfig)
     dataset: DatasetConfig = field(default_factory=DatasetConfig)
     query_strategy: QueryStrategyConfig = field(default_factory=QueryStrategyConfig)
-
+    #  TODO
+    # preprocessor:
 
 # endregion
 
@@ -71,11 +72,38 @@ class Batch:
     progress: int  # progress
     annotations: list[int]
 
-    def to_json(self):
+    def to_json(self) -> str:
         return json.dumps(asdict(self))
 
     @staticmethod
     def from_json(json_str: str):
         data = json.loads(json_str)
         return Batch(**data)
+
+
+@dataclass
+class Annotation:
+    file_name: str
+    label: int
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+    @staticmethod
+    def from_json(json_str: str):
+        data = json.loads(json_str)
+        return Annotation(**data)
+
 # endregion
+
+
+def main():
+    a = Annotation("image1.jpg", 1)
+
+    # Serializing to JSON
+    json_str = a.to_json()
+    print("Serialized JSON:\n", json_str)
+
+
+if __name__ == "__main__":
+    main()

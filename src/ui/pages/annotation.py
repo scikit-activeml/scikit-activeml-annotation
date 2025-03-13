@@ -151,7 +151,9 @@ def create_sidebar():
     )
 
 
-def display_image(image):
+def display_image(path_to_img):
+    image = Image.open(path_to_img).convert("RGB")
+
     return (
         dcc.Loading(
             dcc.Graph(
@@ -190,7 +192,6 @@ def display_audio(audio):
 
 def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, human_data: Any, progress: float):
     # TODO instantiate the data_type enum somewhere else
-    from hydra.utils import instantiate
     data_type: DataType = instantiate(dataset_cfg.data_type)
 
     if data_type.value == DataType.IMAGE.value:
@@ -296,13 +297,16 @@ def setup_annotations_page(pathname, store_data):
     dataset_cfg = activeMl_cfg.dataset
     # TODO data is loaded over and over again. when it not even needed.
     # adapter: DataLoaderAdapter = instantiate(dataset_cfg.adapter_cfg, _recursive_=False)
-    adapter: BaseAdapter = instantiate(dataset_cfg.preprocessor)
+    # TODO make naming consistent preprocessor/ adapter wtf.
+    adapter: BaseAdapter = instantiate(activeMl_cfg.preprocessor.definition)
+
+    # TODO this will have to change if one file contains multiple samples.
+    X, file_names = adapter.get_or_compute_embeddings(activeMl_cfg.dataset)
 
     # TODO Human Readable data
-
     if StoreKey.BATCH_STATE.value not in store_data:
         # New Session
-        batch = request_batch(activeMl_cfg, adapter, session_cfg)
+        batch = request_batch(activeMl_cfg, session_cfg, X, file_names)
         # store_data = {StoreKey.BATCH_STATE.value: batch.to_json()}
         store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
     else:
@@ -315,25 +319,29 @@ def setup_annotations_page(pathname, store_data):
             completed_batch(dataset_id, batch)
 
             # Initialize the next batch
-            batch = request_batch(activeMl_cfg, adapter, session_cfg)
+            batch = request_batch(activeMl_cfg, session_cfg, X, file_names)
             store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
 
     idx = batch.progress
+    # query_idx -> file_name
     query_idx = batch.indices[idx]
     progress = idx / len(batch.indices)
 
     # TODO generalize. How the human readable data and how the label names are fetched.
     # From Cache?
     label_names = dataset_cfg.label_names
-    # human_data = adapter.get_human_data(query_idx)
-    human_data = get_human_readable_sample(dataset_cfg, query_idx)
+
+    # TODO maybe the adapter should be responsible with specifying how to get human representation for sample with idx
+    # human_data_path = adapter.get_human_data(query_idx)
+    # human_data_path = get_human_readable_sample(dataset_cfg, query_idx)
+    human_data_path = file_names[query_idx]
 
     # bunch = instantiate(dataset_cfg.human_adapter)
     # label_names = get_label_names(bunch)
     # image = load_image(bunch, query_idx)
 
     # print("data after setup page is: ", data)
-    return store_data, create_sidebar(), create_hero_section(label_names, dataset_cfg, human_data, progress)
+    return store_data, create_sidebar(), create_hero_section(label_names, dataset_cfg, human_data_path, progress)
 
 
 @dash.callback(
@@ -366,9 +374,14 @@ def on_button_click(n_clicks: int, value: int, session_data: dict):
     return session_data, None
 
 
-# Helper 
-def request_batch(cfg: ActiveMlConfig, adapter: BaseAdapter, session_cfg: SessionConfig) -> Batch:
-    query_indices = request_query(cfg, session_cfg, adapter)
+# Helper
+def request_batch(
+    cfg: ActiveMlConfig,
+    session_cfg: SessionConfig,
+    X: np.ndarray,
+    file_names: list[str]
+) -> Batch:
+    query_indices = request_query(cfg, session_cfg, X, file_names)
     batch_state = Batch(
         indices=query_indices.tolist(),
         progress=0,

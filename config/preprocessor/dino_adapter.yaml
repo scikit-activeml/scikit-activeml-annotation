@@ -1,0 +1,11 @@
+display_name: "Flatten Image"
+
+# TODO always use definition in configs that are used for instantiate
+definition:
+  _target_: core.adapter.TorchVisionAdapter
+  model_variant: "dinov2_vitb14"
+  batch_size: 8
+
+data_type:
+  _target_: core.schema.DataType
+  _args_: [Image]

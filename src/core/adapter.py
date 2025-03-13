@@ -15,14 +15,23 @@ from util.path import CACHE_PATH
 
 class BaseAdapter(ABC):
     @abstractmethod
-    def compute_features(self, directory: str) -> np.ndarray:
+    def compute_embeddings(self, directory: str) -> tuple[np.ndarray, list[str]]:
+        # TODO update doc string
         """
         Compute and return the feature matrix for the given directory.
         The directory is provided as an absolute path.
         """
         pass
 
-    def process_directory(self, dataset_cfg: DatasetConfig, cache_dir: str = str(CACHE_PATH)) -> np.ndarray:
+    # @abstractmethod
+    # def get_supported_datatypes(self):
+    #     pass
+
+    # TODO rename this method to a a more semantically correct name
+    def get_or_compute_embeddings(
+            self,
+            dataset_cfg: DatasetConfig,
+    ) -> tuple[np.ndarray, list[str]]:
         """
         Resolve the directory path, check/load cache if enabled, call compute_features,
         and cache the result if needed.
@@ -38,46 +47,59 @@ class BaseAdapter(ABC):
         cache_key = f"{dataset_id}_{self.__class__.__name__}"
         print(f"cache key: {cache_key}")
 
-        cache_path = Path(cache_dir) / f"{cache_key}.npy"
+        cache_path = Path(str(CACHE_PATH)) / f"{cache_key}.npz"  # Use .npz to store multiple arrays
 
         if cache_path.exists():
             print(f"Cache hit. Loading cached features from {cache_path}")
-            return np.load(str(cache_path))
+            # Load both the feature matrix and the file names from the .npz cache
+            with np.load(str(cache_path)) as data:
+                X = data['X']
+                file_names = data['file_names'].tolist()  # Convert to a list if necessary
+            return X, file_names
 
         print("Cache miss. Computing feature matrix and caching ...")
-        X = self.compute_features(str(directory))
-        np.save(str(cache_path), X)
-        return X
+        X, file_names = self.compute_embeddings(str(directory))
+
+        # Cache both the feature matrix and the file names in the .npz file
+        np.savez(str(cache_path), X=X, file_names=file_names)
+
+        return X, file_names
 
 
-class ImageDataset(Dataset):
-    def __init__(self, directory: str, transform=None):
+class ImageDataset(torch.utils.data.Dataset):
+    def __init__(self, directory: str, transform: callable):
         self.directory = Path(directory)
         self.transform = transform
-        self.files = [file for file in self.directory.iterdir() if file.is_file()]
-
+        # Using pathlib to list all image files in the directory
+        self.image_paths = list(self.directory.glob('*'))  # This will list all files in the directory
+        self.file_names = [path.name for path in self.image_paths]  # Get file_names only
 
     def __len__(self):
-        return len(self.files)
+        return len(self.image_paths)
 
     def __getitem__(self, idx):
-        file = self.files[idx]
+        image_path = self.image_paths[idx]
+        file_name = self.file_names[idx]
+
         try:
-            img = Image.open(file).convert("RGB")
-            if self.transform:
-                img = self.transform(img)
-            return img
+            # Open the image using Pillow
+            image = Image.open(image_path).convert('RGB')
         except Exception as e:
-            print(f"Error processing {file}: {e}")
-            return None
+            print(f"Error loading image {image_path}: {e}")
+            return None, file_name  # If there's an error, return None and the file name
+
+        image = self.transform(image)  # Apply the transformations
+        return image, file_name
 
 
 class TorchVisionAdapter(BaseAdapter):
     def __init__(self,
                  batch_size: int = 16,
-                 ):
+                 model_variant: str = "dinov2_vitb14"):
         self.batch_size = batch_size
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # Define image transformations
         self.transform = transforms.Compose([
             transforms.Resize(32),
             transforms.CenterCrop(26),
@@ -87,49 +109,66 @@ class TorchVisionAdapter(BaseAdapter):
         ])
 
         try:
-            self.model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
+            # Load the pretrained model from PyTorch Hub
+            self.model = torch.hub.load("facebookresearch/dinov2", model_variant)
         except Exception as e:
-            raise RuntimeError(
-                "DINOv2 model not available"
-            ) from e
+            raise RuntimeError("DINOv2 model is not available") from e
 
+        # Move the model to the appropriate device (GPU or CPU)
         self.model = self.model.to(self.device)
+        # Set the model to evaluation mode
         self.model.eval()
 
-    def compute_features(self, directory: str) -> np.ndarray:
+    def compute_embeddings(self, directory: str) -> tuple:
         """
         Load images from the directory in batches, process them through the model,
-        and return the concatenated feature matrix.
+        and return the concatenated feature matrix and corresponding file names.
         """
         dataset = ImageDataset(directory, self.transform)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, num_workers=4)
         embeddings_list = []
-        for batch in dataloader:
-            # Filter out any failed image loads.
-            batch = [img for img in batch if img is not None]
-            if not batch:
-                continue
-            batch_tensor = torch.stack(batch).to(self.device)
-            with torch.no_grad():
+        file_names_list = []
+
+        # Disable gradient tracking since we are in inference mode
+        with torch.no_grad():
+            for batch, file_names in dataloader:
+                assert len(batch) == len(file_names)
+
+                # Filter out any failed image loads (None entries)
+                batch = [img for img in batch if img is not None]
+                if not batch:
+                    continue
+
+                # Stack the images into a tensor and move to the correct device
+                batch_tensor = torch.stack(batch).to(self.device)
+
+                # Get embeddings for all images in the batch
                 embeddings = self.model(batch_tensor)
 
-            embeddings_list.append(embeddings.cpu().numpy())
+                # Append the embeddings and corresponding file names
+                embeddings_list.append(embeddings.cpu().numpy())
+                file_names_list.extend(file_names)  # Ensure file_names match embeddings
 
-        return np.concatenate(embeddings_list, axis=0)
+        # Concatenate all embeddings into a single feature matrix
+        feature_matrix = np.concatenate(embeddings_list, axis=0)
+
+        # Return the feature matrix and corresponding file_names
+        return feature_matrix, file_names_list
 
 
-# --- Concrete Implementation Without Batching ---
 class SimpleFlattenAdapter(BaseAdapter):
     def __init__(self):
         self.transform = None  # No transform is applied by default.
 
-    def compute_features(self, directory: str) -> np.ndarray:
+    def compute_embeddings(self, directory: str) -> tuple[np.ndarray, list[str]]:
         """
         Load images one by one from the directory, flatten them,
         and return the stacked feature matrix.
         """
         feature_list = []
         files = [str(file) for file in Path(directory).iterdir() if file.is_file()]
+
+        # TODO check if this implementation even makes sense?
         for file in files:
             try:
                 # TODO why convert to RGB?
@@ -144,4 +183,4 @@ class SimpleFlattenAdapter(BaseAdapter):
                 feature_list.append(feature)
             except Exception as e:
                 print(f"Error processing {file}: {e}")
-        return np.concatenate(feature_list, axis=0)
+        return np.concatenate(feature_list, axis=0), files
