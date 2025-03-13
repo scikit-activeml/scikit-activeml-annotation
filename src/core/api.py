@@ -2,10 +2,9 @@ from inspect import signature
 from functools import partial
 from typing import Callable
 
-import numpy as np
-from numpy import ndarray
+from hydra.utils import instantiate
 
-from skactiveml.utils import call_func, MISSING_LABEL
+from skactiveml.utils import MISSING_LABEL
 from skactiveml.classifier import SklearnClassifier
 from skactiveml.pool import SubSamplingWrapper
 from skactiveml.base import QueryStrategy
@@ -15,14 +14,6 @@ from core.adapter import *
 
 from util.deserialize import parse_yaml_config_dir
 from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, DATASETS_PATH, MODEL_CONFIG_PATH
-
-
-def _load_data_raw(cfg: ActiveMlConfig) -> ndarray:
-    print("LOADING DATA")
-    X, _ = instantiate(cfg.dataset.raw_data)
-    print("FINISH LOADING DATA")
-    print(type(X))
-    return X
 
 
 def _build_classifier(
@@ -40,10 +31,6 @@ def _build_classifier(
         return SklearnClassifier(clf, random_state=random_state, classes=np.arange(n_classes))
 
 
-def _create_regressor(cfg: ModelConfig, random_state: np.random.RandomState):
-    raise NotImplementedError
-
-
 # TODO can use from skactiveml.utils import call_func instead?
 def _filter_kwargs(func: Callable, **kwargs) -> Callable:
     params = signature(func).parameters
@@ -54,7 +41,7 @@ def _filter_kwargs(func: Callable, **kwargs) -> Callable:
         # If the func accepts **kwargs, no filtering is needed
         return partial(func, **kwargs)
 
-    # Otherwise, filter only the kwargs that match func's signature
+    # Otherwise, filter only the kwargs that match function's signature
     filtered_kwargs = {p_name: p_obj for p_name, p_obj in kwargs.items() if p_name in param_names}
 
     # print("filtered_kwargs", filtered_kwargs)
@@ -73,12 +60,10 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> Callable:
     qs: SubSamplingWrapper = SubSamplingWrapper(qs, max_candidates=session_cfg.max_candidates,
                                                 random_state=random_state)
 
-    # TODO seperate query from fitting?
+    # TODO separate query from fitting?
     query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=clf, fit_clf=True,
                                           discriminator=clf)
     return query_func
-    """ query_indices = query_func(X=X, y=y)
-    return partial(query_func, X=X, y=y) """
 
 
 # region API
@@ -95,53 +80,13 @@ def get_model_config_options() -> dict[str, ModelConfig]:
     return parse_yaml_config_dir(MODEL_CONFIG_PATH)
 
 
-# TODO this is not longer correct. Have to account for change in order.
-def get_human_readable_sample(dataset_cfg: DatasetConfig, idx: int):
-    """Allow the UI to request a human-readable sample.
-       Assumption: Each file in the directory represents one sample (an image).
-    """
-    data_type = dataset_cfg.data_type
-    if data_type in (DataType.AUDIO, DataType.TEXT):
-        raise NotImplementedError("Human readable sample for AUDIO or TEXT is not implemented.")
-
-    path = dataset_cfg.data_path
-
-    # Ensure the path is absolute using DATASETS_PATH if necessary.
-    if not Path(path).is_absolute():
-        path = DATASETS_PATH / path
-
-    # List and sort files in the directory for a deterministic order.
-    files = sorted([
-        str(file)
-        for file in Path(path).iterdir()
-        if file.is_file()
-    ])
-
-    if idx < 0 or idx >= len(files):
-        raise IndexError(f"Index {idx} is out of bounds for dataset with {len(files)} files.")
-
-    sample_file = files[idx]
-    # Load and return the image.
-    sample_image = Image.open(sample_file).convert("RGB")
-    return sample_image
-
-
-def get_all_label_options():
-    raise NotImplementedError
-
-
 def request_query(cfg: ActiveMlConfig,
                   session_cfg: SessionConfig,
                   X: np.ndarray,
                   file_names: list[str],
                   ) -> np.ndarray:
-    # TODO process_directory returns filepaths aka samplepaths
-    # X, file_names = adapter.get_or_compute_embeddings(cfg.dataset)
-    # TODO here there should be a ordered list of labels that has the same order as x
-    labels = _load_or_init_annotations(X, file_names, cfg.dataset.id)
 
-    # TODO Should the file_names be absolute paths?
-    # print(file_names)
+    labels = _load_or_init_annotations(X, file_names, cfg.dataset.id)
 
     query_func = _setup_query(cfg, session_cfg)
     print("Querying the active ML model ...")

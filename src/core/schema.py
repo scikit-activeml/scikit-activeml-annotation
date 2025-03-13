@@ -2,8 +2,7 @@ import json
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 
-from hydra.utils import instantiate
-from omegaconf import MISSING, DictConfig
+from omegaconf import MISSING
 
 
 class DataType(Enum):
@@ -15,12 +14,12 @@ class DataType(Enum):
 # region Hydra Config Schema
 @dataclass
 class DataLoaderConfig:
-    _target_: str = MISSING
+    definition: str = MISSING
 
 
 @dataclass
 class AdapterConfig:
-    _target_: str = MISSING
+    definition: str = MISSING
     dataloader: DataLoaderConfig = MISSING
 
 
@@ -31,18 +30,18 @@ class DatasetConfig:
     label_names: list[str] = MISSING  # All the possible data labels.
     data_path: str = MISSING  # Path to data dir. Path has to be Absolute or relative to dataset dir.
     data_type: DataType = MISSING
-    # preprocessor: str = MISSING
-    # adapter_cfg: AdapterConfig = MISSING
 
 
 @dataclass
 class ModelConfig:
     display_name: str = MISSING
+    definition: str = MISSING
 
 
 @dataclass
 class QueryStrategyConfig:
     display_name: str = MISSING
+    definition: str = MISSING
 
 
 @dataclass
@@ -51,10 +50,10 @@ class ActiveMlConfig:
     model: ModelConfig | None = field(default_factory=ModelConfig)
     dataset: DatasetConfig = field(default_factory=DatasetConfig)
     query_strategy: QueryStrategyConfig = field(default_factory=QueryStrategyConfig)
-    #  TODO
-    # preprocessor:
+    adapter: AdapterConfig = field(default_factory=AdapterConfig)
 
 # endregion
+
 
 # region Session Config
 @dataclass
@@ -93,17 +92,4 @@ class Annotation:
     def from_json(json_str: str):
         data = json.loads(json_str)
         return Annotation(**data)
-
 # endregion
-
-
-def main():
-    a = Annotation("image1.jpg", 1)
-
-    # Serializing to JSON
-    json_str = a.to_json()
-    print("Serialized JSON:\n", json_str)
-
-
-if __name__ == "__main__":
-    main()

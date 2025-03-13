@@ -13,7 +13,7 @@ from ui.storekey import StoreKey
 dash.register_page(__name__, path='/')
 
 # TODO selections should come after each other dataset -> adapter -> query -> optional(Model)
-# path variables and query string are captured from the URL and passed into kwargs
+# info path variables and query string are captured from the URL and passed into kwargs
 def layout(**kwargs):
     # TODO load other options aswell.
     dataset_options = get_dataset_config_options()

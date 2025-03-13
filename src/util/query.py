@@ -1,9 +1,9 @@
 from urllib.parse import parse_qs
 
 
-def get_query_value(query_str: str, key: str) -> str:
+def get_query_value(query_str: str, key: str) -> str | None:
     query_params = parse_qs(query_str.lstrip('?'))
-    if not key in query_params:
+    if key not in query_params:
         return None
     return query_params[key][0]
 

@@ -29,8 +29,6 @@ def _dict_overrides_to_list(overrides: Dict[str, str]) -> list[str]:
 
 def compose_config(overrides: Dict[str, str] | None = None) -> ActiveMlConfig:
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
-        # TODO here we can override default config.yaml
-
         schema: DictConfig = OmegaConf.structured(ActiveMlConfig)
 
         if overrides is not None:
@@ -68,7 +66,6 @@ def parse_yaml_config_dir(dir_path: Path | str) -> dict[str, DictConfig]:
     Parses YAML config files in a directory and returns a dictionary mapping
     file names (without extension) to their DictConfig objects.
 
-    # TODO cleanup comments
     Args:
         dir_path (Path | str): Path to the directory containing YAML files.
 

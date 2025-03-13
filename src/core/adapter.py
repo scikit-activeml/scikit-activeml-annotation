@@ -14,11 +14,24 @@ from util.path import CACHE_PATH
 
 class BaseAdapter(ABC):
     @abstractmethod
-    def compute_embeddings(self, directory: str) -> tuple[np.ndarray, list[str]]:
-        # TODO update doc string
+    def compute_embeddings(self, data_path: Path) -> tuple[np.ndarray, list[str]]:
         """
-        Compute and return the feature matrix for the given directory.
-        The directory is provided as an absolute path.
+        Compute and return the feature matrix and corresponding file paths for the given directory of data.
+
+        This function loads the data from the specified directory, preprocesses it,
+        and potentially creates embeddings such that the resulting feature matrix X
+        has shape (num_samples, num_features). The following invariant must hold:
+
+        - X[i] corresponds to file_paths[i] for all i.
+
+        Args:
+            data_path (str): The absolute path to the directory containing the data
+                             to be processed and embedded.
+
+        Returns:
+            tuple: A tuple containing:
+                - `np.ndarray`: The feature matrix of shape (num_samples, num_features).
+                - `list[str]`: A list of file paths corresponding to the samples in `X`.
         """
         pass
 
@@ -26,21 +39,20 @@ class BaseAdapter(ABC):
     # def get_supported_datatypes(self):
     #     pass
 
-    # TODO rename this method to a a more semantically correct name
     def get_or_compute_embeddings(
             self,
             dataset_cfg: DatasetConfig,
     ) -> tuple[np.ndarray, list[str]]:
         """
-        Resolve the directory path, check/load cache if enabled, call compute_features,
+        Resolve the data_path path, check/load cache if enabled, call compute_features,
         and cache the result if needed.
         """
         dataset_id = dataset_cfg.id
-        directory = dataset_cfg.data_path
+        data_path = dataset_cfg.data_path
 
-        directory = Path(directory)
-        if not directory.is_absolute():
-            directory = DATASETS_PATH / directory
+        data_path = Path(data_path)
+        if not data_path.is_absolute():
+            data_path = DATASETS_PATH / data_path
 
         # Unique key
         cache_key = f"{dataset_id}_{self.__class__.__name__}"
@@ -57,7 +69,7 @@ class BaseAdapter(ABC):
             return X, file_names
 
         print("Cache miss. Computing feature matrix and caching ...")
-        X, file_names = self.compute_embeddings(str(directory))
+        X, file_names = self.compute_embeddings(data_path)
 
         # Cache both the feature matrix and the file names in the .npz file
         np.savez(str(cache_path), X=X, file_names=file_names)
@@ -66,11 +78,9 @@ class BaseAdapter(ABC):
 
 
 class ImageDataset(torch.utils.data.Dataset):
-    def __init__(self, directory: str, transform: callable):
-        self.directory = Path(directory)
+    def __init__(self, data_path: Path, transform: callable):
         self.transform = transform
-        # Using pathlib to list all image files in the directory
-        self.image_paths = list(self.directory.glob('*'))  # This will list all files in the directory
+        self.image_paths = list(data_path.glob('*'))  # This will list all files in the directory
         self.file_names = [path.name for path in self.image_paths]  # Get file_names only
 
     def __len__(self):
@@ -118,12 +128,12 @@ class TorchVisionAdapter(BaseAdapter):
         # Set the model to evaluation mode
         self.model.eval()
 
-    def compute_embeddings(self, directory: str) -> tuple:
+    def compute_embeddings(self, data_path: Path) -> tuple:
         """
         Load images from the directory in batches, process them through the model,
         and return the concatenated feature matrix and corresponding file names.
         """
-        dataset = ImageDataset(directory, self.transform)
+        dataset = ImageDataset(data_path, self.transform)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, num_workers=4)
         embeddings_list = []
         file_names_list = []
@@ -159,16 +169,15 @@ class SimpleFlattenAdapter(BaseAdapter):
     def __init__(self):
         pass
 
-    def compute_embeddings(self, directory: str) -> tuple[np.ndarray, list[str]]:
+    def compute_embeddings(self, data_path: Path) -> tuple[np.ndarray, list[str]]:
         """
         Load images one by one from the directory, flatten them,
         and return the stacked feature matrix.
         """
         feature_list = []
         # iterdir does not ensure order of files in dir.
-        files = [str(file) for file in Path(directory).iterdir() if file.is_file()]
+        files = [str(file) for file in data_path.iterdir() if file.is_file()]
 
-        # TODO check if this implementation even makes sense?
         for file in files:
             try:
                 # img = Image.open(file).convert("RGB")

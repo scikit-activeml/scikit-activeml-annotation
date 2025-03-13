@@ -1,22 +1,15 @@
 from typing import Any
-import base64
-from io import BytesIO
 
 import dash
-from dash import html, dcc, Input, Output, no_update
+from dash import html, dcc
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import plotly.express as px
-
-import numpy as np
-
-from PIL import Image
-
 from hydra.utils import instantiate
 
 from util.deserialize import compose_config
-from core.api import request_query, completed_batch, get_human_readable_sample
+from core.api import request_query, completed_batch
 from core.schema import *
 from core.adapter import *
 from ui.storekey import StoreKey
@@ -26,53 +19,6 @@ dash.register_page(
     path_template='/annotation/<dataset_name>',
     description='The main annotation page',
 )
-
-
-def encode_base64(image: np.ndarray) -> str:
-    # Normalize the image to 0–255 range and convert to uint8
-    if image.max() > 1:  # Handle images already in range 0-255
-        image = 255 * (image / image.max())
-    image = image.astype(np.uint8)
-
-    # Convert NumPy array to PIL Image
-    pil_image = Image.fromarray(image)
-    # print(pil_image.size)
-    pil_image = pil_image.resize((250, 250), Image.Resampling.NEAREST)
-
-    # Save image to a BytesIO stream in PNG format
-    buffer = BytesIO()
-    pil_image.save(buffer, format="PNG")
-    buffer.seek(0)
-
-    # Encode the image as Base64
-    image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
-    # Return the data URI
-    return f"data:image/png;base64,{image_base64}"
-
-
-# Triggers with each reload.
-def load_image(bunch, idx: int) -> bytes:
-    images = bunch.images
-
-    image = images[idx]
-    return image
-    # image_url = encode_base64(images[idx])
-    # return image_url
-
-
-def load_text(bunch, idx: int):
-    pass
-
-
-# TODO No longer needed.
-def get_label_names(bunch) -> list[str]:
-    if 'target_names' in bunch:
-        label_names = bunch.target_names
-
-    # Some dataset dont return target_names
-    label_names = np.unique(bunch.target)
-    return label_names
 
 
 def layout(**kwargs):
@@ -187,6 +133,7 @@ def display_text(text):
 
 
 def display_audio(audio):
+    print(audio)
     raise NotImplementedError
 
 
@@ -282,7 +229,7 @@ def setup_annotations_page(pathname, store_data):
     print("[Annot] init annotation page with dataset: ", dataset_id)
     session_cfg = SessionConfig(batch_size=5)
 
-    # Todo overrides of lower lvl config can be done like so:
+    # info overrides of lower lvl config can be done like so:
     # cfg = compose(config_name="config", overrides=["database.host=remote_server"])
 
     selections = store_data[StoreKey.SELECTIONS.value]
@@ -295,16 +242,12 @@ def setup_annotations_page(pathname, store_data):
 
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
-    # TODO data is loaded over and over again. when it not even needed.
-    # adapter: DataLoaderAdapter = instantiate(dataset_cfg.adapter_cfg, _recursive_=False)
-    # TODO make naming consistent preprocessor/ adapter wtf.
-    adapter: BaseAdapter = instantiate(activeMl_cfg.preprocessor.definition)
+    adapter: BaseAdapter = instantiate(activeMl_cfg.adapter.definition)
 
     # TODO this will have to change if one file contains multiple samples.
     X, file_names = adapter.get_or_compute_embeddings(activeMl_cfg.dataset)
     print("Shape of X:", X.shape)
 
-    # TODO Human Readable data
     if StoreKey.BATCH_STATE.value not in store_data:
         # New Session
         batch = request_batch(activeMl_cfg, session_cfg, X, file_names)
@@ -333,15 +276,7 @@ def setup_annotations_page(pathname, store_data):
     label_names = dataset_cfg.label_names
 
     # TODO maybe the adapter should be responsible with specifying how to get human representation for sample with idx
-    # human_data_path = adapter.get_human_data(query_idx)
-    # human_data_path = get_human_readable_sample(dataset_cfg, query_idx)
     human_data_path = file_names[query_idx]
-
-    # bunch = instantiate(dataset_cfg.human_adapter)
-    # label_names = get_label_names(bunch)
-    # image = load_image(bunch, query_idx)
-
-    # print("data after setup page is: ", data)
     return store_data, create_sidebar(), create_hero_section(label_names, dataset_cfg, human_data_path, progress)
 
 
@@ -368,7 +303,7 @@ def on_button_click(n_clicks: int, value: int, session_data: dict):
     batch_state.progress += 1
     print("post", batch_state)
 
-    # Override existing batchstate
+    # Override existing batch_state
     session_data[StoreKey.BATCH_STATE.value] = batch_state.to_json()
 
     # Refresh page by passing None.

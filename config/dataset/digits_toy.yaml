@@ -7,7 +7,7 @@ data_type:
   _target_: core.schema.DataType
   _args_: [Image]
 
-#preprocessor:
+#adapter:
 #  _target_: core.adapter.SimpleFlattenAdapter
 #  method: "calculation"
 #  batch_size: 8
