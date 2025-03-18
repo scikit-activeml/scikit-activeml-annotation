@@ -1,6 +1,6 @@
 defaults:
   - dataset: digits_toy
-  - adapter: flatten_image
+  - adapter: dino_adapter
   - model: logistic_regression
   - prequery: null
   - query_strategy: random_sampling

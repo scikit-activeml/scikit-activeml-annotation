@@ -65,40 +65,42 @@ class BaseAdapter(ABC):
             # Load both the feature matrix and the file names from the .npz cache
             with np.load(str(cache_path)) as data:
                 X = data['X']
-                file_names = data['file_names'].tolist()  # Convert to a list if necessary
-            return X, file_names
+                file_paths = data['file_paths'].tolist()  # Convert to a list if necessary
+            return X, file_paths
 
+        import timeit
         print("Cache miss. Computing feature matrix and caching ...")
-        X, file_names = self.compute_embeddings(data_path)
+        start_time = timeit.default_timer()
+        X, file_paths = self.compute_embeddings(data_path)
+        elapsed_time = timeit.default_timer() - start_time
+        print(f"Embedding completed in: {elapsed_time:.2f} seconds")
 
         # Cache both the feature matrix and the file names in the .npz file
-        np.savez(str(cache_path), X=X, file_names=file_names)
+        np.savez(str(cache_path), X=X, file_paths=file_paths)
 
-        return X, file_names
+        return X, file_paths
 
 
 class ImageDataset(torch.utils.data.Dataset):
     def __init__(self, data_path: Path, transform: callable):
         self.transform = transform
-        self.image_paths = list(data_path.glob('*'))  # This will list all files in the directory
-        self.file_names = [path.name for path in self.image_paths]  # Get file_names only
+        self.image_paths = [str(path) for path in data_path.glob('*')]
 
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
         image_path = self.image_paths[idx]
-        file_name = self.file_names[idx]
 
         try:
             # Open the image using Pillow
             image = Image.open(image_path).convert('RGB')
         except Exception as e:
             print(f"Error loading image {image_path}: {e}")
-            return None, file_name  # If there's an error, return None and the file name
+            return None, image_path  # If there's an error, return None and the file name
 
         image = self.transform(image)  # Apply the transformations
-        return image, file_name
+        return image, image_path
 
 
 class TorchVisionAdapter(BaseAdapter):
@@ -110,8 +112,8 @@ class TorchVisionAdapter(BaseAdapter):
 
         # Define image transformations
         self.transform = transforms.Compose([
-            transforms.Resize(32),
-            transforms.CenterCrop(26),
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),
@@ -133,20 +135,31 @@ class TorchVisionAdapter(BaseAdapter):
         Load images from the directory in batches, process them through the model,
         and return the concatenated feature matrix and corresponding file names.
         """
+        print(f"Compute Torchvision embedding using device: {self.device}")
         dataset = ImageDataset(data_path, self.transform)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, num_workers=4)
         embeddings_list = []
-        file_names_list = []
+        file_path_list = []
+
+        processed_samples = 0
+        steps = 100
+        next_report = steps
 
         # Disable gradient tracking since we are in inference mode
         with torch.no_grad():
-            for batch, file_names in dataloader:
-                assert len(batch) == len(file_names)
+            for batch, file_paths in dataloader:
+                assert len(batch) == len(file_paths)
 
                 # Filter out any failed image loads (None entries)
                 batch = [img for img in batch if img is not None]
                 if not batch:
                     continue
+
+                # Update progress counter and print every 1000 samples
+                processed_samples += len(batch)
+                if processed_samples >= next_report:
+                    print(f"Processed {processed_samples} samples")
+                    next_report += steps
 
                 # Stack the images into a tensor and move to the correct device
                 batch_tensor = torch.stack(batch).to(self.device)
@@ -156,13 +169,13 @@ class TorchVisionAdapter(BaseAdapter):
 
                 # Append the embeddings and corresponding file names
                 embeddings_list.append(embeddings.cpu().numpy())
-                file_names_list.extend(file_names)  # Ensure file_names match embeddings
+                file_path_list.extend(file_paths)  # Ensure file_paths match embeddings
 
         # Concatenate all embeddings into a single feature matrix
         feature_matrix = np.concatenate(embeddings_list, axis=0)
 
-        # Return the feature matrix and corresponding file_names
-        return feature_matrix, file_names_list
+        # Return the feature matrix and corresponding file_paths
+        return feature_matrix, file_path_list
 
 
 class SimpleFlattenAdapter(BaseAdapter):

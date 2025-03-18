@@ -243,6 +243,7 @@ def setup_annotations_page(pathname, store_data):
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
     adapter: BaseAdapter = instantiate(activeMl_cfg.adapter.definition)
+    print("Selected adapter:", type(adapter))
 
     # TODO this will have to change if one file contains multiple samples.
     X, file_names = adapter.get_or_compute_embeddings(activeMl_cfg.dataset)

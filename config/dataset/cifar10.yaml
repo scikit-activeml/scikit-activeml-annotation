@@ -7,8 +7,9 @@ data_type:
   _target_: core.schema.DataType
   _args_: [Image]
 
+# TODo dataset no longer determines the adapter
 preprocessor:
-  _target_: core.adapter.SimpleFlattenAdapter
+  _target_: core.adapter.TorchVisionAdapter
 
 embedding:
   _target_:
