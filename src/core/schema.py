@@ -2,6 +2,7 @@ import json
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 
+import numpy as np
 from omegaconf import MISSING
 
 
@@ -71,6 +72,7 @@ class SessionConfig:
 # region Batch State
 @dataclass
 class Batch:
+    # TODO use correct datatypes
     indices: list[int]
     class_probas: np.ndarray  # shape len(indices) x num_of_classes
     progress: int  # progress

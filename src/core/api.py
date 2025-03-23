@@ -52,10 +52,15 @@ def _filter_kwargs(func: Callable, **kwargs) -> Callable:
 
 
 # TODO always load dataset over and over again.
-def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> Callable:
+def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Callable, SklearnClassifier | None]:
     random_state = np.random.RandomState(cfg.random_seed)
 
-    clf: SklearnClassifier = _build_classifier(cfg.model, cfg.dataset, random_state=random_state)
+    model_cfg = cfg.model
+    if model_cfg is None:
+        clf = None
+    else:
+        clf: SklearnClassifier = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+
 
     # max_candidates for subsampling.
     qs: QueryStrategy = instantiate(cfg.query_strategy.definition, random_state=random_state)
@@ -63,9 +68,9 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> Callable:
                                                 random_state=random_state)
 
     # TODO separate query from fitting?
-    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=clf, fit_clf=True,
+    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=clf, fit_clf=False,
                                           discriminator=clf)
-    return query_func
+    return query_func, clf
 
 
 # region API
