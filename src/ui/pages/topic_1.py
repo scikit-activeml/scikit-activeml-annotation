@@ -3,7 +3,7 @@ from dash import html
 
 import dash_bootstrap_components as dbc
 
-from ..components.sidebar import create_sidebar
+from ui.components.sidebar import create_sidebar
 
 dash.register_page(__name__, name="Topics")
 

@@ -19,6 +19,8 @@ class DataLoaderConfig:
 
 @dataclass
 class AdapterConfig:
+    id: str = MISSING
+    display_name: str = MISSING
     definition: str = MISSING
     dataloader: DataLoaderConfig = MISSING
 
@@ -42,6 +44,8 @@ class ModelConfig:
 class QueryStrategyConfig:
     display_name: str = MISSING
     definition: str = MISSING
+    # TODO This could be automated
+    model_agnostic: bool = MISSING
 
 
 @dataclass
@@ -68,6 +72,7 @@ class SessionConfig:
 @dataclass
 class Batch:
     indices: list[int]
+    class_probas: np.ndarray  # shape len(indices) x num_of_classes
     progress: int  # progress
     annotations: list[int]
 

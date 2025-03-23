@@ -232,16 +232,15 @@ def setup_annotations_page(pathname, store_data):
     # info overrides of lower lvl config can be done like so:
     # cfg = compose(config_name="config", overrides=["database.host=remote_server"])
 
-    selections = store_data[StoreKey.SELECTIONS.value]
-
     overrides = {
-        'dataset': dataset_id,
-        'query_strategy': selections['qs_id'],
-        'model': selections['model_id']
+        'dataset': store_data[StoreKey.DATASET_SELECTION.value],
+        'query_strategy': store_data[StoreKey.QUERY_SELECTION.value],
+        '+model': store_data[StoreKey.MODEL_SELECTION.value]  # add model to default list
     }
 
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
+    # TODO Use of definition is not consistent.
     adapter: BaseAdapter = instantiate(activeMl_cfg.adapter.definition)
     print("Selected adapter:", type(adapter))
 
@@ -251,7 +250,7 @@ def setup_annotations_page(pathname, store_data):
 
     if StoreKey.BATCH_STATE.value not in store_data:
         # New Session
-        batch = request_batch(activeMl_cfg, session_cfg, X, file_names)
+        batch = request_query(activeMl_cfg, session_cfg, X, file_names)
         # store_data = {StoreKey.BATCH_STATE.value: batch.to_json()}
         store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
     else:
@@ -264,7 +263,7 @@ def setup_annotations_page(pathname, store_data):
             completed_batch(dataset_id, batch)
 
             # Initialize the next batch
-            batch = request_batch(activeMl_cfg, session_cfg, X, file_names)
+            batch = request_query(activeMl_cfg, session_cfg, X, file_names)
             store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
 
     idx = batch.progress
@@ -311,17 +310,4 @@ def on_button_click(n_clicks: int, value: int, session_data: dict):
     return session_data, None
 
 
-# Helper
-def request_batch(
-    cfg: ActiveMlConfig,
-    session_cfg: SessionConfig,
-    X: np.ndarray,
-    file_names: list[str]
-) -> Batch:
-    query_indices = request_query(cfg, session_cfg, X, file_names)
-    batch_state = Batch(
-        indices=query_indices.tolist(),
-        progress=0,
-        annotations=[None] * len(query_indices)
-    )
-    return batch_state
+

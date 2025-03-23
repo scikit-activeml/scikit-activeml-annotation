@@ -3,8 +3,6 @@ from pathlib import Path
 
 from omegaconf import DictConfig, OmegaConf
 
-###### 
-
 from dataclasses import dataclass, field
 
 import hydra
@@ -20,45 +18,43 @@ from core.schema import ActiveMlConfig
 
 
 def _dict_overrides_to_list(overrides: Dict[str, str]) -> list[str]:
-    out = [None] * len(overrides)
+    out = []
     for idx, (key, value) in enumerate(overrides.items()):
-        out[idx] = f'{key}={value}'
+        if value is not None:
+            out.append(f'{key}={value}')
 
     return out
 
 
 def compose_config(overrides: Dict[str, str] | None = None) -> ActiveMlConfig:
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
-        schema: DictConfig = OmegaConf.structured(ActiveMlConfig)
+        # TODO
+        # schema: DictConfig = OmegaConf.structured(ActiveMlConfig)
 
         if overrides is not None:
             overrides = _dict_overrides_to_list(overrides)
 
-        cfg: DictConfig = compose('config', overrides=overrides)
+        return compose('config', overrides=overrides)
 
-        # Make sure cfg has at least the attributes that schema has.
-        try:
-            # TODO how do get validation right without losing fields?
-            cfg: ActiveMlConfig = OmegaConf.merge(cfg, schema)
-
-            # Allow additional fields
-            OmegaConf.set_struct(cfg, False)
-
-            """ cfg: DictConfig = OmegaConf.merge(cfg, schema)
-            OmegaConf.resolve(cfg)
-            cfg: ActiveMlConfig = OmegaConf.to_object(cfg)
-            print("Converted ActiveMlConfig")
-            print(OmegaConf.to_yaml(cfg)) """
-            return cfg
-        except Exception as e:
-            print(f'Validation of Schema failed because: {e}')
-            exit(-1)
-
-
+        # TODO validation is no longer possible because model could be null
+        # # Make sure cfg has at least the attributes that schema has.
+        # try:
+        #     # TODO how do get validation right without losing fields?
+        #     cfg: ActiveMlConfig = OmegaConf.merge(cfg, schema)
+        #
+        #     # Allow additional fields
+        #     OmegaConf.set_struct(cfg, False)
+        #
+        #     """ cfg: DictConfig = OmegaConf.merge(cfg, schema)
+        #     OmegaConf.resolve(cfg)
+        #     cfg: ActiveMlConfig = OmegaConf.to_object(cfg)
+        #     print("Converted ActiveMlConfig")
+        #     print(OmegaConf.to_yaml(cfg)) """
+        #     return cfg
+        # except Exception as e:
+        #     print(f'Validation of Schema failed because: {e}')
+        #     exit(-1)
 ######################
-
-from pathlib import Path
-from omegaconf import OmegaConf, DictConfig
 
 
 def parse_yaml_config_dir(dir_path: Path | str) -> dict[str, DictConfig]:

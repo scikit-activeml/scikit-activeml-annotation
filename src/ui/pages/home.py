@@ -1,189 +1,256 @@
-from urllib.parse import urlencode
 
-import dash
-from dash import html, dcc, callback, Input, Output, State
-from dash.dependencies import Input, Output
-import dash_bootstrap_components as dbc
+"""
+AppShell with all elements
+
+Navbar, header, aside and footer used together
+"""
+from dash import (
+    dcc,
+    Dash,
+    callback,
+    Input,
+    Output,
+    State,
+    html,
+    MATCH,
+    Patch,
+    no_update,
+    register_page,
+    callback_context,
+)
+from dash.exceptions import PreventUpdate
+
+import dash_mantine_components as dmc
 
 from hydra.utils import instantiate
 
-from core.api import get_dataset_config_options, get_qs_config_options, get_model_config_options
+from core.api import (
+    get_dataset_config_options,
+    get_qs_config_options,
+    get_model_config_options,
+    get_adapter_config_options
+)
+
+# TODO need to use some cache instead of session store for certain things.
+
 from ui.storekey import StoreKey
+from core.api import get_query_cfg_from_id
 
-dash.register_page(__name__, path='/')
+register_page(__name__, path='/')
+app = Dash(
+    __name__,
+    prevent_initial_callbacks=True,
+    # suppress_callback_exceptions=True
+)
 
-# TODO selections should come after each other dataset -> adapter -> query -> optional(Model)
-# info path variables and query string are captured from the URL and passed into kwargs
-def layout(**kwargs):
-    # TODO load other options aswell.
+
+def _create_dataset_selection() -> dmc.RadioGroup:
     dataset_options = get_dataset_config_options()
-    model_options = get_model_config_options()
-    qs_options = get_qs_config_options()
+    data = [(cfg_name, f'{cfg.display_name} - ({instantiate(cfg.data_type).value})')
+            for cfg_name, cfg in dataset_options.items()]
 
+    # TODO repeated code.
     return (
-        dbc.Container(
-            [
-                dcc.Location(id='url-home', refresh=True),
-
-                # Top Text
-                dbc.Row(
-                    dbc.Col(
-                        [
-                            html.H1("Welcome to scikit-activeml-annotation", className='text-center'),
-                            html.H2('Configure your Pipeline', className='text-center'),
-                        ],
-                        width="auto",
-                    ),
-                    justify="center",
-                    class_name='my-5',
-                ),
-
-                # Configure Section
-                dbc.Row(
-                    dbc.Col(
-                        [
-                            dbc.Accordion(
-                                [
-                                    # Dataset selection
-                                    dbc.AccordionItem(
-                                        [
-                                            dcc.RadioItems(
-                                                id="dataset-select",
-                                                options=[
-                                                    {
-                                                        "label": f"{cfg.display_name} - ({instantiate(cfg.data_type).value})",
-                                                        "value": f"{cfg_name}"
-                                                    }
-                                                    for cfg_name, cfg in dataset_options.items()
-                                                ],
-                                                value=None,  # Default selection
-                                                className="form-check mx-1",
-                                                # Adds Bootstrap form-check styling to the radio items
-                                                inputStyle={'margin-right': '4px'}
-                                            ),
-                                        ],
-                                        title="Select Dataset",
-                                        id='dataset-accordion-home'
-                                    ),
-
-                                    # ActiveMl Model selection
-                                    dbc.AccordionItem(
-                                        [
-                                            dcc.RadioItems(
-                                                id="model-select",
-                                                options=[
-                                                    {"label": f"{model_cfg.display_name}", "value": f"{cfg_name}"}
-                                                    for cfg_name, model_cfg in model_options.items()
-                                                ],
-                                                value=None,  # Default selection
-                                                className="form-check mx-1",
-                                                # Adds Bootstrap form-check styling to the radio items
-                                                inputStyle={'margin-right': '4px'}
-                                            ),
-                                        ],
-                                        title="Select active ML Model",
-                                        id='model-accordion-home'
-                                    ),
-
-                                    # Query Strategy selection
-                                    dbc.AccordionItem(
-                                        [
-                                            dcc.RadioItems(
-                                                id="qs-select",
-                                                options=[
-                                                    {"label": f"{query_cfg.display_name}", "value": f"{cfg_name}"}
-                                                    for cfg_name, query_cfg in qs_options.items()
-                                                ],
-                                                value=None,  # Default selection
-                                                className="form-check mx-1",
-                                                # Adds Bootstrap form-check styling to the radio items
-                                                inputStyle={'margin-right': '4px'}
-                                            ),
-                                        ],
-                                        title="Select Query Strategy",
-                                        id='qs-accordion-home'
-                                    )
-                                ],
-                                id='accordion-home',
-                                active_item=False,
-                                class_name='mb-3',
-                                always_open=True,
-
-                                style={
-                                    'overflowY': 'scroll',
-                                    "maxHeight": "50vh"  # TODO hardcoded scrolling
-                                }
-                            ),
-
-                            dbc.Button('Confirm Selection', n_clicks=0, id='select-button', color='dark',
-                                       class_name='w-100', disabled=True),
-                        ],
-                        width=4
-                    ),
-                    justify='center',
-                    class_name='my-20'
-                )
-            ],
-            # fluid=True
+        dmc.RadioGroup(
+            # TODO needs to be unique across multiple pages?
+            id='radio-selection',
+            children=dmc.Stack([dmc.Radio(label=l, value=k) for k, l in data]),
+            value=None,
+            size="sm",
+            style={'border': '2px solid red'}
         )
     )
 
 
+layout = dmc.AppShell(
+    [
+        dmc.AppShellMain(
+            dmc.Center(
+                [
+                    url_home := dcc.Location(id='url_home', refresh=True),
+                    dmc.Stack(
+                        [
+                            dmc.Stack(
+                                [
+                                    dmc.Title("Welcome to scikit-activeml-annotation", order=1),
+                                    dmc.Title("Configure your annotation pipeline", order=2)
+                                ],
+                                align='center'
+                            ),
+                            dmc.Flex(
+                                [
+                                    stepper := dmc.Stepper(
+                                        [
+                                            dmc.StepperStep(label="Dataset", description="Select a Dataset", loading=True),
+                                            dmc.StepperStep(label="Adapter", description="Select an Adapter"),
+                                            dmc.StepperStep(label="Query Strategy", description="Select a Query Strategy"),
+                                            dmc.StepperStep(label="Model", description="Select a model (if required by query)"),
+                                        ],
+                                        id='stepper',
+                                        active=0,
+                                        orientation='vertical',
+                                        iconSize=30,
+                                        style={'border': '2px solid red'}
+                                    ),
+                                    selection_container := dmc.Container(
+                                        _create_dataset_selection(),
+                                        id='selection_container'
+                                        # Current selection injected here
+                                    )
+                                ]
+                            ),
+                            dmc.Group(
+                                [
+                                    back_button := dmc.Button("Back", id='back_button'),
+                                    confirm_button := dmc.Button("Confirm", id='confirm_button', disabled=True)
+                                ]
+                            )
+                        ],
+                        align='center',
+                        style={'border': '2px solid gold'}
+                    )
+                ],
+                style={'height': '100%'}
+            )
+        ),
+        # dmc.AppShellAside("Aside", p="md"),
+        # dmc.AppShellFooter("Footer", p="md"),
+    ],
+    padding="md",
+    id="appshell",
+)
+
+
+# TODO Can I split this off into 2 callbacks?
+# Callback is doing too much.
 @callback(
-    Output('url-home', 'pathname'),
-    # Output('url-home', 'search'),
+    Output(selection_container, 'children'),
     Output('session-store', 'data'),
-    Input('select-button', 'n_clicks'),
-    State('dataset-select', 'value'),
-    State('model-select', 'value'),
-    State('qs-select', 'value'),
+    Output(stepper, 'active', allow_duplicate=True),
+    Input(stepper, 'active'),
     State('session-store', 'data'),
+    State('radio-selection', 'value'),
     prevent_initial_call=True,
 )
-def on_button_confirm_home(n_clicks: int, dataset_id, model_id, qs_id, store_data):
-    if n_clicks == 0:
-        return dash.no_update, dash.no_update  # stay on the same page
+def on_step_change(step, session_data, value):
+    print(f'on_step_change callback with step={step}')
 
-    dataset_name = dataset_id
-    print("[Home] Selected dataset: ", dataset_id, model_id, qs_id)
+    print('selection value:', value)
+    print()
+    if session_data is None:
+        session_data = {}
 
-    if store_data is None:
-        store_data = {}
+    data = None
+    # TODO this can be simplified
+    if step == 0:
+        return _create_dataset_selection(), session_data, no_update
+    if step == 1:
+        # Dataset has been selected
+        session_data[StoreKey.DATASET_SELECTION.value] = value
 
-    # Use your enum key for the batch state
-    store_data[StoreKey.SELECTIONS.value] = {
-        'dataset_id': dataset_id,
-        'model_id': model_id,
-        'qs_id': qs_id,
-    }
+        adapter_options = get_adapter_config_options()
+        data = [(cfg_name, cfg.display_name) for cfg_name, cfg in adapter_options.items()]
+    if step == 2:
+        # Adapter has been selected
+        session_data[StoreKey.ADAPTER_SELECTION.value] = value
 
-    return f'/annotation/{dataset_name}', store_data
+        qs_options = get_qs_config_options()
+        data = [(cfg_name, cfg.display_name) for cfg_name, cfg in qs_options.items()]
+
+    if step == 3:
+        # Query Strategy has been selected
+
+        # TODO qs_id
+        # Rename query_id to
+        query_id = value
+        session_data[StoreKey.QUERY_SELECTION.value] = query_id
+
+        # TODO write helper function for this.
+        qs_cfg = get_query_cfg_from_id(query_id)
+
+        if qs_cfg.model_agnostic:
+            # Query strategy is model agnostic aka no model is needed.
+            session_data[StoreKey.MODEL_SELECTION.value] = None
+            return no_update, session_data, step + 1
+
+        # Query strategy relies on a model
+        model_options = get_model_config_options()
+        data = [(cfg_name, cfg.display_name) for cfg_name, cfg in model_options.items()]
+
+    if step == 4:
+        session_data[StoreKey.MODEL_SELECTION.value] = value
+        return no_update, session_data, no_update
+
+    # TODO add helper method for that?
+
+    children = dmc.RadioGroup(
+        # TODO needs to be unique across multiple pages?
+        id='radio-selection',
+        children=dmc.Stack([dmc.Radio(label=l, value=k) for k, l in data]),
+        value=None,
+        size="sm",
+        style={'border': '2px solid red'}
+    )
+    return children, session_data, no_update
 
 
-# Validation
 @callback(
-    Output('select-button', 'disabled'),
-    Input('dataset-select', 'value'),
+    Output(stepper, 'active'),
+    Input(back_button, 'n_clicks'),
+    Input(confirm_button, 'n_clicks'),
+    State(stepper, 'active'),
     prevent_initial_call=True
 )
-def enable_button(value):
-    if value is None:
-        # No dataset was selected. Leave the button in the disabled state.
-        return True  # , f'Dataset: {value}', []
+def on_button_click(_, __, step):
+    print("on_button_click callback")
+    # Dash context to figure out which input triggered the callback.
+    button_clicked = callback_context.triggered_id
+    is_confirm_button = button_clicked == "confirm_button"
 
-    return False  # , f'Dataset: {value}', []
+    if is_confirm_button:
+        if step >= 4:
+            raise PreventUpdate
+        return step + 1
+    else:
+        return max(step - 1, 0)
 
 
-# Accordion
-# TODO
+@callback(
+    Output(confirm_button, 'disabled'),
+    Input('radio-selection', 'value'),
+    prevent_initial_call=True
+)
+def validate_confirm_button(radio_selection):
+    print("confirm_button_validation callback")
+    if radio_selection is None:
+        return True
+    else:
+        return False
+
+
+@callback(
+    Output(url_home, 'pathname'),
+    Input(confirm_button, 'n_clicks'),
+    State(stepper, 'active'),
+    State('session-store', 'data'),
+    prevent_initial_call=True
+)
+def go_to_annot_page(_, step, session_data):
+    if step < 4:
+        raise PreventUpdate
+
+    dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
+    return f'/annotation/{dataset_id}'
+
+
 # @callback(
-#     Output('dataset-accordion-home', 'title'),
-#     Output('accordion-home', 'active_item'),
-#     State('accordion-home', 'active_item'),
-#     Input('dataset-select', 'value'),
-#     prevent_initial_call=True
+#     Output({'type': 'stepper-step', 'index': MATCH}, 'description'),
+#     Input({'type': 'stepper', 'index': MATCH}, 'active'),
+#     State('radio-selection', 'label')
 # )
-# def collapse_accordion_item(active_item, value):
-#     print(active_item)
-#     print(value)
-#     return f'Dataset: {value}', []
+# def update_step_description(step, selected_label):
+#     return selected_label
+
+
+# if __name__ == "__main__":
+#     app.run(debug=True, port=9999)

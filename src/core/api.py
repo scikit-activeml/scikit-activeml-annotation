@@ -12,11 +12,11 @@ from skactiveml.base import QueryStrategy
 from core.schema import *
 from core.adapter import *
 
-from util.deserialize import parse_yaml_config_dir
-from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, MODEL_CONFIG_PATH
+from util.deserialize import parse_yaml_config_dir, parse_yaml_file
+from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, MODEL_CONFIG_PATH, ADAPTER_CONFIG_PATH
 
 
-def _build_classifier(
+def _build_activeml_classifier(
     model_cfg: ModelConfig,
     dataset_cfg: DatasetConfig,
     random_state: np.random.RandomState
@@ -24,10 +24,12 @@ def _build_classifier(
     n_classes = len(dataset_cfg.label_names)
     model_package_name = str(model_cfg.definition._target_).split(".")[0]
     if "skactiveml" == model_package_name:
+        # Classifier is already wrapped
         return instantiate(model_cfg.definition, random_state=random_state, classes=np.arange(n_classes))
 
     else:
         clf = instantiate(model_cfg.definition)
+        # Wrap the classifier with skactiveml wrapper to allow it to work with missing labels.
         return SklearnClassifier(clf, random_state=random_state, classes=np.arange(n_classes))
 
 
@@ -80,20 +82,57 @@ def get_model_config_options() -> dict[str, ModelConfig]:
     return parse_yaml_config_dir(MODEL_CONFIG_PATH)
 
 
+def get_adapter_config_options() -> dict[str, AdapterConfig]:
+    return parse_yaml_config_dir(ADAPTER_CONFIG_PATH)
+
+
+def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
+    return parse_yaml_file(QS_CONFIG_PATH / f'{query_id}.yaml')
+
+
 def request_query(
     cfg: ActiveMlConfig,
     session_cfg: SessionConfig,
     X: np.ndarray,
     file_names: list[str],
-) -> np.ndarray:
-
+) -> Batch:
     labels = _load_or_init_annotations(X, file_names, cfg.dataset.id)
-
-    query_func = _setup_query(cfg, session_cfg)
-    print("Querying the active ML model ...")
+    query_func, clf = _setup_query(cfg, session_cfg)
     # If the query function expects an array, create one based on ordered indices.
+
+    print("shape of X in request_query")
+    print(X.shape)
+    print(labels.shape)
+
+    # TODO fitting classifier here might negate Subsampling QS wrapper
+
+    if clf is not None:
+        print("Fitting the classifier")
+        print(type(clf))
+        clf.fit(X, labels)
+
+    print("Querying the active ML model ...")
     query_indices = query_func(X=X, y=labels)
-    return query_indices
+
+    query_samples = X[query_indices]
+
+    if clf is None:
+        class_probas = None
+    else:
+        class_probas = clf.predict_proba(query_samples)
+        print(class_probas.shape)
+
+    print(class_probas)
+
+    batch_state = Batch(
+        indices=query_indices.tolist(),
+        class_probas=class_probas.tolist(),
+        progress=0,
+        annotations=[None] * len(query_indices)
+    )
+    print("New Batch decided")
+
+    return batch_state
 
 
 def _deserialize_annotations(json_path: Path) -> list[Annotation]:

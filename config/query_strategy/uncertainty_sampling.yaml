@@ -4,3 +4,4 @@ definition:
   _target_: skactiveml.pool.UncertaintySampling
   method: 'entropy'
 
+model_agnostic: False
