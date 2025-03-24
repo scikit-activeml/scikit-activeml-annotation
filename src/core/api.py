@@ -131,7 +131,7 @@ def request_query(
     query_samples = X[query_indices]
 
     if clf is None:
-        class_probas = None
+        class_probas = np.empty(0)
     else:
         class_probas = clf.predict_proba(query_samples)
         print(class_probas.shape)
