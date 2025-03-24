@@ -1,16 +1,13 @@
-
-"""
-AppShell with all elements
-
-Navbar, header, aside and footer used together
-"""
 from dash import (
     dcc,
     Dash,
     callback,
+    clientside_callback,
+    ClientsideFunction,
     Input,
     Output,
     State,
+    ALL,
     html,
     MATCH,
     Patch,
@@ -44,10 +41,11 @@ app = Dash(
 )
 
 
-def _create_dataset_selection() -> dmc.RadioGroup:
+def _create_dataset_selection(preselect):
+    print("_create data selection invoked")
     dataset_options = get_dataset_config_options()
-    data = [(cfg_name, f'{cfg.display_name} - ({instantiate(cfg.data_type).value})')
-            for cfg_name, cfg in dataset_options.items()]
+    data = [(cfg.id, f'{cfg.display_name} - ({instantiate(cfg.data_type).value})')
+            for cfg in dataset_options]
 
     # TODO repeated code.
     return (
@@ -55,11 +53,53 @@ def _create_dataset_selection() -> dmc.RadioGroup:
             # TODO needs to be unique across multiple pages?
             id='radio-selection',
             children=dmc.Stack([dmc.Radio(label=l, value=k) for k, l in data]),
-            value=None,
+            value=preselect,
             size="sm",
             style={'border': '2px solid red'}
         )
     )
+
+
+# Helper function to build UI for different steps
+def build_step_ui(step, session_data):
+    if step == 0:
+        return _create_dataset_selection(session_data.get(StoreKey.DATASET_SELECTION.value))
+    elif step == 1:
+        return create_radio_group(get_adapter_config_options(), session_data.get(StoreKey.ADAPTER_SELECTION.value))
+    elif step == 2:
+        return create_radio_group(get_qs_config_options(), session_data.get(StoreKey.QUERY_SELECTION.value))
+    elif step == 3:
+        return create_radio_group(get_model_config_options(), session_data.get(StoreKey.MODEL_SELECTION.value))
+    return None
+
+
+# Helper function to create a radio group
+def create_radio_group(options, preselect):
+    formatted_options = [(cfg.id, cfg.display_name) for cfg in options]
+    return dmc.RadioGroup(
+        id='radio-selection',
+        children=dmc.Stack([dmc.Radio(label=l, value=k) for k, l in formatted_options]),
+        value=preselect,
+        size="sm",
+        style={'border': '2px solid red'},
+    )
+
+
+# region Layout
+stepper = dmc.Stepper(
+    [
+        dmc.StepperStep(id={'type': 'step', 'index': 0}, label="Dataset", description="Select a Dataset"),  # loading=True),
+        dmc.StepperStep(id={'type': 'step', 'index': 1}, label="Adapter", description="Select an Adapter"),
+        dmc.StepperStep(id={'type': 'step', 'index': 2}, label="Query Strategy", description="Select a Query Strategy"),
+        dmc.StepperStep(id={'type': 'step', 'index': 3}, label="Model", description="Select a model (if required by query)"),
+    ],
+    id='stepper',
+    active=0,
+    # TODO consider using horizontal orientation
+    orientation='vertical',
+    iconSize=30,
+    style={'border': '2px solid red'}
+)
 
 
 layout = dmc.AppShell(
@@ -79,23 +119,16 @@ layout = dmc.AppShell(
                             ),
                             dmc.Flex(
                                 [
-                                    stepper := dmc.Stepper(
-                                        [
-                                            dmc.StepperStep(label="Dataset", description="Select a Dataset", loading=True),
-                                            dmc.StepperStep(label="Adapter", description="Select an Adapter"),
-                                            dmc.StepperStep(label="Query Strategy", description="Select a Query Strategy"),
-                                            dmc.StepperStep(label="Model", description="Select a model (if required by query)"),
-                                        ],
-                                        id='stepper',
-                                        active=0,
-                                        orientation='vertical',
-                                        iconSize=30,
-                                        style={'border': '2px solid red'}
-                                    ),
-                                    selection_container := dmc.Container(
-                                        _create_dataset_selection(),
-                                        id='selection_container'
-                                        # Current selection injected here
+                                    stepper,
+                                    dcc.Loading(
+                                        selection_container := dmc.Container(
+                                            # Current selection injected here
+                                            _create_dataset_selection(None),
+                                            id='selection_container',
+                                            # TODO use Mantine styling for this.
+                                            style={"width": "15vw", "whiteSpace": "normal", "wordWrap": "break-word"}
+                                        ),
+                                        type='circle',
                                     )
                                 ]
                             ),
@@ -119,138 +152,148 @@ layout = dmc.AppShell(
     padding="md",
     id="appshell",
 )
+# endregion
 
 
-# TODO Can I split this off into 2 callbacks?
-# Callback is doing too much.
 @callback(
-    Output(selection_container, 'children'),
-    Output('session-store', 'data'),
-    Output(stepper, 'active', allow_duplicate=True),
-    Input(stepper, 'active'),
-    State('session-store', 'data'),
+    Input(confirm_button, 'n_clicks'),
     State('radio-selection', 'value'),
-    prevent_initial_call=True,
+    State(stepper, 'active'),
+    State('session-store', 'data'),
+    output=dict(
+        children=Output(selection_container, 'children', allow_duplicate=True),
+        session_data=Output('session-store', 'data'),
+        active=Output(stepper, 'active', allow_duplicate=True)
+    ),
+    prevent_initial_call=True
 )
-def on_step_change(step, session_data, value):
-    print(f'on_step_change callback with step={step}')
+def handle_confirm(
+    _,
+    radio_value,
+    current_step,
+    session_data
+):
+    print(f"handle_confirm triggered at step {current_step} with radio_value: {radio_value}")
 
-    print('selection value:', value)
-    print()
+    if current_step >= 4 or radio_value is None:
+        raise PreventUpdate
+
     if session_data is None:
         session_data = {}
 
-    data = None
-    # TODO this can be simplified
-    if step == 0:
-        return _create_dataset_selection(), session_data, no_update
-    if step == 1:
-        # Dataset has been selected
-        session_data[StoreKey.DATASET_SELECTION.value] = value
+    new_step = current_step
 
-        adapter_options = get_adapter_config_options()
-        data = [(cfg_name, cfg.display_name) for cfg_name, cfg in adapter_options.items()]
-    if step == 2:
-        # Adapter has been selected
-        session_data[StoreKey.ADAPTER_SELECTION.value] = value
+    if current_step == 0:
+        session_data[StoreKey.DATASET_SELECTION.value] = radio_value
+        new_step = 1
 
-        qs_options = get_qs_config_options()
-        data = [(cfg_name, cfg.display_name) for cfg_name, cfg in qs_options.items()]
+    elif current_step == 1:
+        session_data[StoreKey.ADAPTER_SELECTION.value] = radio_value
+        new_step = 2
 
-    if step == 3:
-        # Query Strategy has been selected
-
-        # TODO qs_id
-        # Rename query_id to
-        query_id = value
-        session_data[StoreKey.QUERY_SELECTION.value] = query_id
-
-        # TODO write helper function for this.
-        qs_cfg = get_query_cfg_from_id(query_id)
-
+    elif current_step == 2:
+        session_data[StoreKey.QUERY_SELECTION.value] = radio_value
+        qs_cfg = get_query_cfg_from_id(radio_value)
         if qs_cfg.model_agnostic:
-            # Query strategy is model agnostic aka no model is needed.
             session_data[StoreKey.MODEL_SELECTION.value] = None
-            return no_update, session_data, step + 1
+            new_step = 4  # Skip model selection if model agnostic
+        else:
+            new_step = 3
 
-        # Query strategy relies on a model
-        model_options = get_model_config_options()
-        data = [(cfg_name, cfg.display_name) for cfg_name, cfg in model_options.items()]
+    elif current_step == 3:
+        session_data[StoreKey.MODEL_SELECTION.value] = radio_value
+        new_step = 4
 
-    if step == 4:
-        session_data[StoreKey.MODEL_SELECTION.value] = value
-        return no_update, session_data, no_update
-
-    # TODO add helper method for that?
-
-    children = dmc.RadioGroup(
-        # TODO needs to be unique across multiple pages?
-        id='radio-selection',
-        children=dmc.Stack([dmc.Radio(label=l, value=k) for k, l in data]),
-        value=None,
-        size="sm",
-        style={'border': '2px solid red'}
+    return dict(
+        children=build_step_ui(new_step, session_data),
+        session_data=session_data,
+        active=new_step
     )
-    return children, session_data, no_update
 
 
+# Back button callback
 @callback(
-    Output(stepper, 'active'),
     Input(back_button, 'n_clicks'),
-    Input(confirm_button, 'n_clicks'),
     State(stepper, 'active'),
+    State('session-store', 'data'),
+    output=dict(
+        children=Output(selection_container, 'children'),
+        active=Output(stepper, 'active')
+    ),
     prevent_initial_call=True
 )
-def on_button_click(_, __, step):
-    print("on_button_click callback")
-    # Dash context to figure out which input triggered the callback.
-    button_clicked = callback_context.triggered_id
-    is_confirm_button = button_clicked == "confirm_button"
-
-    if is_confirm_button:
-        if step >= 4:
-            raise PreventUpdate
-        return step + 1
-    else:
-        return max(step - 1, 0)
+def handle_back(
+    _,
+    current_step,
+    session_data
+):
+    print("handle_back callback")
+    next_step = max(current_step - 1, 0)
+    return dict(
+        children=build_step_ui(next_step, session_data),
+        active=next_step
+    )
 
 
 @callback(
-    Output(confirm_button, 'disabled'),
-    Input('radio-selection', 'value'),
-    prevent_initial_call=True
-)
-def validate_confirm_button(radio_selection):
-    print("confirm_button_validation callback")
-    if radio_selection is None:
-        return True
-    else:
-        return False
-
-
-@callback(
-    Output(url_home, 'pathname'),
     Input(confirm_button, 'n_clicks'),
     State(stepper, 'active'),
     State('session-store', 'data'),
+    output=dict(
+        pathname=Output(url_home, 'pathname')
+    ),
     prevent_initial_call=True
 )
-def go_to_annot_page(_, step, session_data):
-    if step < 4:
+def go_to_annot_page(
+    _,
+    current_step,
+    session_data
+):
+    print("go_to_annotation_page callback")
+    if current_step < 4:
         raise PreventUpdate
 
     dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
-    return f'/annotation/{dataset_id}'
+    return dict(pathname=f'/annotation/{dataset_id}')
+
+
+clientside_callback(
+    ClientsideFunction(namespace='clientside', function_name='validateConfirmButton'),
+    Output(confirm_button, "disabled"),
+    Input("radio-selection", "value"),
+)
+
+# Alternative
+# @callback(
+#     Output(confirm_button, 'disabled'),
+#     Input('radio-selection', 'value'),
+#     prevent_initial_call=True
+# )
+# def validate_confirm_button(radio_selection):
+#     print("confirm_button_validation callback")
+#     if radio_selection is None:
+#         return True
+#     else:
+#         return False
 
 
 # @callback(
-#     Output({'type': 'stepper-step', 'index': MATCH}, 'description'),
-#     Input({'type': 'stepper', 'index': MATCH}, 'active'),
-#     State('radio-selection', 'label')
+#     Output({'type': 'step', 'index': MATCH}, 'loading'),
+#     Output({'type': 'step', 'index': MATCH}, 'description'),
+#     Input('stepper', 'active'),
+#     State({'type': 'step', 'index': MATCH}, 'id'),
+#     prevent_initial_call=True
 # )
-# def update_step_description(step, selected_label):
-#     return selected_label
+# def update_individual_step(active, step_id_dict):
+#     step_id = step_id_dict["index"]
+#     print("step_id", step_id)
+#     print(type(step_id))
+#
+#     # step_id is a dictionary like {'type': 'step', 'index': <number>}
+#     # You can also inspect callback_context if needed:
+#     if active != step_id:
+#         raise PreventUpdate
+#
+#     print("active matches step_id?")
+#     return True, "IS this working"
 
-
-# if __name__ == "__main__":
-#     app.run(debug=True, port=9999)
