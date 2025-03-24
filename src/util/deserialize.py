@@ -57,7 +57,7 @@ def compose_config(overrides: Dict[str, str] | None = None) -> ActiveMlConfig:
 ######################
 
 
-def parse_yaml_config_dir(dir_path: Path | str) -> dict[str, DictConfig]:
+def parse_yaml_config_dir(dir_path: Path | str) -> list[DictConfig]:
     """
     Parses YAML config files in a directory and returns a dictionary mapping
     file names (without extension) to their DictConfig objects.
@@ -72,12 +72,16 @@ def parse_yaml_config_dir(dir_path: Path | str) -> dict[str, DictConfig]:
     if isinstance(dir_path, str):
         dir_path = Path(dir_path)
 
-    configs = {}
+    configs = []
     for path in dir_path.iterdir():
         if path.is_file() and path.suffix.lower() == '.yaml':
             try:
-                config_name = path.stem  # Get file name without extension
-                configs[config_name] = OmegaConf.load(path)
+                # TODO allow user to not have to specify id in every config
+                config = OmegaConf.load(path)
+                # # Use file name as id
+                # file_id = path.stem
+                # OmegaConf.update(config, "id", file_id, merge=True)
+                configs.append(config)
             except Exception as e:
                 print(f"Failed to parse YAML file {path}: {e}")
 

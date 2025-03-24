@@ -84,20 +84,19 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
 
 
 # region API
-def get_dataset_config_options() -> dict[str, DatasetConfig]:
-    config_options: dict[str, DatasetConfig] = parse_yaml_config_dir(DATA_CONFIG_PATH)
-    return config_options
+def get_dataset_config_options() -> list[DatasetConfig]:
+    return parse_yaml_config_dir(DATA_CONFIG_PATH)
 
 
-def get_qs_config_options() -> dict[str, QueryStrategyConfig]:
+def get_qs_config_options() -> list[QueryStrategyConfig]:
     return parse_yaml_config_dir(QS_CONFIG_PATH)
 
 
-def get_model_config_options() -> dict[str, ModelConfig]:
+def get_model_config_options() -> list[ModelConfig]:
     return parse_yaml_config_dir(MODEL_CONFIG_PATH)
 
 
-def get_adapter_config_options() -> dict[str, AdapterConfig]:
+def get_adapter_config_options() -> list[AdapterConfig]:
     return parse_yaml_config_dir(ADAPTER_CONFIG_PATH)
 
 
