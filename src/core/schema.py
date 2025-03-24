@@ -15,6 +15,7 @@ class DataType(Enum):
 # region Hydra Config Schema
 @dataclass
 class DataLoaderConfig:
+    id: str = MISSING
     definition: str = MISSING
 
 
@@ -37,12 +38,14 @@ class DatasetConfig:
 
 @dataclass
 class ModelConfig:
+    id: str = MISSING
     display_name: str = MISSING
     definition: str = MISSING
 
 
 @dataclass
 class QueryStrategyConfig:
+    id: str = MISSING
     display_name: str = MISSING
     definition: str = MISSING
     # TODO This could be automated

@@ -1,3 +1,4 @@
+id: "logistic_regression"
 display_name: "Logistic Regression"
 definition:
   _target_: sklearn.linear_model.LogisticRegression

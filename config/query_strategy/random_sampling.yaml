@@ -1,3 +1,4 @@
+id: "random_sampling"
 display_name: "Random Sampling"
 definition:
   _target_: skactiveml.pool.RandomSampling
