@@ -5,16 +5,3 @@ n_classes: 20
 data_type: 
   _target_: core.schema.DataType
   _args_: [Text]
-
-adapter_cfg:
-  _target_: core.adapters.SklearnTextDataAdapter
-  dataloader:
-    _target_: sklearn.dataset.fetch_20newsgroups
-    subset: train
-    shuffle: False # TODO shuffling without cache is bad.
-
-raw_data:
-  _target_: sklearn.dataset.fetch_20newsgroups
-  return_X_y: True
-  shuffle: False
-  subset: train

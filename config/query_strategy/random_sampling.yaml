@@ -1,6 +1,7 @@
 id: "random_sampling"
 display_name: "Random Sampling"
+model_agnostic: True
+
 definition:
   _target_: skactiveml.pool.RandomSampling
 
-model_agnostic: True

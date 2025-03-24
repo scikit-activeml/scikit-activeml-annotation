@@ -7,5 +7,3 @@ data_type:
   _target_: core.schema.DataType
   _args_: [Image]
 
-preprocessor:
-  _target_: core.adapter.TorchVisionAdapter

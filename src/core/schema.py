@@ -1,9 +1,12 @@
+from typing import Any
 import json
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 
 import numpy as np
 from omegaconf import MISSING
+
+from core.adapter import BaseAdapter
 
 
 class DataType(Enum):
@@ -16,15 +19,13 @@ class DataType(Enum):
 @dataclass
 class DataLoaderConfig:
     id: str = MISSING
-    definition: str = MISSING
 
 
 @dataclass
 class AdapterConfig:
     id: str = MISSING
     display_name: str = MISSING
-    definition: str = MISSING
-    dataloader: DataLoaderConfig = MISSING
+    definition: BaseAdapter = MISSING
 
 
 @dataclass
@@ -47,9 +48,9 @@ class ModelConfig:
 class QueryStrategyConfig:
     id: str = MISSING
     display_name: str = MISSING
-    definition: str = MISSING
     # TODO This could be automated
     model_agnostic: bool = MISSING
+    definition: str = MISSING
 
 
 @dataclass
@@ -59,7 +60,6 @@ class ActiveMlConfig:
     dataset: DatasetConfig = field(default_factory=DatasetConfig)
     query_strategy: QueryStrategyConfig = field(default_factory=QueryStrategyConfig)
     adapter: AdapterConfig = field(default_factory=AdapterConfig)
-
 # endregion
 
 

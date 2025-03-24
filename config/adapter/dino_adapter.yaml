@@ -1,12 +1,11 @@
 id: "dino_adapter"
 display_name: "Dino Adapter vitb14"
 
-# TODO always use definition in configs that are used for instantiate
+data_type:
+  _target_: core.schema.DataType
+  _args_: [Image]
+
 definition:
   _target_: core.adapter.TorchVisionAdapter
   model_variant: "dinov2_vitb14"
   batch_size: 8
-
-data_type:
-  _target_: core.schema.DataType
-  _args_: [Image]

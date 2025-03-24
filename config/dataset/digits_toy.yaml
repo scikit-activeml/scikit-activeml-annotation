@@ -7,30 +7,4 @@ data_type:
   _target_: core.schema.DataType
   _args_: [Image]
 
-#adapter:
-#  _target_: core.adapter.SimpleFlattenAdapter
-#  method: "calculation"
-#  batch_size: 8
-
-
-embedding:
-  _target_:
-
-
-
-transforms:
-  _target_:
-
-
-#adapter_cfg:
-#  _target_: core.adapters.SklearnImageDataAdapter
-#  dataloader:
-#    _target_: sklearn.dataset.load_digits
-#    return_X_y: False
-
-#raw_data:
-#  _target_: sklearn.dataset.load_digits
-#  n_class: 10
-#  return_X_y: True
-#  as_frame: False
 

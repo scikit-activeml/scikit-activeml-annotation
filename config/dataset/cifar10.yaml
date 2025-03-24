@@ -6,22 +6,3 @@ data_path: 'cifar10_images'
 data_type:
   _target_: core.schema.DataType
   _args_: [Image]
-
-# TODo dataset no longer determines the adapter
-preprocessor:
-  _target_: core.adapter.TorchVisionAdapter
-
-embedding:
-  _target_:
-
-
-transforms:
-  _target_:
-
-train_params:
-  train: True
-eval_params:
-  train: False 
-num_workers: 4
-dataloader_batch_size: 32
-n_classes: 10
