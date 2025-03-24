@@ -1,3 +1,5 @@
+import argparse
+import os
 import logging
 
 import dash
@@ -5,15 +7,21 @@ from dash import (
     Dash,
     Input,
     Output,
+    State,
     html,
-    dcc
+    dcc,
+    callback
 )
+from dash.exceptions import PreventUpdate
 
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
+import dash_loading_spinners
+
+from werkzeug.middleware.profiler import ProfilerMiddleware
 
 from ui.components.navbar import create_navbar
-from util.path import PAGES_PATH, DATA_CONFIG_PATH
+from util.path import PAGES_PATH, DATA_CONFIG_PATH, PROFILER_PATH, ASSETS_PATH
 
 from util.deserialize import parse_yaml_config_dir
 
@@ -25,8 +33,11 @@ app = Dash(
     # Allows to register callbacks on components that will be created by other callbacks,
     # and are therefore not in the initial layout.
     suppress_callback_exceptions=True, 
-    prevent_initial_callbacks=True, 
+    prevent_initial_callbacks=True,
+    assets_folder=str(ASSETS_PATH),
+    title="scikit-activeml-annotation",
 )
+
 
 app.layout = (
     dmc.MantineProvider(
@@ -34,13 +45,62 @@ app.layout = (
             dcc.Store('session-store', storage_type='session'),
             create_navbar(),
             dmc.Container(
-                dash.page_container,
+                [
+                    # TODO only use spinnger on home screen. It does not seem to work for other screen.
+                    app_spinner_container := html.Div(
+                        loading_page_spinner := dash_loading_spinners.Pacman(
+                            fullscreen=True,
+                            id='loading_page_spinner'
+                        ),
+                        id='app_spinner_container'
+                    ),
+
+                    page_content_container := dmc.Container(
+                        dash.page_container,
+                        id='page_content_container'
+                    )
+                ],
                 style={'border': '5px dashed red'}
-            )
+            ),
         ]
     )
 )
 
 
+@callback(
+    Output(app_spinner_container, 'children'),
+    Input(page_content_container, 'loading_state'),
+    State(app_spinner_container, 'children'),
+)
+def hide_page_loading_spinner(
+    _,
+    children,
+):
+    print("hide_page_loading_spinner")
+    if children:
+        return None
+    raise PreventUpdate
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run the application with or without profiling.")
+    parser.add_argument("--profile", action="store_true", help="Enable profiling mode")
+    args = parser.parse_args()
+
+    if args.profile:
+        # TODO Profiler should create a new dir with timestamp for the next log.
+        app.server.config["PROFILE"] = True
+        app.server.wsgi_app = ProfilerMiddleware(
+            app.server.wsgi_app,
+            sort_by=("cumtime", "tottime"),
+            restrictions=[20],
+            profile_dir=str(PROFILER_PATH)
+        )
+        print("Starting app in profiler mode")
+        app.run(debug=True, dev_tools_hot_reload=False)
+    else:
+        app.run(debug=True)
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    main()

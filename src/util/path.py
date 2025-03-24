@@ -5,8 +5,10 @@ ROOT_PATH = Path.cwd()
 
 OUTPUT_PATH = ROOT_PATH / 'output'
 
+ASSETS_PATH = ROOT_PATH / 'assets'
 CONFIG_PATH = ROOT_PATH / 'config'
 ANNOTATED_PATH = OUTPUT_PATH / 'annotated'
+PROFILER_PATH = OUTPUT_PATH / 'profiler'
 CACHE_PATH = OUTPUT_PATH / 'cache'
 
 DATA_CONFIG_PATH = CONFIG_PATH / 'dataset'
