@@ -26,6 +26,7 @@ from util.path import (
     CACHE_PATH
 )
 
+# TODO what api do the pages need from the api?
 def _build_activeml_classifier(
     model_cfg: ModelConfig,
     dataset_cfg: DatasetConfig,
@@ -134,9 +135,7 @@ def request_query(
         class_probas = np.empty(0)
     else:
         class_probas = clf.predict_proba(query_samples)
-        print(class_probas.shape)
-
-    print(class_probas)
+    print('class_probas shape:', class_probas.shape)
 
     batch_state = Batch(
         indices=query_indices.tolist(),
