@@ -7,10 +7,6 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from PIL import Image
 
-from util.path import DATASETS_PATH
-from core.schema import DatasetConfig
-from util.path import CACHE_PATH
-
 
 class BaseAdapter(ABC):
     @abstractmethod
@@ -38,47 +34,6 @@ class BaseAdapter(ABC):
     # @abstractmethod
     # def get_supported_datatypes(self):
     #     pass
-
-    def get_or_compute_embeddings(
-            self,
-            dataset_cfg: DatasetConfig,
-    ) -> tuple[np.ndarray, list[str]]:
-        """
-        Resolve the data_path path, check/load cache if enabled, call compute_features,
-        and cache the result if needed.
-        """
-        dataset_id = dataset_cfg.id
-        data_path = dataset_cfg.data_path
-
-        data_path = Path(data_path)
-        if not data_path.is_absolute():
-            data_path = DATASETS_PATH / data_path
-
-        # Unique key
-        cache_key = f"{dataset_id}_{self.__class__.__name__}"
-        print(f"cache key: {cache_key}")
-
-        cache_path = Path(str(CACHE_PATH)) / f"{cache_key}.npz"  # Use .npz to store multiple arrays
-
-        if cache_path.exists():
-            print(f"Cache hit. Loading cached features from {cache_path}")
-            # Load both the feature matrix and the file names from the .npz cache
-            with np.load(str(cache_path)) as data:
-                X = data['X']
-                file_paths = data['file_paths'].tolist()  # Convert to a list if necessary
-            return X, file_paths
-
-        import timeit
-        print("Cache miss. Computing feature matrix and caching ...")
-        start_time = timeit.default_timer()
-        X, file_paths = self.compute_embeddings(data_path)
-        elapsed_time = timeit.default_timer() - start_time
-        print(f"Embedding completed in: {elapsed_time:.2f} seconds")
-
-        # Cache both the feature matrix and the file names in the .npz file
-        np.savez(str(cache_path), X=X, file_paths=file_paths)
-
-        return X, file_paths
 
 
 class ImageDataset(torch.utils.data.Dataset):

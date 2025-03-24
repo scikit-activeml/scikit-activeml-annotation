@@ -9,7 +9,11 @@ import plotly.express as px
 from hydra.utils import instantiate
 
 from util.deserialize import compose_config
-from core.api import request_query, completed_batch
+from core.api import (
+    request_query,
+    completed_batch,
+    get_or_compute_embeddings
+)
 from core.schema import *
 from core.adapter import *
 from ui.storekey import StoreKey
@@ -238,14 +242,13 @@ def setup_annotations_page(pathname, store_data):
         '+model': store_data[StoreKey.MODEL_SELECTION.value]  # add model to default list
     }
 
+    # TODO clean this mess up.
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
-    # TODO Use of definition is not consistent.
-    adapter: BaseAdapter = instantiate(activeMl_cfg.adapter.definition)
-    print("Selected adapter:", type(adapter))
+    adapter_cfg = activeMl_cfg.adapter
 
     # TODO this will have to change if one file contains multiple samples.
-    X, file_names = adapter.get_or_compute_embeddings(activeMl_cfg.dataset)
+    X, file_names = get_or_compute_embeddings(dataset_cfg, adapter_cfg)
     print("Shape of X:", X.shape)
 
     if StoreKey.BATCH_STATE.value not in store_data:
@@ -266,6 +269,7 @@ def setup_annotations_page(pathname, store_data):
             batch = request_query(activeMl_cfg, session_cfg, X, file_names)
             store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
 
+    print(batch)
     idx = batch.progress
     # query_idx -> file_name
     query_idx = batch.indices[idx]

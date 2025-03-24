@@ -12,9 +12,19 @@ from skactiveml.base import QueryStrategy
 from core.schema import *
 from core.adapter import *
 
-from util.deserialize import parse_yaml_config_dir, parse_yaml_file
-from util.path import DATA_CONFIG_PATH, ANNOTATED_PATH, QS_CONFIG_PATH, MODEL_CONFIG_PATH, ADAPTER_CONFIG_PATH
-
+from util.deserialize import (
+    parse_yaml_config_dir,
+    parse_yaml_file
+)
+from util.path import (
+    DATA_CONFIG_PATH,
+    ANNOTATED_PATH,
+    QS_CONFIG_PATH,
+    MODEL_CONFIG_PATH,
+    ADAPTER_CONFIG_PATH,
+    DATASETS_PATH,
+    CACHE_PATH
+)
 
 def _build_activeml_classifier(
     model_cfg: ModelConfig,
@@ -138,6 +148,57 @@ def request_query(
     print("New Batch decided")
 
     return batch_state
+
+
+# TODO cleanup make api clean.
+# It should only be the interface for the pages. Not internal logic.
+def get_or_compute_embeddings(
+    dataset_cfg: DatasetConfig,
+    adapter_cfg: AdapterConfig
+) -> tuple[np.ndarray, list[str]]:
+    """
+    Resolve the data_path path, check/load cache if enabled, call compute_features,
+    and cache the result if needed.
+    """
+    dataset_id = dataset_cfg.id
+    data_path = dataset_cfg.data_path
+
+    data_path = Path(data_path)
+    if not data_path.is_absolute():
+        data_path = DATASETS_PATH / data_path
+
+    # Unique key
+    cache_key = f"{dataset_id}_{adapter_cfg.id}"
+    print(f"cache key: {cache_key}")
+
+    cache_path = Path(str(CACHE_PATH)) / f"{cache_key}.npz"  # Use .npz to store multiple arrays
+
+    if cache_path.exists():
+        print(f"Cache hit. Loading cached features from {cache_path}")
+        # Load both the feature matrix and the file names from the .npz cache
+        with np.load(str(cache_path)) as data:
+            X = data['X']
+            file_paths = data['file_paths'].tolist()  # Convert to a list if necessary
+        return X, file_paths
+    else:
+        import timeit
+
+        print(f"Cache miss. Computing feature matrix and caching using adapter {adapter_cfg.id}...")
+
+        # TODO Use of definition is not consistent.
+        print("Start embedding ...")
+        adapter: BaseAdapter = instantiate(adapter_cfg.definition)
+        print("Selected adapter:", type(adapter))
+
+        start_time = timeit.default_timer()
+        X, file_paths = adapter.compute_embeddings(data_path)
+        elapsed_time = timeit.default_timer() - start_time
+        print(f"Embedding completed in: {elapsed_time:.2f} seconds")
+
+        # Cache both the feature matrix and the file names in the .npz file
+        np.savez(str(cache_path), X=X, file_paths=file_paths)
+
+    return X, file_paths
 
 
 def _deserialize_annotations(json_path: Path) -> list[Annotation]:
