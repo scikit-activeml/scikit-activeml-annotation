@@ -84,7 +84,6 @@ def layout(**kwargs):
     ])
 
 
-
 def create_sidebar():
     return (
         dbc.Col(
@@ -185,17 +184,20 @@ def create_chip(idx, label, probability=None):
     )
 
 
-def create_chip_group_with_probs(label_names, class_prob):
+def create_chip_group(label_names, class_prob):
     if class_prob is None:
         chips = [create_chip(idx, label) for idx, (label, probability) in enumerate(label_names)]
+        preselect = '0'
     else:
+        highest_prob_idx = np.argmax(class_prob)
+        preselect = str(highest_prob_idx)
         chips = [create_chip(idx, label, probability) for idx, (label, probability) in
                  enumerate(zip(label_names, class_prob))]
 
     chip_group = dmc.ChipGroup(
         children=chips,
         multiple=False,
-        value="0",  # Default value
+        value=preselect,  # Default value
         id="label-radio",
     )
 
@@ -252,7 +254,7 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
                         [
                             html.H4('Select Label'),
                             dmc.ScrollArea(
-                                create_chip_group_with_probs(label_names, class_prob),
+                                create_chip_group(label_names, class_prob),
                                 style={
                                     "width": "100%",
                                     "height": "200px",  # Adjust the height based on your needs
@@ -360,10 +362,14 @@ def setup_annotations_page(pathname, store_data):
     print('indices:', batch.indices)
     print('progress', batch.progress)
     print('annotations:', batch.annotations)
+
+    for row in batch.class_probas:
+        print(" | ".join([f"{val: 0.2f}" for val in row]))
+
     idx = batch.progress
     # query_idx -> file_name
     query_idx = batch.indices[idx]
-    progress = idx / len(batch.indices)
+    progress_percent = idx / len(batch.indices)
 
     # TODO generalize. How the human readable data and how the label names are fetched.
     # From Cache?
@@ -375,7 +381,7 @@ def setup_annotations_page(pathname, store_data):
     return dict(
         session_store=store_data,
         sidebar_container=create_sidebar(),
-        hero_container=create_hero_section(label_names, dataset_cfg, human_data_path, batch, progress)
+        hero_container=create_hero_section(label_names, dataset_cfg, human_data_path, batch, progress_percent)
     )
 
 
