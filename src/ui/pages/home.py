@@ -115,7 +115,8 @@ layout = dmc.AppShell(
                                     dmc.Title("Welcome to scikit-activeml-annotation", order=1),
                                     dmc.Title("Configure your annotation pipeline", order=2)
                                 ],
-                                align='center'
+                                align='center',
+                                p='xl'
                             ),
                             dmc.Flex(
                                 [
@@ -229,6 +230,9 @@ def handle_back(
 ):
     print("handle_back callback")
     next_step = max(current_step - 1, 0)
+    if current_step == 0 and next_step == 0:
+        raise PreventUpdate
+
     return dict(
         children=build_step_ui(next_step, session_data),
         active=next_step

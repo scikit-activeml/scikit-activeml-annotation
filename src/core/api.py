@@ -35,6 +35,7 @@ def _build_activeml_classifier(
 ) -> SklearnClassifier:
     n_classes = len(dataset_cfg.label_names)
     model_package_name = str(model_cfg.definition._target_).split(".")[0]
+    # TODO better isinstance skactiveml.SkactivemlClassifier
     if "skactiveml" == model_package_name:
         # Classifier is already wrapped
         return instantiate(model_cfg.definition, random_state=random_state, classes=np.arange(n_classes))
@@ -69,9 +70,10 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
 
     model_cfg = cfg.model
     if model_cfg is None:
-        clf = None
+        # TODO use estimator to have more accurate terminology
+        estimator = None
     else:
-        clf: SklearnClassifier = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+        estimator: SklearnClassifier = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
 
     # max_candidates for subsampling.
@@ -80,9 +82,9 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
                                                 random_state=random_state)
 
     # TODO separate query from fitting?
-    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=clf, fit_clf=False,
-                                          discriminator=clf)
-    return query_func, clf
+    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,
+                                          discriminator=estimator)
+    return query_func, estimator
 
 
 # region API

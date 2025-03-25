@@ -258,7 +258,7 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
                                 create_chip_group(label_names, class_prob),
                                 style={
                                     "width": "100%",
-                                    "height": "200px",  # Adjust the height based on your needs
+                                    "height": "100px",  # Adjust the height based on your needs
                                 },
                                 type='hover'
                             )
@@ -297,7 +297,7 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
                         ),
                         style={'textAlign': 'center'},
                     ),
-                    style={'marginBottom': '20px'},
+                    style={'marginBottom': '10px'},
                 ),
 
                 # Progress bar
@@ -379,9 +379,6 @@ def setup_annotations_page(pathname, store_data):
     print('indices:', batch.indices)
     print('progress', batch.progress)
     print('annotations:', batch.annotations)
-
-    for row in batch.class_probas:
-        print(" | ".join([f"{val: 0.2f}" for val in row]))
 
     idx = batch.progress
     # query_idx -> file_name
