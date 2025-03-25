@@ -26,6 +26,7 @@ from util.path import (
     CACHE_PATH
 )
 
+
 # TODO what api do the pages need from the api?
 def _build_activeml_classifier(
     model_cfg: ModelConfig,
@@ -105,29 +106,46 @@ def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
     return parse_yaml_file(QS_CONFIG_PATH / f'{query_id}.yaml')
 
 
+def _filter_outliers(X, y):
+    mask = np.isfinite(y) | np.isnan(y)  # np.isfinite(np.nan) == False
+    X_filtered = X[mask]
+    y_filtered = y[mask]
+    mapping = np.arange(len(X))[mask]
+    return X_filtered, y_filtered, mapping
+
+
 def request_query(
     cfg: ActiveMlConfig,
     session_cfg: SessionConfig,
     X: np.ndarray,
     file_names: list[str],
 ) -> Batch:
-    labels = _load_or_init_annotations(X, file_names, cfg.dataset.id)
+    y = _load_or_init_annotations(X, file_names, cfg.dataset.id)
     query_func, clf = _setup_query(cfg, session_cfg)
-    # If the query function expects an array, create one based on ordered indices.
 
     print("shape of X in request_query")
     print(X.shape)
-    print(labels.shape)
+    print(y.shape)
+
+    # Only fit and query on the samples not marked as outliers
+    X_cand, y_cand, mapping = _filter_outliers(X, y)
 
     # TODO fitting classifier here might negate Subsampling QS wrapper
-
     if clf is not None:
         print("Fitting the classifier")
-        print(type(clf))
-        clf.fit(X, labels)
+        clf.fit(X_cand, y_cand)
 
     print("Querying the active ML model ...")
-    query_indices = query_func(X=X, y=labels)
+
+    query_indices_cand = query_func(X=X_cand, y=y_cand)
+    # Map back to original indices.
+    query_indices = mapping[query_indices_cand]
+
+    # TODO sometimes query returns list of np.int64? It has be be serializeable in current implementation.
+    if isinstance(query_indices, np.ndarray):
+        query_indices = query_indices.tolist()
+    if not isinstance(query_indices[0], int):
+        query_indices = [int(x) for x in query_indices]
 
     query_samples = X[query_indices]
 
@@ -135,16 +153,18 @@ def request_query(
         class_probas = np.empty(0)
     else:
         class_probas = clf.predict_proba(query_samples)
-    print('class_probas shape:', class_probas.shape)
+
+    count_labeled_samples = np.sum(~np.isnan(y))
+    total = X.shape[0]
 
     batch_state = Batch(
-        indices=query_indices.tolist(),
+        indices=query_indices,
         class_probas=class_probas.tolist(),
         progress=0,
         annotations=[None] * len(query_indices)
     )
-    print("New Batch decided")
-
+    print("\nNew Batch decided")
+    print(f"Labaled/total: {count_labeled_samples} / {total}")
     return batch_state
 
 

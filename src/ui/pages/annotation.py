@@ -7,7 +7,8 @@ from dash import (
     callback,
     Input,
     Output,
-    State
+    State,
+    callback_context
 )
 from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
@@ -273,10 +274,26 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
                 # Confirm button
                 dbc.Row(
                     dbc.Col(
-                        dbc.Button(
-                            'Confirm Selection',
-                            id='confirm-button',
-                            color='dark',
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    dbc.Button(
+                                        'Confirm Selection',
+                                        id='confirm-button',
+                                        color='dark',
+                                    ),
+                                    width="auto"
+                                ),
+                                dbc.Col(
+                                    dbc.Button(
+                                        'Mark as Outlier',
+                                        id='outlier-button',
+                                        color='dark',
+                                    ),
+                                    width="auto"
+                                ),
+                            ],
+                            justify="center"  # Center the buttons in the row
                         ),
                         style={'textAlign': 'center'},
                     ),
@@ -343,7 +360,6 @@ def setup_annotations_page(pathname, store_data):
     if StoreKey.BATCH_STATE.value not in store_data:
         # New Session
         batch = request_query(activeMl_cfg, session_cfg, X, file_names)
-        # store_data = {StoreKey.BATCH_STATE.value: batch.to_json()}
         store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
     else:
         # Existing Session
@@ -352,6 +368,7 @@ def setup_annotations_page(pathname, store_data):
         if batch_completed:
             print("BATCH IS COMPLETED")
             # Store labeling data to disk
+            # TODO to much serialization deserialization
             completed_batch(dataset_id, batch)
 
             # Initialize the next batch
@@ -387,40 +404,50 @@ def setup_annotations_page(pathname, store_data):
 
 @callback(
     Input('confirm-button', 'n_clicks'),
+    Input('outlier-button', 'n_clicks'),
     State('label-radio', 'value'),
     State('session-store', 'data'),
     output=dict(
         session_data=Output('session-store', 'data', allow_duplicate=True),
-        path_name=Output('url-annotation', 'pathname'),
+        pathname=Output('url-annotation', 'pathname'),
     ),
     prevent_initial_call=True,
 )
 def on_button_click(
-    n_clicks: int,
+    confirm_clicks: int,
+    outlier_clicks: int,
     value: int,
     session_data: dict
 ):
-    if n_clicks is None or n_clicks == 0:
+    # TODO is this needed?
+    if (confirm_clicks is None or confirm_clicks == 0) and (outlier_clicks is None or outlier_clicks == 0):
         raise PreventUpdate
 
-    print("Annotated label: ", value)
+    trigger_id = callback_context.triggered_id
+    if trigger_id == "confirm-button":
+        annotation = int(value)
+    else:
+        annotation = np.inf
+
+    print("Annotated label: ", annotation)
 
     # Update the Session's Batch State
     batch_state_json = session_data[StoreKey.BATCH_STATE.value]
     batch_state: Batch = Batch.from_json(batch_state_json)
     # print("pre", batch_state)
     idx = batch_state.progress
-    batch_state.annotations[idx] = int(value)
+    batch_state.annotations[idx] = annotation
     batch_state.progress += 1
-    print("post", batch_state)
 
     # Override existing batch_state
     session_data[StoreKey.BATCH_STATE.value] = batch_state.to_json()
 
     return dict(
         session_data=session_data,
-        path_name=None  # Refresh page by passing None.
+        pathname=None  # Refresh page by passing None.
     )
 
+
+# TODO add cleanup function when switching away from annot page.
 
 
