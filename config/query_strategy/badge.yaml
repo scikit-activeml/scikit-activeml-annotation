@@ -1,0 +1,6 @@
+id: "badge"  # TODO id has to match file name right now
+display_name: "BADGE"
+model_agnostic: False
+
+definition:
+  _target_: skactiveml.pool.Badge

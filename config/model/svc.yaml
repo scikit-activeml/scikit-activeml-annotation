@@ -1,0 +1,9 @@
+id: "svc"
+display_name: "Support Vector Classifier"
+
+definition:
+  _target_: sklearn.svm.SVC
+  gamma: 0.001
+  probability: True
+
+# TODO what if classifiers dont support predict proba
