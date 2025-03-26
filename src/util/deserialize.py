@@ -66,8 +66,7 @@ def parse_yaml_config_dir(dir_path: Path | str) -> list[DictConfig]:
         dir_path (Path | str): Path to the directory containing YAML files.
 
     Returns:
-        dict[str, DictConfig]: A dictionary where keys are config file names
-                               (without .yaml) and values are DictConfig objects.
+        list[DictConfig]: a List of DictConfig's
     """
     if isinstance(dir_path, str):
         dir_path = Path(dir_path)
