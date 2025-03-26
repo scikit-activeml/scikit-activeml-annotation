@@ -5,9 +5,12 @@ from typing import Callable
 from hydra.utils import instantiate
 
 from skactiveml.utils import MISSING_LABEL
-from skactiveml.classifier import SklearnClassifier
 from skactiveml.pool import SubSamplingWrapper
-from skactiveml.base import QueryStrategy
+from skactiveml.classifier import SklearnClassifier
+from skactiveml.base import (
+    QueryStrategy,
+    SkactivemlClassifier
+)
 
 from core.schema import *
 from core.adapter import *
@@ -16,7 +19,7 @@ from util.deserialize import (
     parse_yaml_config_dir,
     parse_yaml_file
 )
-from util.path import (
+from paths import (
     DATA_CONFIG_PATH,
     ANNOTATED_PATH,
     QS_CONFIG_PATH,
@@ -27,23 +30,43 @@ from util.path import (
 )
 
 
+def _estimator_accepts_random(est_cls) -> bool:
+    sig = inspect.signature(est_cls.__init__)
+    return "random_state" in sig.parameters
+
+
 # TODO what api do the pages need from the api?
+# TODO will this be used for estmiators aswell?
 def _build_activeml_classifier(
     model_cfg: ModelConfig,
     dataset_cfg: DatasetConfig,
     random_state: np.random.RandomState
-) -> SklearnClassifier:
+) -> SkactivemlClassifier:
+    # TODO rename label names to classes to be more consistent with sklearn naming conv.
+    # classes = dataset_cfg.label_names
     n_classes = len(dataset_cfg.label_names)
-    model_package_name = str(model_cfg.definition._target_).split(".")[0]
-    # TODO better isinstance skactiveml.SkactivemlClassifier
-    if "skactiveml" == model_package_name:
-        # Classifier is already wrapped
-        return instantiate(model_cfg.definition, random_state=random_state, classes=np.arange(n_classes))
+    classes = np.arange(n_classes)
 
+    # TODO rename to Estimator?
+    est_cls = model_cfg.definition['_target_']
+
+    kwargs = {}
+    if _estimator_accepts_random(est_cls):
+        kwargs['random_state'] = random_state
+
+    est = instantiate(model_cfg.definition, **kwargs)
+
+    if isinstance(est, SklearnClassifier):
+        # Classifier is already wrapped aka supports missing labels
+        return est
     else:
-        clf = instantiate(model_cfg.definition)
-        # Wrap the classifier with skactiveml wrapper to allow it to work with missing labels.
-        return SklearnClassifier(clf, random_state=random_state, classes=np.arange(n_classes))
+        wrapped_est = SklearnClassifier(
+            estimator=est,
+            classes=classes,
+            random_state=random_state,
+            # missing_label=schema.MISSING_LABEL_STR
+        )
+        return wrapped_est
 
 
 # TODO can use from skactiveml.utils import call_func instead?
@@ -75,11 +98,13 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
     else:
         estimator: SklearnClassifier = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
-
     # max_candidates for subsampling.
     qs: QueryStrategy = instantiate(cfg.query_strategy.definition, random_state=random_state)
-    qs: SubSamplingWrapper = SubSamplingWrapper(qs, max_candidates=session_cfg.max_candidates,
-                                                random_state=random_state)
+    qs: SubSamplingWrapper = SubSamplingWrapper(
+        qs,
+        max_candidates=session_cfg.max_candidates,
+        random_state=random_state
+    )
 
     # TODO separate query from fitting?
     query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,
@@ -117,10 +142,10 @@ def _filter_outliers(X, y):
 
 
 def request_query(
-    cfg: ActiveMlConfig,
-    session_cfg: SessionConfig,
-    X: np.ndarray,
-    file_names: list[str],
+        cfg: ActiveMlConfig,
+        session_cfg: SessionConfig,
+        X: np.ndarray,
+        file_names: list[str],
 ) -> Batch:
     y = _load_or_init_annotations(X, file_names, cfg.dataset.id)
     query_func, clf = _setup_query(cfg, session_cfg)
@@ -173,8 +198,8 @@ def request_query(
 # TODO cleanup make api clean.
 # It should only be the interface for the pages. Not internal logic.
 def get_or_compute_embeddings(
-    dataset_cfg: DatasetConfig,
-    adapter_cfg: AdapterConfig
+        dataset_cfg: DatasetConfig,
+        adapter_cfg: AdapterConfig
 ) -> tuple[np.ndarray, list[str]]:
     """
     Resolve the data_path path, check/load cache if enabled, call compute_features,
@@ -251,9 +276,9 @@ def _load_labels(json_path: Path) -> np.ndarray:
 
 
 def _load_or_init_annotations(
-    X: np.ndarray,
-    file_names: list[str],
-    dataset_id: str
+        X: np.ndarray,
+        file_names: list[str],
+        dataset_id: str
 ) -> np.ndarray:
     """Load existing labels or initialize with missing labels."""
     json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
