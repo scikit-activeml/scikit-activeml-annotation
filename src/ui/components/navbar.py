@@ -2,31 +2,29 @@ import dash
 from dash import html
 import dash_bootstrap_components as dbc
 
+import dash_mantine_components as dmc
+
+
 def create_navbar(**kwargs):
-    return (
-        dbc.Navbar(
-            dbc.Container(
-                [
-                    dbc.Nav(
-                        [
-                            dbc.NavItem(
-                                dbc.NavLink(
-                                    html.Div(page["name"], className="ms-2"),
-                                    href=page["path"],
-                                    active="exact",
-                                )
-                            )
-                            for page in dash.page_registry.values()
-                        ],
-                        pills=True,
-                        class_name="ml-0"  # Align nav items to the left
+    return dmc.AppShellHeader(
+        children=[
+            dmc.Group(
+                children=[
+                    dmc.Anchor(
+                        children=page["name"],
+                        href=page["path"],
+                        # underline=False,
+                        size="md",
+                        style={"marginRight": "1rem"}
                     )
-                ]
-            ),
-            color="dark",
-            dark=True, 
-            class_name='sticky-top'
-        ) 
+                    for page in dash.page_registry.values()
+                ],
+                align="center"
+            )
+        ],
+        # width={"base": 250},  # Adjust the width as needed
+        # p="md",
+        # withBorder=True
     )
 
 
