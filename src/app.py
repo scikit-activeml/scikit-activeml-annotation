@@ -1,6 +1,4 @@
 import argparse
-import os
-import logging
 
 import dash
 from dash import (
@@ -21,9 +19,11 @@ import dash_loading_spinners
 from werkzeug.middleware.profiler import ProfilerMiddleware
 
 from ui.components.navbar import create_navbar
-from util.path import PAGES_PATH, DATA_CONFIG_PATH, PROFILER_PATH, ASSETS_PATH
-
-from util.deserialize import parse_yaml_config_dir
+from paths import (
+    PAGES_PATH,
+    PROFILER_PATH,
+    ASSETS_PATH
+)
 
 app = Dash(
     __name__, 

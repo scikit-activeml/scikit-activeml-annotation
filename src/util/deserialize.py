@@ -13,7 +13,7 @@ from hydra.initialize import initialize_config_dir
 
 from omegaconf import DictConfig, OmegaConf, MISSING
 
-from .path import CONFIG_PATH
+from paths import CONFIG_PATH
 from core.schema import ActiveMlConfig
 
 
