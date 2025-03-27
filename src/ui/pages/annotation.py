@@ -16,6 +16,8 @@ import plotly.express as px
 
 from hydra.utils import instantiate
 
+from skactiveml.utils import MISSING_LABEL
+
 from util.deserialize import compose_config
 from core.api import (
     request_query,
@@ -198,8 +200,8 @@ def create_chip(idx, label, probability=None):
 
 def create_chip_group(label_names, class_prob):
     if class_prob is None:
-        chips = [create_chip(idx, label) for idx, (label, probability) in enumerate(label_names)]
-        preselect = '0'
+        chips = [create_chip(idx, label) for idx, label in enumerate(label_names)]
+        preselect = None
     else:
         highest_prob_idx = np.argmax(class_prob)
         preselect = str(highest_prob_idx)
