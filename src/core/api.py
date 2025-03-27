@@ -1,3 +1,5 @@
+import inspect
+from typing import cast
 from inspect import signature
 from functools import partial
 from typing import Callable
@@ -30,88 +32,6 @@ from paths import (
 )
 
 
-def _estimator_accepts_random(est_cls) -> bool:
-    sig = inspect.signature(est_cls.__init__)
-    return "random_state" in sig.parameters
-
-
-# TODO what api do the pages need from the api?
-# TODO will this be used for estmiators aswell?
-def _build_activeml_classifier(
-    model_cfg: ModelConfig,
-    dataset_cfg: DatasetConfig,
-    random_state: np.random.RandomState
-) -> SkactivemlClassifier:
-    # TODO rename label names to classes to be more consistent with sklearn naming conv.
-    # classes = dataset_cfg.label_names
-    n_classes = len(dataset_cfg.label_names)
-    classes = np.arange(n_classes)
-
-    # TODO rename to Estimator?
-    est_cls = model_cfg.definition['_target_']
-
-    kwargs = {}
-    if _estimator_accepts_random(est_cls):
-        kwargs['random_state'] = random_state
-
-    est = instantiate(model_cfg.definition, **kwargs)
-
-    if isinstance(est, SklearnClassifier):
-        # Classifier is already wrapped aka supports missing labels
-        return est
-    else:
-        wrapped_est = SklearnClassifier(
-            estimator=est,
-            classes=classes,
-            random_state=random_state,
-            # missing_label=schema.MISSING_LABEL_STR
-        )
-        return wrapped_est
-
-
-# TODO can use from skactiveml.utils import call_func instead?
-def _filter_kwargs(func: Callable, **kwargs) -> Callable:
-    params = signature(func).parameters
-    param_names = params.keys()
-
-    has_kwargs = any(p.kind == p.VAR_KEYWORD for p in params.values())
-    if has_kwargs:
-        # If the func accepts **kwargs, no filtering is needed
-        return partial(func, **kwargs)
-
-    # Otherwise, filter only the kwargs that match function's signature
-    filtered_kwargs = {p_name: p_obj for p_name, p_obj in kwargs.items() if p_name in param_names}
-
-    # print("filtered_kwargs", filtered_kwargs)
-
-    return partial(func, **filtered_kwargs)
-
-
-# TODO always load dataset over and over again.
-def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Callable, SklearnClassifier | None]:
-    random_state = np.random.RandomState(cfg.random_seed)
-
-    model_cfg = cfg.model
-    if model_cfg is None:
-        # TODO use estimator to have more accurate terminology
-        estimator = None
-    else:
-        estimator: SklearnClassifier = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
-
-    # max_candidates for subsampling.
-    qs: QueryStrategy = instantiate(cfg.query_strategy.definition, random_state=random_state)
-    qs: SubSamplingWrapper = SubSamplingWrapper(
-        qs,
-        max_candidates=session_cfg.max_candidates,
-        random_state=random_state
-    )
-
-    # TODO separate query from fitting?
-    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,
-                                          discriminator=estimator)
-    return query_func, estimator
-
-
 # region API
 def get_dataset_config_options() -> list[DatasetConfig]:
     return parse_yaml_config_dir(DATA_CONFIG_PATH)
@@ -130,15 +50,8 @@ def get_adapter_config_options() -> list[AdapterConfig]:
 
 
 def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
-    return parse_yaml_file(QS_CONFIG_PATH / f'{query_id}.yaml')
-
-
-def _filter_outliers(X, y):
-    mask = np.isfinite(y) | np.isnan(y)  # np.isfinite(np.nan) == False
-    X_filtered = X[mask]
-    y_filtered = y[mask]
-    mapping = np.arange(len(X))[mask]
-    return X_filtered, y_filtered, mapping
+    cfg = parse_yaml_file(QS_CONFIG_PATH / f'{query_id}.yaml')
+    return cast(QueryStrategyConfig, cfg)
 
 
 def request_query(
@@ -315,6 +228,96 @@ def completed_batch(dataset_id: str, batch: Batch):
     # Write back the updated labels overwriting existing file.
     _serialize_annotations(json_file_path, annotations)
 # endregion
+
+
+def _estimator_accepts_random(est_cls) -> bool:
+    sig = inspect.signature(est_cls.__init__)
+    return "random_state" in sig.parameters
+
+
+def _filter_outliers(X, y):
+    mask = np.isfinite(y) | np.isnan(y)  # np.isfinite(np.nan) == False
+    X_filtered = X[mask]
+    y_filtered = y[mask]
+    mapping = np.arange(len(X))[mask]
+    return X_filtered, y_filtered, mapping
+
+
+# TODO what api do the pages need from the api?
+# TODO will this be used for estmiators aswell?
+def _build_activeml_classifier(
+        model_cfg: ModelConfig,
+        dataset_cfg: DatasetConfig,
+        random_state: np.random.RandomState
+) -> SkactivemlClassifier:
+    # TODO rename label names to classes to be more consistent with sklearn naming conv.
+    # classes = dataset_cfg.label_names
+    n_classes = len(dataset_cfg.label_names)
+    classes = np.arange(n_classes)
+
+    # TODO rename to Estimator?
+    est_cls = model_cfg.definition['_target_']
+
+    kwargs = {}
+    if _estimator_accepts_random(est_cls):
+        kwargs['random_state'] = random_state
+
+    est = instantiate(model_cfg.definition, **kwargs)
+
+    if isinstance(est, SklearnClassifier):
+        # Classifier is already wrapped aka supports missing labels
+        return est
+    else:
+        wrapped_est = SklearnClassifier(
+            estimator=est,
+            classes=classes,
+            random_state=random_state,
+            # missing_label=schema.MISSING_LABEL_STR
+        )
+        return wrapped_est
+
+
+# TODO can use from skactiveml.utils import call_func instead?
+def _filter_kwargs(func: Callable, **kwargs) -> Callable:
+    params = signature(func).parameters
+    param_names = params.keys()
+
+    has_kwargs = any(p.kind == p.VAR_KEYWORD for p in params.values())
+    if has_kwargs:
+        # If the func accepts **kwargs, no filtering is needed
+        return partial(func, **kwargs)
+
+    # Otherwise, filter only the kwargs that match function's signature
+    filtered_kwargs = {p_name: p_obj for p_name, p_obj in kwargs.items() if p_name in param_names}
+
+    # print("filtered_kwargs", filtered_kwargs)
+
+    return partial(func, **filtered_kwargs)
+
+
+# TODO always load dataset over and over again.
+def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Callable, SklearnClassifier | None]:
+    random_state = np.random.RandomState(cfg.random_seed)
+
+    model_cfg = cfg.model
+    if model_cfg is None:
+        # TODO use estimator to have more accurate terminology
+        estimator = None
+    else:
+        estimator: SklearnClassifier = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+
+    # max_candidates for subsampling.
+    qs: QueryStrategy = instantiate(cfg.query_strategy.definition, random_state=random_state)
+    qs: SubSamplingWrapper = SubSamplingWrapper(
+        qs,
+        max_candidates=session_cfg.max_candidates,
+        random_state=random_state
+    )
+
+    # TODO separate query from fitting?
+    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,
+                                          discriminator=estimator)
+    return query_func, estimator
 
 
 def finish_label_session():
