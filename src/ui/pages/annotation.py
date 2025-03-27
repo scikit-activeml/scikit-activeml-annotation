@@ -12,7 +12,6 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
-import dash_bootstrap_components as dbc
 import plotly.express as px
 
 from hydra.utils import instantiate
@@ -57,7 +56,7 @@ def layout(**kwargs):
                             html.Div("Main Content")
                         ],
                     ),
-                    style={'border': '4px solid blue'}
+                    style={'border': '5px dotted blue'}
                 ),
                 dmc.AppShellAside(
                     id="right-panel",
@@ -87,41 +86,58 @@ def layout(**kwargs):
 
 def create_sidebar():
     return (
-        dbc.Col(
+        dmc.Stack(
             [
-                dbc.Card(
+                dmc.Center(
+                    dmc.Text("Settings"),
+                ),
+
+                # Batch Size selection
+                dmc.NumberInput(
+                    label="Batch Size",
+                    id='batch-size-input',
+                    allowNegative=False,
+                    debounce=True,
+                    value=5,
+                    required=True,
+                    persistence='batch-size-persistence',
+                    persistence_type='local',
+                ),
+
+                # Subsampling selection
+                dmc.Text("Subsampling"),
+                dmc.Flex(
                     [
-                        dbc.CardHeader("Settings"),
-                        dbc.CardBody([
-                            # Batch Size selection
-                            html.Label('Batch Size'),
-                            dcc.Input(
-                                id='batch-size-input',
-                                type='number',
-                                value=10,
-                                min=1,
-                                step=1,
-                                style={'width': '100%'}
-                            ),
-                            html.Br(),
-                            html.Br(),
-                            # Subsampling selection
-                            html.Label('Subsampling'),
-                            dcc.Input(
-                                id='subsampling-input',
-                                type='number',
-                                value=1000,
-                                min=1,
-                                step=1,
-                                style={'width': '100%'}
-                            ),
-                            html.Br(),
-                        ])
+                        dmc.NumberInput(
+                            # label="Subsampling",
+                            id='batch-size-input',
+                            allowNegative=False,
+                            debounce=True,
+                            hideControls=True
+                        ),
+                        dmc.Switch(
+                            id='my-checkbox',
+                            checked=False
+                        )
                     ],
-                )
+                    direction="row",
+                    align="center",  # centers items vertically
+                    gap="md"         # optional, for spacing between elements
+                ),
+
+                dmc.Text(
+                    'Query Strategy'
+                ),
+
+                # Skip Button
+                dmc.Center(
+                    dmc.Button(
+                        "Skip Batch",
+                        id="skip-batch-button",
+                    ),
+                ),
             ],
             style={'border': '2px solid red'},
-            # width=3
         )
     )
 
@@ -145,19 +161,14 @@ def display_image(path_to_img):
 
 def display_text(text):
     return (
-        dbc.Container(
-            dbc.Row(
-                dbc.Col(
-                    dcc.Markdown(
-                        text,  # Provide your text data here
-                        className="markdown-content",
-                        # Add additional Markdown options if necessary
-                    ),
-                    className="p-3",
+        dmc.Container(
+            dmc.Stack(
+                dcc.Markdown(
+                    text,  # Provide your text data here
+                    className="markdown-content",
+                    # Add additional Markdown options if necessary
                 ),
-                className="justify-content-center",
             ),
-            className="text-container",
         )
     )
 
@@ -213,11 +224,17 @@ def create_chip_group(label_names, class_prob):
                     "gap": "10px",  # space between chips
                 },
             ),
-            style={"display": "flex"}
+            style={
+                "display": "flex",
+                # "height": "300px"
+            }
         ),
+        type='auto',
+        offsetScrollbars=True,
         style={
             "width": "100%",
-            "height": "200px",  # Adjust height as needed
+            # "height": "300px",  # Adjust height as needed
+            'border': 'green dashed 3px'
         },
     )
 
@@ -239,79 +256,99 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
         class_prob = batch.class_probas[batch.progress]
 
     return (
-        dbc.Container(
+        dmc.Container(
             [
-                # Data display
-                dbc.Row(
-                    dbc.Col(
-                        rendered_data
-                    ),
-                    # style={'marginBottom': '5px'},
-                    style={'border': '4px dotted pink'}
+                # Data display Container
+                dmc.Stack(
+                    # dmc.Container(
+                        rendered_data,
+                        style={'border': '4px dotted pink'},
+                    # ),
+                    align="center",
                 ),
+
                 # Label selection
-                dbc.Row(
-                    dbc.Col(
+                dmc.Group(
+                    dmc.Stack(
                         [
-                            html.H4('Select Label'),
-                            dmc.ScrollArea(
-                                create_chip_group(label_names, class_prob),
-                                style={
-                                    "width": "100%",
-                                    "height": "100px",  # Adjust the height based on your needs
-                                },
-                                type='hover'
-                            )
+                            dmc.Title('Select Label', order=4),
+                            create_chip_group(label_names, class_prob),
                         ],
                         style={
                             'textAlign': 'center',
                             # 'marginTop': '5px'
                         },
+                        gap='xs'
                     ),
-                    style={'marginBottom': '20px'},
+                    # style={
+                    #     'border': 'red solid 4px'
+                    # }
                 ),
 
                 # Confirm button
-                dbc.Row(
-                    dbc.Col(
-                        dbc.Row(
-                            [
-                                dbc.Col(
-                                    dbc.Button(
-                                        'Confirm Selection',
-                                        id='confirm-button',
-                                        color='dark',
-                                    ),
-                                    width="auto"
-                                ),
-                                dbc.Col(
-                                    dbc.Button(
-                                        'Mark as Outlier',
-                                        id='outlier-button',
-                                        color='dark',
-                                    ),
-                                    width="auto"
-                                ),
-                            ],
-                            justify="center"  # Center the buttons in the row
+                dmc.Group(
+                    [
+                        dmc.Button(
+                            'Undo',
+                            id="undo-button",
+                            color='dark'
                         ),
-                        style={'textAlign': 'center'},
-                    ),
-                    style={'marginBottom': '10px'},
+
+                        dmc.Button(
+                            'Discard',
+                            id='discard-button',
+                            color='dark'
+                        ),
+
+                        dmc.Button(
+                            'Skip',
+                            id="skip-button",
+                            color='dark'
+                        ),
+
+                        dmc.Button(
+                            'Confirm',
+                            id='confirm-button',
+                            color='dark'
+                        ),
+
+                    ],
+                    style={'border': 'red dashed 2px'},
+                    justify='center',
                 ),
 
                 # Progress bar
-                dbc.Row(
-                    dbc.Col(
-                        dbc.Progress(
-                            id='batch-progress-annotation',
-                            label="Batch Progress",
-                            min=0,
-                            max=1,
-                            value=progress,
+                html.Div(
+                    [
+                        # The Mantine Progress bar with dynamic section
+                        dmc.ProgressRoot(
+                            dmc.ProgressSection(
+                                # This section's label is removed to avoid moving text
+                                value=progress * 100,  # Replace with progress * 100 as needed
+                                color="blue",
+                                # animated=True,
+                                # striped=True
+                            ),
+                            radius=25,
+                            size="lg",
+                            style={"height": "40px"},  # set a fixed height if desired
                         ),
-                    ),
-                    style={'marginBottom': '10px'}
+                        # The overlay text: always centered
+                        html.Div(
+                            "Batch Progress",
+                            style={
+                                "position": "absolute",
+                                "width": "100%",
+                                "top": "50%",
+                                "left": "50%",
+                                "transform": "translate(-50%, -50%)",
+                                "textAlign": "center",
+                                "color": "white",  # Adjust based on your progress bar color
+                                "pointerEvents": "none",  # So clicks pass through if needed
+                            },
+                        ),
+                    ],
+                    style={"position": "relative", "width": "100%"},
                 ),
             ],
             fluid=True,
@@ -401,7 +438,8 @@ def setup_annotations_page(pathname, store_data):
 
 @callback(
     Input('confirm-button', 'n_clicks'),
-    Input('outlier-button', 'n_clicks'),
+    Input('discard-button', 'n_clicks'),
+    Input('skip-button', 'n_clicks'),
     State('label-radio', 'value'),
     State('session-store', 'data'),
     output=dict(
@@ -413,16 +451,21 @@ def setup_annotations_page(pathname, store_data):
 def on_button_click(
     confirm_clicks: int,
     outlier_clicks: int,
+    skip_clicks: int,
     value: int,
     session_data: dict
 ):
     # TODO is this needed?
-    if (confirm_clicks is None or confirm_clicks == 0) and (outlier_clicks is None or outlier_clicks == 0):
+    if ((confirm_clicks is None or confirm_clicks == 0) and
+        (outlier_clicks is None or outlier_clicks == 0) and
+            (skip_clicks is None or skip_clicks == 0)):
         raise PreventUpdate
 
     trigger_id = callback_context.triggered_id
     if trigger_id == "confirm-button":
         annotation = int(value)
+    elif trigger_id == "skip-button":
+        annotation = MISSING_LABEL
     else:
         annotation = np.inf
 

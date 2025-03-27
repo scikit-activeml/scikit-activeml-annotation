@@ -12,7 +12,6 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 
-import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import dash_loading_spinners
 
@@ -29,7 +28,7 @@ app = Dash(
     __name__, 
     use_pages=True,  # Use dash page feature
     pages_folder=str(PAGES_PATH),
-    external_stylesheets=[dbc.themes.BOOTSTRAP, dmc.theme.DEFAULT_THEME, dmc.styles.ALL],
+    external_stylesheets=[dmc.theme.DEFAULT_THEME, dmc.styles.ALL],
     # Allows to register callbacks on components that will be created by other callbacks,
     # and are therefore not in the initial layout.
     suppress_callback_exceptions=True, 
@@ -41,28 +40,33 @@ app = Dash(
 
 app.layout = (
     dmc.MantineProvider(
-        [
-            dcc.Store('session-store', storage_type='session'),
-            create_navbar(),
-            dmc.Container(
-                [
-                    # TODO only use spinnger on home screen. It does not seem to work for other screen.
-                    app_spinner_container := html.Div(
-                        loading_page_spinner := dash_loading_spinners.Pacman(
-                            fullscreen=True,
-                            id='loading_page_spinner'
-                        ),
-                        id='app_spinner_container'
-                    ),
+        dmc.AppShell(
+            [
+                dcc.Store('session-store', storage_type='session'),
+                create_navbar(),
+                dmc.AppShellMain(
+                    dmc.Container(
+                        [
+                            # TODO only use spinnger on home screen. It does not seem to work for other screen.
+                            app_spinner_container := html.Div(
+                                loading_page_spinner := dash_loading_spinners.Pacman(
+                                    fullscreen=True,
+                                    id='loading_page_spinner'
+                                ),
+                                id='app_spinner_container'
+                            ),
 
-                    page_content_container := dmc.Container(
-                        dash.page_container,
-                        id='page_content_container'
-                    )
-                ],
-                style={'border': '5px dashed red'}
-            ),
-        ]
+                            page_content_container := dmc.Container(
+                                dash.page_container,
+                                id='page_content_container'
+                            )
+                        ],
+                        style={'border': '5px dashed red'}
+                    ),
+                )
+            ],
+            header={'height': 50}
+        )
     )
 )
 
@@ -98,8 +102,9 @@ def main():
         )
         print("Starting app in profiler mode")
         app.run(debug=True, dev_tools_hot_reload=False)
-    else:
-        app.run(debug=True)
+        return
+
+    app.run(debug=True)
 
 
 if __name__ == "__main__":

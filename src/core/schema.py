@@ -1,4 +1,3 @@
-from typing import Any
 import json
 from enum import Enum
 from dataclasses import dataclass, field, asdict
@@ -25,6 +24,7 @@ class DataLoaderConfig:
 class AdapterConfig:
     id: str = MISSING
     display_name: str = MISSING
+    # TODO definition has wrong type here.
     definition: BaseAdapter = MISSING
 
 
@@ -41,7 +41,7 @@ class DatasetConfig:
 class ModelConfig:
     id: str = MISSING
     display_name: str = MISSING
-    definition: str = MISSING
+    definition: dict = MISSING
 
 
 @dataclass
