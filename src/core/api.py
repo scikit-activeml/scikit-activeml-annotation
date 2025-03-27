@@ -34,19 +34,23 @@ from paths import (
 
 # region API
 def get_dataset_config_options() -> list[DatasetConfig]:
-    return parse_yaml_config_dir(DATA_CONFIG_PATH)
+    cfgs = parse_yaml_config_dir(DATA_CONFIG_PATH)
+    return cast(list[DatasetConfig], cfgs)
 
 
 def get_qs_config_options() -> list[QueryStrategyConfig]:
-    return parse_yaml_config_dir(QS_CONFIG_PATH)
+    cfgs = parse_yaml_config_dir(QS_CONFIG_PATH)
+    return cast(list[QueryStrategyConfig], cfgs)
 
 
 def get_model_config_options() -> list[ModelConfig]:
-    return parse_yaml_config_dir(MODEL_CONFIG_PATH)
+    cfgs = parse_yaml_config_dir(MODEL_CONFIG_PATH)
+    return cast(list[ModelConfig], cfgs)
 
 
 def get_adapter_config_options() -> list[AdapterConfig]:
-    return parse_yaml_config_dir(ADAPTER_CONFIG_PATH)
+    cfgs = parse_yaml_config_dir(ADAPTER_CONFIG_PATH)
+    return cast(list[AdapterConfig], cfgs)
 
 
 def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
