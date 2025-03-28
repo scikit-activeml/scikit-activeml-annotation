@@ -1,6 +1,6 @@
 id: "cifar10"
 display_name: "CIFAR-10"
-label_names: ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+classes: ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 data_path: 'cifar10_images'
 
 data_type:

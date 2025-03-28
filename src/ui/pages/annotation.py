@@ -198,15 +198,15 @@ def create_chip(idx, label, probability=None):
     )
 
 
-def create_chip_group(label_names, class_prob):
+def create_chip_group(classes, class_prob):
     if class_prob is None:
-        chips = [create_chip(idx, label) for idx, label in enumerate(label_names)]
+        chips = [create_chip(idx, label) for idx, label in enumerate(classes)]
         preselect = None
     else:
         highest_prob_idx = np.argmax(class_prob)
         preselect = str(highest_prob_idx)
         chips = [create_chip(idx, label, probability) for idx, (label, probability) in
-                 enumerate(zip(label_names, class_prob))]
+                 enumerate(zip(classes, class_prob))]
 
     chip_group = dmc.ChipGroup(
         children=chips,
@@ -242,7 +242,7 @@ def create_chip_group(label_names, class_prob):
 
 
 # TODO seperate Loading Image from
-def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, human_data: Any, batch: Batch, progress: float):
+def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_data: Any, batch: Batch, progress: float):
     # TODO instantiate the data_type enum somewhere else
     data_type: DataType = instantiate(dataset_cfg.data_type)
 
@@ -274,7 +274,7 @@ def create_hero_section(label_names: list[str], dataset_cfg: DatasetConfig, huma
                     dmc.Stack(
                         [
                             dmc.Title('Select Label', order=4),
-                            create_chip_group(label_names, class_prob),
+                            create_chip_group(classes, class_prob),
                         ],
                         style={
                             'textAlign': 'center',
@@ -426,7 +426,7 @@ def setup_annotations_page(pathname, store_data):
 
     # TODO generalize. How the human readable data and how the label names are fetched.
     # From Cache?
-    label_names = dataset_cfg.label_names
+    classes = dataset_cfg.classes
 
     # TODO maybe the adapter should be responsible with specifying how to get human representation for sample with idx
     human_data_path = file_names[query_idx]
@@ -434,7 +434,7 @@ def setup_annotations_page(pathname, store_data):
     return dict(
         session_store=store_data,
         sidebar_container=create_sidebar(),
-        hero_container=create_hero_section(label_names, dataset_cfg, human_data_path, batch, progress_percent)
+        hero_container=create_hero_section(classes, dataset_cfg, human_data_path, batch, progress_percent)
     )
 
 

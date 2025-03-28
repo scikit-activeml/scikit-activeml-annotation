@@ -11,7 +11,6 @@ from skactiveml.pool import SubSamplingWrapper
 from skactiveml.classifier import SklearnClassifier
 from skactiveml.base import (
     QueryStrategy,
-    SkactivemlClassifier
 )
 
 from core.schema import *
@@ -253,10 +252,10 @@ def _build_activeml_classifier(
         model_cfg: ModelConfig,
         dataset_cfg: DatasetConfig,
         random_state: np.random.RandomState
-) -> SkactivemlClassifier:
+) -> SklearnClassifier:
     # TODO rename label names to classes to be more consistent with sklearn naming conv.
-    # classes = dataset_cfg.label_names
-    n_classes = len(dataset_cfg.label_names)
+    # classes = dataset_cfg.classes
+    n_classes = len(dataset_cfg.classes)
     classes = np.arange(n_classes)
 
     # TODO rename to Estimator?
