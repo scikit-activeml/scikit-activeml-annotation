@@ -1,9 +1,0 @@
-id: "cifar10_tiny"
-display_name: "CIFAR-10 Tiny"
-classes: ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-data_path: 'cifar10_small_images'
-
-data_type:
-  _target_: core.schema.DataType
-  _args_: [Image]
-
