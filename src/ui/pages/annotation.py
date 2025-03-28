@@ -235,7 +235,7 @@ def create_chip_group(classes, class_prob):
         offsetScrollbars=True,
         style={
             "width": "100%",
-            # "height": "300px",  # Adjust height as needed
+            'height': '40vh',
             'border': 'green dashed 3px'
         },
     )
