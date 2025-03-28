@@ -1,7 +1,7 @@
 id: "cifar10"
 display_name: "CIFAR-10"
 classes: ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-data_path: 'cifar10_images'
+data_path: 'cifar10/cifar10_images'
 
 data_type:
   _target_: core.schema.DataType
