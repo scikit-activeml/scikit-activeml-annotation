@@ -2,11 +2,26 @@ from pathlib import Path
 
 from torchvision.datasets import (
     VisionDataset,
+    CIFAR100,
     CIFAR10,
     MNIST
 )
 
 from paths import DATASETS_PATH
+
+
+def load_cifar100_images():
+    name = 'cifar100'
+    base_path = DATASETS_PATH / f"{name}"
+    _load_torchvision_images(
+        name,
+        base_path,
+        CIFAR100(
+            root=base_path,
+            download=True,
+            train=True,
+        )
+    )
 
 
 def load_cifar10_images():
@@ -53,5 +68,4 @@ def _load_torchvision_images(
 
 
 if __name__ == "__main__":
-    load_mnist_images()
-    # save_cifar10_images()
+    load_cifar100_images()
