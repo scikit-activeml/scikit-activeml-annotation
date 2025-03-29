@@ -27,6 +27,7 @@ from core.api import (
 from core.schema import *
 from core.adapter import *
 from ui.storekey import StoreKey
+from ui.components.data_display import *
 
 register_page(
     __name__,
@@ -144,42 +145,6 @@ def create_sidebar():
     )
 
 
-# TODO make components out of these.
-def display_image(path_to_img):
-    # Use a separate Callback to update the image.
-    image = Image.open(path_to_img).convert("RGB")
-
-    # TODO why does this loading not work?
-    return (
-        dcc.Graph(
-            figure=px.imshow(
-                image,
-                labels={},
-                # color_continuous_scale='gray'
-            ),
-        ),
-    )
-
-
-def display_text(text):
-    return (
-        dmc.Container(
-            dmc.Stack(
-                dcc.Markdown(
-                    text,  # Provide your text data here
-                    className="markdown-content",
-                    # Add additional Markdown options if necessary
-                ),
-            ),
-        )
-    )
-
-
-def display_audio(audio):
-    print(audio)
-    raise NotImplementedError
-
-
 def create_chip(idx, label, probability=None):
     chip = dmc.Chip(
         label,
@@ -247,11 +212,11 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
     data_type: DataType = instantiate(dataset_cfg.data_type)
 
     if data_type.value == DataType.IMAGE.value:
-        rendered_data = display_image(human_data)
+        rendered_data = create_image_display(human_data)
     elif data_type.value == DataType.TEXT.value:
-        rendered_data = display_text(human_data)
+        rendered_data = create_text_display(human_data)
     else:
-        rendered_data = display_image(human_data)
+        rendered_data = create_audio_display(human_data)
 
     class_prob = None
     if batch.class_probas:
