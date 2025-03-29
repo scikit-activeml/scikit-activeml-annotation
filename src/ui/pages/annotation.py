@@ -44,9 +44,7 @@ def layout(**kwargs):
                 dmc.AppShellNavbar(
                     id="sidebar-container-annotation",
                     children=[
-                        # Place your navigation items here
-                        html.Div("Navigation Item 1"),
-                        html.Div("Navigation Item 2"),
+                        create_sidebar()
                     ],
                     p="md",
                     style={'border': '4px solid red'}
@@ -200,7 +198,7 @@ def create_chip_group(classes, class_prob):
         offsetScrollbars=True,
         style={
             "width": "100%",
-            'height': '40vh',
+            'max-height': '40vh',
             'border': 'green dashed 3px'
         },
     )
