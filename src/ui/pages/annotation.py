@@ -12,7 +12,6 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
-import plotly.express as px
 
 from hydra.utils import instantiate
 
@@ -460,6 +459,29 @@ def on_button_click(
     )
 
 
+@callback(
+    Input('skip-batch-button', 'n_clicks'),
+    State('session-store', 'data'),
+    output=dict(
+        session_data=Output('session-store', 'data', allow_duplicate=True),
+        pathname=Output('url-annotation', 'pathname', allow_duplicate=True)
+    ),
+    prevent_initial_call=True
+)
+def on_skip_batch(
+    n_clicks: int,
+    session_data: dict,
+):
+    if n_clicks is None or n_clicks == 0:
+        raise PreventUpdate
+
+    # reset batch state
+    session_data.pop(StoreKey.BATCH_STATE.value, None)
+
+    return dict(
+        session_data=session_data,
+        pathname=None  # By passing None the page is reloaded
+    )
 # TODO add cleanup function when switching away from annot page.
 
 
