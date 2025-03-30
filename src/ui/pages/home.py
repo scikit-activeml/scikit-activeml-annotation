@@ -18,6 +18,7 @@ from dash import (
 from dash.exceptions import PreventUpdate
 
 import dash_mantine_components as dmc
+from dash_iconify import DashIconify
 
 from hydra.utils import instantiate
 
@@ -25,7 +26,8 @@ from core.api import (
     get_dataset_config_options,
     get_qs_config_options,
     get_model_config_options,
-    get_adapter_config_options
+    get_adapter_config_options,
+    is_dataset_embedded
 )
 
 # TODO need to use some cache instead of session store for certain things.
@@ -39,6 +41,91 @@ app = Dash(
     prevent_initial_callbacks=True,
     # suppress_callback_exceptions=True
 )
+
+
+# region Layout
+def layout():
+    return (
+        dmc.Center(
+            [
+                dcc.Location(id='url_home', refresh=True),
+                dcc.Location(id='url_home_init', refresh=False),
+                dmc.Stack(
+                    [
+                        dmc.Stack(
+                            [
+                                dmc.Title("Welcome to scikit-activeml-annotation", order=1),
+                                dmc.Title("Configure your annotation pipeline", order=2)
+                            ],
+                            align='center',
+                            p='xl'
+                        ),
+                        dmc.Flex(
+                            [
+                                create_stepper(),
+                                dcc.Loading(
+                                    dmc.Container(
+                                        # Current selection injected here
+                                        html.Div(id='radio-selection'),  # workaround so id exists at the start
+                                        id='selection_container',
+                                        # TODO use Mantine styling for this.
+                                        style={"width": "15vw", "whiteSpace": "normal", "wordWrap": "break-word"}
+                                    ),
+                                    type='circle',
+                                )
+                            ]
+                        ),
+                        dmc.Group(
+                            [
+                                dmc.Button("Back", id='back_button'),
+                                dmc.Button("Confirm", id='confirm_button', disabled=True)
+                            ]
+                        )
+                    ],
+                    align='center',
+                    style={'border': '2px solid gold'}
+                )
+            ],
+            style={'height': '100%'}
+        )
+    )
+
+
+# Helper function to build UI for different steps
+def create_step_ui(step, session_data):
+    if step == 0:
+        if session_data is None:
+            preselect = None
+        else:
+            preselect = session_data.get(StoreKey.DATASET_SELECTION.value)
+        return _create_dataset_selection(preselect)
+    elif step == 1:
+        return _create_adapter_radio_group(session_data)
+    elif step == 2:
+        return _create_radio_group(get_qs_config_options(), session_data.get(StoreKey.QUERY_SELECTION.value))
+    elif step == 3:
+        return _create_radio_group(get_model_config_options(), session_data.get(StoreKey.MODEL_SELECTION.value))
+    return None
+
+
+def create_stepper():
+    return (
+        dmc.Stepper(
+            [
+                dmc.StepperStep(id={'type': 'stepper-step', 'index': 0}, label="Dataset", description="Select a Dataset"),  # loading=True),
+                dmc.StepperStep(id={'type': 'stepper-step', 'index': 1}, label="Embedding", description="Select embedding method"),
+                dmc.StepperStep(id={'type': 'stepper-step', 'index': 2}, label="Query Strategy", description="Select a Query Strategy"),
+                dmc.StepperStep(id={'type': 'stepper-step', 'index': 3}, label="Model", description="Select a model"),
+            ],
+            id='stepper',
+            active=0,
+            # TODO consider using horizontal orientation
+            orientation='vertical',
+            iconSize=30,
+            style={'border': '2px solid red'},
+            allowNextStepsSelect=False
+        )
+    )
 
 
 def _create_dataset_selection(preselect):
@@ -60,21 +147,61 @@ def _create_dataset_selection(preselect):
     )
 
 
-# Helper function to build UI for different steps
-def build_step_ui(step, session_data):
-    if step == 0:
-        return _create_dataset_selection(session_data.get(StoreKey.DATASET_SELECTION.value))
-    elif step == 1:
-        return create_radio_group(get_adapter_config_options(), session_data.get(StoreKey.ADAPTER_SELECTION.value))
-    elif step == 2:
-        return create_radio_group(get_qs_config_options(), session_data.get(StoreKey.QUERY_SELECTION.value))
-    elif step == 3:
-        return create_radio_group(get_model_config_options(), session_data.get(StoreKey.MODEL_SELECTION.value))
-    return None
+def _create_adapter_radio_group(session_data):
+    options = get_adapter_config_options()
+    formatted_options = [(cfg.id, cfg.display_name) for cfg in options]
+
+    preselect = session_data.get(StoreKey.ADAPTER_SELECTION.value)
+
+    return dmc.RadioGroup(
+        id='radio-selection',
+        children=dmc.Stack(
+            [
+                dmc.Group(
+                    [
+                        dmc.Radio(label=cfg_name, value=cfg_id),
+                        _create_bool_icon(is_dataset_embedded(
+                            session_data[StoreKey.DATASET_SELECTION.value],
+                            cfg_id
+                        ))
+                    ]
+                )
+                for cfg_id, cfg_name in formatted_options
+            ]
+        ),
+        value=preselect,
+        size="sm",
+        style={'border': '2px solid red'},
+    )
+
+
+def _create_bool_icon(val: bool):
+    # TODO do this via CSS
+    if val:
+        icon = 'tabler:check'
+        color = 'green'
+        label = 'embedding is cached'
+    else:
+        icon = 'tabler:x'
+        color = 'red'
+        label = 'embedding has to be computed'
+
+    return (
+        dmc.Tooltip(
+            dmc.ThemeIcon(
+                DashIconify(icon=icon),
+                variant='light',
+                radius=20,
+                color=color,
+                size=25,
+            ),
+            label=label
+        )
+    )
 
 
 # Helper function to create a radio group
-def create_radio_group(options, preselect):
+def _create_radio_group(options, preselect):
     formatted_options = [(cfg.id, cfg.display_name) for cfg in options]
     return dmc.RadioGroup(
         id='radio-selection',
@@ -83,143 +210,90 @@ def create_radio_group(options, preselect):
         size="sm",
         style={'border': '2px solid red'},
     )
-
-
-# region Layout
-stepper = dmc.Stepper(
-    [
-        dmc.StepperStep(id={'type': 'step', 'index': 0}, label="Dataset", description="Select a Dataset"),  # loading=True),
-        dmc.StepperStep(id={'type': 'step', 'index': 1}, label="Adapter", description="Select an Adapter"),
-        dmc.StepperStep(id={'type': 'step', 'index': 2}, label="Query Strategy", description="Select a Query Strategy"),
-        dmc.StepperStep(id={'type': 'step', 'index': 3}, label="Model", description="Select a model (if required by query)"),
-    ],
-    id='stepper',
-    active=0,
-    # TODO consider using horizontal orientation
-    orientation='vertical',
-    iconSize=30,
-    style={'border': '2px solid red'}
-)
-
-
-layout = dmc.AppShell(
-    [
-        dmc.AppShellMain(
-            dmc.Center(
-                [
-                    url_home := dcc.Location(id='url_home', refresh=True),
-                    dmc.Stack(
-                        [
-                            dmc.Stack(
-                                [
-                                    dmc.Title("Welcome to scikit-activeml-annotation", order=1),
-                                    dmc.Title("Configure your annotation pipeline", order=2)
-                                ],
-                                align='center',
-                                p='xl'
-                            ),
-                            dmc.Flex(
-                                [
-                                    stepper,
-                                    dcc.Loading(
-                                        selection_container := dmc.Container(
-                                            # Current selection injected here
-                                            _create_dataset_selection(None),
-                                            id='selection_container',
-                                            # TODO use Mantine styling for this.
-                                            style={"width": "15vw", "whiteSpace": "normal", "wordWrap": "break-word"}
-                                        ),
-                                        type='circle',
-                                    )
-                                ]
-                            ),
-                            dmc.Group(
-                                [
-                                    back_button := dmc.Button("Back", id='back_button'),
-                                    confirm_button := dmc.Button("Confirm", id='confirm_button', disabled=True)
-                                ]
-                            )
-                        ],
-                        align='center',
-                        style={'border': '2px solid gold'}
-                    )
-                ],
-                style={'height': '100%'}
-            )
-        ),
-        # dmc.AppShellAside("Aside", p="md"),
-        # dmc.AppShellFooter("Footer", p="md"),
-    ],
-    padding="md",
-    id="appshell",
-)
 # endregion
 
 
 @callback(
-    Input(confirm_button, 'n_clicks'),
-    State('radio-selection', 'value'),
-    State(stepper, 'active'),
+    Input('url_home_init', 'pathname'),
     State('session-store', 'data'),
     output=dict(
-        children=Output(selection_container, 'children', allow_duplicate=True),
-        session_data=Output('session-store', 'data'),
-        active=Output(stepper, 'active', allow_duplicate=True)
+        selection_content=Output('selection_container', 'children', allow_duplicate=True),
+        session_data=Output('session-store', 'data', allow_duplicate=True)
+    ),
+    prevent_initial_call='initial_duplicate'
+)
+def setup_page(
+    _,
+    session_data
+):
+    print("Setup page")
+
+    if session_data is None:
+        session_data = {}
+
+    return dict(
+        selection_content=create_step_ui(0, session_data),
+        session_data=session_data
+    )
+
+
+@callback(
+    Input('confirm_button', 'n_clicks'),
+    State('radio-selection', 'value'),
+    State('stepper', 'active'),
+    State('session-store', 'data'),
+    output=dict(
+        selection_content=Output('selection_container', 'children', allow_duplicate=True),
+        session_data=Output('session-store', 'data', allow_duplicate=True),
+        step=Output('stepper', 'active', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
 def handle_confirm(
-    _,
+    n_clicks,
     radio_value,
     current_step,
     session_data
 ):
     print(f"handle_confirm triggered at step {current_step} with radio_value: {radio_value}")
-
-    if current_step >= 4 or radio_value is None:
+    # TODO initialize session_data somewhere else.
+    if current_step >= 4 or radio_value is None or n_clicks is None:
         raise PreventUpdate
 
-    if session_data is None:
-        session_data = {}
-
-    new_step = current_step
-
     if current_step == 0:
+        # TODO move this somewhere else. This is bad here.
+        prev_dataset_id = session_data.get(StoreKey.DATASET_SELECTION.value)
+        was_dataset_changed = prev_dataset_id is not None and radio_value != prev_dataset_id
+        if was_dataset_changed:
+            session_data.pop(StoreKey.BATCH_STATE.value, None)
+
         session_data[StoreKey.DATASET_SELECTION.value] = radio_value
-        new_step = 1
 
     elif current_step == 1:
         session_data[StoreKey.ADAPTER_SELECTION.value] = radio_value
-        new_step = 2
 
     elif current_step == 2:
         session_data[StoreKey.QUERY_SELECTION.value] = radio_value
-        qs_cfg = get_query_cfg_from_id(radio_value)
-        if qs_cfg.model_agnostic:
-            session_data[StoreKey.MODEL_SELECTION.value] = None
-            new_step = 4  # Skip model selection if model agnostic
-        else:
-            new_step = 3
 
     elif current_step == 3:
         session_data[StoreKey.MODEL_SELECTION.value] = radio_value
-        new_step = 4
 
+    new_step = current_step + 1
     return dict(
-        children=build_step_ui(new_step, session_data),
+        selection_content=create_step_ui(new_step, session_data),
         session_data=session_data,
-        active=new_step
+        step=new_step
     )
 
 
 # Back button callback
 @callback(
-    Input(back_button, 'n_clicks'),
-    State(stepper, 'active'),
+    Input('back_button', 'n_clicks'),
+    State('stepper', 'active'),
     State('session-store', 'data'),
     output=dict(
-        children=Output(selection_container, 'children'),
-        active=Output(stepper, 'active')
+        children=Output('selection_container', 'children', allow_duplicate=True),
+        active=Output('stepper', 'active', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
@@ -234,17 +308,17 @@ def handle_back(
         raise PreventUpdate
 
     return dict(
-        children=build_step_ui(next_step, session_data),
+        children=create_step_ui(next_step, session_data),
         active=next_step
     )
 
 
 @callback(
-    Input(confirm_button, 'n_clicks'),
-    State(stepper, 'active'),
+    Input('confirm_button', 'n_clicks'),
+    State('stepper', 'active'),
     State('session-store', 'data'),
     output=dict(
-        pathname=Output(url_home, 'pathname')
+        pathname=Output('url_home', 'pathname')
     ),
     prevent_initial_call=True
 )
@@ -263,7 +337,7 @@ def go_to_annot_page(
 
 clientside_callback(
     ClientsideFunction(namespace='clientside', function_name='validateConfirmButton'),
-    Output(confirm_button, "disabled"),
+    Output('confirm_button', "disabled"),
     Input("radio-selection", "value"),
 )
 

@@ -57,6 +57,12 @@ def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
     return cast(QueryStrategyConfig, cfg)
 
 
+def is_dataset_embedded(dataset_id, adapter_id) -> bool:
+    key = f"{dataset_id}_{adapter_id}"
+    path = Path(str(CACHE_PATH)) / f"{key}.npz"
+    return path.exists()
+
+
 def request_query(
         cfg: ActiveMlConfig,
         session_cfg: SessionConfig,
