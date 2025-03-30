@@ -67,7 +67,7 @@ class ActiveMlConfig:
 @dataclass
 class SessionConfig:
     batch_size: int = 10  # How many samples to label before retraining
-    max_candidates: int | float = 1000  #
+    subsampling: int | float = 1000  #
 
 
 # endregion

@@ -317,11 +317,16 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
 
     # max_candidates for subsampling.
     qs: QueryStrategy = instantiate(cfg.query_strategy.definition, random_state=random_state)
-    qs: SubSamplingWrapper = SubSamplingWrapper(
-        qs,
-        max_candidates=session_cfg.max_candidates,
-        random_state=random_state
-    )
+
+    print("Subsampling")
+    print(session_cfg.subsampling)
+    print(type(session_cfg.subsampling))
+    if session_cfg.subsampling is not None:
+        qs: SubSamplingWrapper = SubSamplingWrapper(
+            qs,
+            max_candidates=session_cfg.subsampling,
+            random_state=random_state
+        )
 
     # TODO separate query from fitting?
     query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,

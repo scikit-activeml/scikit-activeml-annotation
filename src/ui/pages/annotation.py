@@ -111,7 +111,7 @@ def create_sidebar():
                     [
                         dmc.NumberInput(
                             # label="Subsampling",
-                            id='batch-size-input',
+                            id='subsampling-input',
                             allowNegative=False,
                             debounce=True,
                             hideControls=True
@@ -325,17 +325,24 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
 @callback(
     Input('url-annotation', 'pathname'),
     State('session-store', 'data'),
+    State('batch-size-input', 'value'),
+    State('subsampling-input', 'value'),
     output=dict(
         session_store=Output('session-store', 'data', allow_duplicate=True),
-        sidebar_container=Output('sidebar-container-annotation', 'children'),
         hero_container=Output('hero-container-annotation', 'children'),
     ),
     prevent_initial_call=True
 )
-def setup_annotations_page(pathname, store_data):
+def setup_annotations_page(
+        pathname,
+        store_data,
+        batch_size,
+        subsampling,
+):
     dataset_id = pathname.split('/')[-1]
     print("[Annot] init annotation page with dataset: ", dataset_id)
-    session_cfg = SessionConfig(batch_size=5)
+
+    session_cfg = SessionConfig(batch_size=batch_size, subsampling=subsampling)
 
     # info overrides of lower lvl config can be done like so:
     # cfg = compose(config_name="config", overrides=["database.host=remote_server"])
