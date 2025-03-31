@@ -1,4 +1,4 @@
-id: "badge"  # TODO id has to match file name right now
+id: "badge"
 display_name: "BADGE"
 model_agnostic: False
 

@@ -30,8 +30,6 @@ from core.api import (
     is_dataset_embedded
 )
 
-# TODO need to use some cache instead of session store for certain things.
-
 from ui.storekey import StoreKey
 from core.api import get_query_cfg_from_id
 
@@ -137,7 +135,6 @@ def _create_dataset_selection(preselect):
     # TODO repeated code.
     return (
         dmc.RadioGroup(
-            # TODO needs to be unique across multiple pages?
             id='radio-selection',
             children=dmc.Stack([dmc.Radio(label=l, value=k) for k, l in data]),
             value=preselect,

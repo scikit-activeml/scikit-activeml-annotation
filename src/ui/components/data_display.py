@@ -31,7 +31,7 @@ def create_image_display(path_to_img):
 
     fig = px.imshow(image, labels={})
 
-    # TODO why does this loading not work?
+    # INFO Graph does not support loading wrapper
     return (
         dcc.Graph(
             figure=fig,

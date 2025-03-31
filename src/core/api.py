@@ -259,7 +259,6 @@ def _build_activeml_classifier(
         dataset_cfg: DatasetConfig,
         random_state: np.random.RandomState
 ) -> SklearnClassifier:
-    # TODO rename label names to classes to be more consistent with sklearn naming conv.
     # classes = dataset_cfg.classes
     n_classes = len(dataset_cfg.classes)
     classes = np.arange(n_classes)
@@ -328,7 +327,6 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
             random_state=random_state
         )
 
-    # TODO separate query from fitting?
     query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,
                                           discriminator=estimator)
     return query_func, estimator
