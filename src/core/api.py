@@ -63,6 +63,10 @@ def is_dataset_embedded(dataset_id, adapter_id) -> bool:
     return path.exists()
 
 
+def dataset_path_exits(dataset_path: str) -> bool:
+    return Path(dataset_path).exists()
+
+
 def request_query(
         cfg: ActiveMlConfig,
         session_cfg: SessionConfig,

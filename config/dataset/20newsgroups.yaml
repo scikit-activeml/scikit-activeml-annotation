@@ -1,6 +1,7 @@
 id: "20newsgroups"
 display_name: "20 News Groups"
-n_classes: 20
+classes: [] # TODO
+data_path: "" # TODO
 
 data_type: 
   _target_: core.schema.DataType

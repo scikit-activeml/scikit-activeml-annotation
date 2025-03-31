@@ -27,7 +27,8 @@ from core.api import (
     get_qs_config_options,
     get_model_config_options,
     get_adapter_config_options,
-    is_dataset_embedded
+    is_dataset_embedded,
+    dataset_path_exits
 )
 
 from ui.storekey import StoreKey
@@ -129,14 +130,21 @@ def create_stepper():
 def _create_dataset_selection(preselect):
     print("_create data selection invoked")
     dataset_options = get_dataset_config_options()
-    data = [(cfg.id, f'{cfg.display_name} - ({instantiate(cfg.data_type).value})')
+    data = [(cfg, f'{cfg.display_name} - ({instantiate(cfg.data_type).value})')
             for cfg in dataset_options]
 
     # TODO repeated code.
     return (
         dmc.RadioGroup(
             id='radio-selection',
-            children=dmc.Stack([dmc.Radio(label=l, value=k) for k, l in data]),
+            children=dmc.Stack(
+                [dmc.Radio(
+                    label=cfg_display,
+                    value=cfg.id,
+                    disabled=dataset_path_exits(cfg.data_path)
+                    )
+                 for cfg, cfg_display in data]
+            ),
             value=preselect,
             size="sm",
             style={'border': '2px solid red'}
