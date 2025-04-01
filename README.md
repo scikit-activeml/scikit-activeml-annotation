@@ -30,7 +30,7 @@ $ .venv/Scripts/activate
 
 *Run the app:*
 ```sh 
-$ python src/app.py
+$ python src/run.py
 ```
 
 
