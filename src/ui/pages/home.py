@@ -308,9 +308,10 @@ def handle_back(
     session_data
 ):
     print("handle_back callback")
-    next_step = max(current_step - 1, 0)
-    if current_step == 0 and next_step == 0:
+    if current_step == 0:
         raise PreventUpdate
+
+    next_step = current_step - 1
 
     return dict(
         children=create_step_ui(next_step, session_data),
