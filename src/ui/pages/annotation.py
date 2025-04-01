@@ -61,8 +61,16 @@ def layout(**kwargs):
                 dmc.AppShellAside(
                     id="right-panel",
                     children=[
-                        # Place additional content or panels here
-                        html.Div("Aside Content")
+                        dmc.Stack(
+                            [
+                                dmc.SemiCircleProgress(
+                                    label="Annotation Progress",
+                                    id='annotation-progress-circle',
+                                    value=40,
+                                )
+                            ],
+                            align='center'
+                        )
                     ],
                     p="md",
                     style={'border': '4px solid red'}
@@ -173,32 +181,29 @@ def create_chip_group(classes, class_prob):
     chip_group = dmc.ChipGroup(
         children=chips,
         multiple=False,
-        value=preselect,  # Default value
+        value=preselect,
         id="label-radio",
     )
 
     return dmc.ScrollArea(
         dmc.Box(
-            dmc.Group(
+            dmc.Flex(
                 chip_group,
-                justify="flex-start",
-                style={
-                    "display": "flex",
-                    "flexWrap": "wrap",
-                    "gap": "10px",  # space between chips
-                },
+                wrap='wrap',
+                justify='flex-start',
+                gap='10px'
             ),
+
             style={
-                "display": "flex",
-                # "height": "300px"
+                'maxHeight': '40vh',
             }
         ),
+
         type='auto',
         offsetScrollbars=True,
         style={
             "width": "100%",
-            'max-height': '40vh',
-            'border': 'green dashed 3px'
+            'border': 'green dashed 3px',
         },
     )
 
