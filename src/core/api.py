@@ -11,7 +11,10 @@ from skactiveml.pool import SubSamplingWrapper
 from skactiveml.classifier import SklearnClassifier
 from skactiveml.base import (
     QueryStrategy,
+    SkactivemlClassifier
 )
+
+from sklearn.base import ClassifierMixin
 
 from core.schema import *
 from core.adapter import *
@@ -255,7 +258,7 @@ def _build_activeml_classifier(
         model_cfg: ModelConfig,
         dataset_cfg: DatasetConfig,
         random_state: np.random.RandomState
-) -> SklearnClassifier:
+) -> SkactivemlClassifier:
     # classes = dataset_cfg.classes
     n_classes = len(dataset_cfg.classes)
     classes = np.arange(n_classes)
@@ -269,10 +272,10 @@ def _build_activeml_classifier(
 
     est = instantiate(model_cfg.definition, **kwargs)
 
-    if isinstance(est, SklearnClassifier):
+    if isinstance(est, SkactivemlClassifier):
         # Classifier is already wrapped aka supports missing labels
         return est
-    else:
+    elif isinstance(est, ClassifierMixin):
         wrapped_est = SklearnClassifier(
             estimator=est,
             classes=classes,
@@ -280,6 +283,9 @@ def _build_activeml_classifier(
             # missing_label=schema.MISSING_LABEL_STR
         )
         return wrapped_est
+    else:
+        raise RuntimeError(f"Estimator is not a sklearn ClassifierMixin")
+
 
 
 # TODO can use from skactiveml.utils import call_func instead?

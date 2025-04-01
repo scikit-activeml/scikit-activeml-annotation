@@ -3,6 +3,9 @@ display_name: "20 News Groups"
 classes: [] # TODO
 data_path: "" # TODO
 
+# missing_label
+# discard_label TODO
+
 data_type: 
   _target_: core.schema.DataType
   _args_: [Text]
