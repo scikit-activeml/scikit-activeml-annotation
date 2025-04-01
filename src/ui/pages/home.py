@@ -28,7 +28,7 @@ from core.api import (
     get_model_config_options,
     get_adapter_config_options,
     is_dataset_embedded,
-    dataset_path_exits
+    dataset_path_exits,
 )
 
 from ui.storekey import StoreKey
@@ -328,7 +328,7 @@ def handle_back(
     ),
     prevent_initial_call=True
 )
-def go_to_annot_page(
+def go_to_next_page(
     _,
     current_step,
     session_data
@@ -338,7 +338,14 @@ def go_to_annot_page(
         raise PreventUpdate
 
     dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
-    return dict(pathname=f'/annotation/{dataset_id}')
+    adapter_id = session_data[StoreKey.ADAPTER_SELECTION.value]
+
+    if is_dataset_embedded(dataset_id, adapter_id):
+        pathname = f'/annotation/{dataset_id}'
+    else:
+        pathname = f'/embedding'
+
+    return dict(pathname=pathname)
 
 
 clientside_callback(
