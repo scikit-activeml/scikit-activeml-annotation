@@ -292,15 +292,14 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
                         # The Mantine Progress bar with dynamic section
                         dmc.ProgressRoot(
                             dmc.ProgressSection(
-                                # This section's label is removed to avoid moving text
-                                value=progress * 100,  # Replace with progress * 100 as needed
+                                value=progress * 100,
                                 color="blue",
                                 # animated=True,
                                 # striped=True
                             ),
                             radius=25,
                             size="lg",
-                            style={"height": "40px"},  # set a fixed height if desired
+                            style={"height": "40px"},
                         ),
                         # The overlay text: always centered
                         html.Div(
@@ -312,8 +311,8 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
                                 "left": "50%",
                                 "transform": "translate(-50%, -50%)",
                                 "textAlign": "center",
-                                "color": "white",  # Adjust based on your progress bar color
-                                "pointerEvents": "none",  # So clicks pass through if needed
+                                "color": "white",
+                                "pointerEvents": "none",
                             },
                         ),
                     ],
@@ -407,7 +406,6 @@ def setup_annotations_page(
 
     return dict(
         session_store=store_data,
-        sidebar_container=create_sidebar(),
         hero_container=create_hero_section(classes, dataset_cfg, human_data_path, batch, progress_percent)
     )
 
