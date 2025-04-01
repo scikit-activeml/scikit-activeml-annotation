@@ -121,16 +121,10 @@ def request_query(
     return batch_state
 
 
-# TODO cleanup make api clean.
-# It should only be the interface for the pages. Not internal logic.
-def get_or_compute_embeddings(
-        dataset_cfg: DatasetConfig,
-        adapter_cfg: AdapterConfig
-) -> tuple[np.ndarray, list[str]]:
-    """
-    Resolve the data_path path, check/load cache if enabled, call compute_features,
-    and cache the result if needed.
-    """
+def compute_embeddings(activeml_cfg: ActiveMlConfig, progress_func=None):
+    adapter_cfg = activeml_cfg.adapter
+    dataset_cfg = activeml_cfg.dataset
+
     dataset_id = dataset_cfg.id
     data_path = dataset_cfg.data_path
 
@@ -142,33 +136,32 @@ def get_or_compute_embeddings(
     cache_key = f"{dataset_id}_{adapter_cfg.id}"
     print(f"cache key: {cache_key}")
 
-    cache_path = Path(str(CACHE_PATH)) / f"{cache_key}.npz"  # Use .npz to store multiple arrays
+    cache_path = CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
 
-    if cache_path.exists():
-        print(f"Cache hit. Loading cached features from {cache_path}")
-        # Load both the feature matrix and the file names from the .npz cache
-        with np.load(str(cache_path)) as data:
-            X = data['X']
-            file_paths = data['file_paths'].tolist()  # Convert to a list if necessary
-        return X, file_paths
-    else:
-        import timeit
+    adapter: BaseAdapter = instantiate(adapter_cfg.definition)
 
-        print(f"Cache miss. Computing feature matrix and caching using adapter {adapter_cfg.id}...")
+    X, file_paths = adapter.compute_embeddings(data_path, progress_func)
 
-        # TODO Use of definition is not consistent.
-        print("Start embedding ...")
-        adapter: BaseAdapter = instantiate(adapter_cfg.definition)
-        print("Selected adapter:", type(adapter))
+    np.savez(str(cache_path), X=X, file_paths=file_paths)
 
-        start_time = timeit.default_timer()
-        X, file_paths = adapter.compute_embeddings(data_path)
-        elapsed_time = timeit.default_timer() - start_time
-        print(f"Embedding completed in: {elapsed_time:.2f} seconds")
+    return X, file_paths
 
-        # Cache both the feature matrix and the file names in the .npz file
-        np.savez(str(cache_path), X=X, file_paths=file_paths)
 
+def get_embeddings(
+        activeml_cfg: ActiveMlConfig
+) -> tuple[np.ndarray, list[str]]:
+    dataset_cfg = activeml_cfg.dataset
+    adapter_cfg = activeml_cfg.adapter
+
+    cache_key = f"{dataset_cfg.id}_{adapter_cfg.id}"
+    cache_path = CACHE_PATH / f"{cache_key}.npz"
+
+    if not cache_path.exists():
+        raise RuntimeError(f"Cannot get embedding at path: {cache_path}! \nEmbedding should exists already")
+
+    with np.load(str(cache_path)) as data:
+        X = data['X']
+        file_paths = data['file_paths'].tolist()
     return X, file_paths
 
 

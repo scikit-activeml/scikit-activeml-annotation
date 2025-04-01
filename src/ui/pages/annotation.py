@@ -21,7 +21,7 @@ from util.deserialize import compose_config
 from core.api import (
     request_query,
     completed_batch,
-    get_or_compute_embeddings
+    get_embeddings
 )
 from core.schema import *
 from core.adapter import *
@@ -356,18 +356,14 @@ def setup_annotations_page(
         'adapter': store_data[StoreKey.ADAPTER_SELECTION.value],
         '+model': store_data[StoreKey.MODEL_SELECTION.value]  # add model to default list
     }
-
     print(overrides)
-    # TODO clean this mess up.
+
+    # TODO avoid reloading X and file_names every time. Cache could make sense.
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
-    adapter_cfg = activeMl_cfg.adapter
 
-    # TODO this will have to change if one file contains multiple samples.
-    # TODO avoid reloading X and file_names every time. Only needed when.
-    # This should only be needed when a batch is completed.
-    X, file_names = get_or_compute_embeddings(dataset_cfg, adapter_cfg)
-    print("Shape of X:", X.shape)
+    # TODO This should only be needed when a batch is completed.
+    X, file_names = get_embeddings(activeMl_cfg)
 
     if StoreKey.BATCH_STATE.value not in store_data:
         # New Session

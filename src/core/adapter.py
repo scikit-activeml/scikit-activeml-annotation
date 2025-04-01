@@ -10,7 +10,7 @@ from PIL import Image
 
 class BaseAdapter(ABC):
     @abstractmethod
-    def compute_embeddings(self, data_path: Path) -> tuple[np.ndarray, list[str]]:
+    def compute_embeddings(self, data_path: Path, set_progress=None) -> tuple[np.ndarray, list[str]]:
         """
         Compute and return the feature matrix and corresponding file paths for the given directory of data.
 
@@ -85,13 +85,14 @@ class TorchVisionAdapter(BaseAdapter):
         # Set the model to evaluation mode
         self.model.eval()
 
-    def compute_embeddings(self, data_path: Path) -> tuple:
+    def compute_embeddings(self, data_path: Path, progress_func=None) -> tuple:
         """
         Load images from the directory in batches, process them through the model,
         and return the concatenated feature matrix and corresponding file names.
         """
         print(f"Compute Torchvision embedding using device: {self.device}")
         dataset = ImageDataset(data_path, self.transform)
+        n_samples = len(dataset)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, num_workers=4)
         embeddings_list = []
         file_path_list = []
@@ -115,6 +116,7 @@ class TorchVisionAdapter(BaseAdapter):
                 if processed_samples >= next_report:
                     print(f"Processed {processed_samples} samples")
                     next_report += steps
+                    progress_func((processed_samples / n_samples) * 100)
 
                 # Stack the images into a tensor and move to the correct device
                 batch_tensor = torch.stack(batch).to(self.device)
@@ -137,7 +139,7 @@ class SimpleFlattenAdapter(BaseAdapter):
     def __init__(self):
         pass
 
-    def compute_embeddings(self, data_path: Path) -> tuple[np.ndarray, list[str]]:
+    def compute_embeddings(self, data_path: Path, progress_func=None) -> tuple[np.ndarray, list[str]]:
         """
         Load images one by one from the directory, flatten them,
         and return the stacked feature matrix.
@@ -145,8 +147,9 @@ class SimpleFlattenAdapter(BaseAdapter):
         feature_list = []
         # iterdir does not ensure order of files in dir.
         files = [str(file) for file in data_path.iterdir() if file.is_file()]
+        n_files = len(files)
 
-        for file in files:
+        for progress, file in enumerate(files):
             try:
                 # img = Image.open(file).convert("RGB")
                 img = Image.open(file)
@@ -159,6 +162,9 @@ class SimpleFlattenAdapter(BaseAdapter):
 
                 feature = img_data.flatten().reshape(1, -1)
                 feature_list.append(feature)
+
+                progress_func((progress / n_files) * 100)
+
             except Exception as e:
                 print(f"Error processing {file}: {e}")
 

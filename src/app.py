@@ -6,21 +6,23 @@ from dash import (
     State,
     html,
     dcc,
-    callback
+    callback,
+    DiskcacheManager
 )
+import diskcache
 from dash.exceptions import PreventUpdate
 
 import dash_mantine_components as dmc
 import dash_loading_spinners
 
-from werkzeug.middleware.profiler import ProfilerMiddleware
-
 from ui.components.navbar import create_navbar
 from paths import (
     PAGES_PATH,
-    PROFILER_PATH,
     ASSETS_PATH
 )
+
+cache = diskcache.Cache('./cache')
+background_callback_manager = DiskcacheManager(cache)
 
 app = Dash(
     __name__, 
@@ -33,8 +35,8 @@ app = Dash(
     prevent_initial_callbacks=True,
     assets_folder=str(ASSETS_PATH),
     title="scikit-activeml-annotation",
+    background_callback_manager=background_callback_manager
 )
-
 
 app.layout = (
     dmc.MantineProvider(
