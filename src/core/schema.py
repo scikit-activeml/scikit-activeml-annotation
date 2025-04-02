@@ -16,11 +16,6 @@ class DataType(Enum):
 
 # region Hydra Config Schema
 @dataclass
-class DataLoaderConfig:
-    id: str = MISSING
-
-
-@dataclass
 class AdapterConfig:
     id: str = MISSING
     display_name: str = MISSING
@@ -33,7 +28,7 @@ class DatasetConfig:
     id: str = MISSING
     display_name: str = MISSING  # Name that will be displayed in ui for that dataset
     classes: list[str] = MISSING  # All the possible data labels.
-    data_path: str = MISSING  # Path to data dir. Path has to be Absolute or relative to dataset dir.
+    data_path: str = MISSING  # Path to data dir. Relative to project root
     data_type: DataType = MISSING
 
 

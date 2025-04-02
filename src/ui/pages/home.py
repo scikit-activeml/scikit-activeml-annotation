@@ -141,7 +141,7 @@ def _create_dataset_selection(preselect):
                 [dmc.Radio(
                     label=cfg_display,
                     value=cfg.id,
-                    disabled=dataset_path_exits(cfg.data_path)
+                    disabled=not dataset_path_exits(cfg.data_path)
                     )
                  for cfg, cfg_display in data]
             ),

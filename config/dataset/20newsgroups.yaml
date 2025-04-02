@@ -1,7 +1,7 @@
 id: "20newsgroups"
 display_name: "20 News Groups"
 classes: [] # TODO
-data_path: "" # TODO
+data_path: "todo" # TODO
 
 # missing_label
 # discard_label TODO

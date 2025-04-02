@@ -15,7 +15,7 @@ classes: [
   'television', 'tiger', 'tractor', 'train', 'trout', 'tulips', 'turtle', 'wardrobe',
   'whale', 'willow', 'wolf', 'woman', 'worm'
 ]
-data_path: 'cifar100/cifar100_images'
+data_path: 'datasets/cifar100/cifar100_images'
 
 data_type:
   _target_: core.schema.DataType

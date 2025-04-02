@@ -26,6 +26,7 @@ def _dict_overrides_to_list(overrides: Dict[str, str]) -> list[str]:
     return out
 
 
+# TODO this should be inside the api file
 def compose_config(overrides: Dict[str, str] | None = None) -> ActiveMlConfig:
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
         # TODO

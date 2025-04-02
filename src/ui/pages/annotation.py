@@ -209,16 +209,19 @@ def create_chip_group(classes, class_prob):
 
 
 # TODO seperate Loading Image from
-def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_data: Any, batch: Batch, progress: float):
+# TODO rename this function to have a better name.
+def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_data_path: str, batch: Batch, progress: float):
     # TODO instantiate the data_type enum somewhere else
     data_type: DataType = instantiate(dataset_cfg.data_type)
 
+    human_data_path = ROOT_PATH / human_data_path
+
     if data_type.value == DataType.IMAGE.value:
-        rendered_data = create_image_display(human_data)
+        rendered_data = create_image_display(human_data_path)
     elif data_type.value == DataType.TEXT.value:
-        rendered_data = create_text_display(human_data)
+        rendered_data = create_text_display(human_data_path)
     else:
-        rendered_data = create_audio_display(human_data)
+        rendered_data = create_audio_display(human_data_path)
 
     class_prob = None
     if batch.class_probas:
@@ -399,6 +402,8 @@ def setup_annotations_page(
 
     # TODO maybe the adapter should be responsible with specifying how to get human representation for sample with idx
     human_data_path = file_names[query_idx]
+    print('human data path')
+    print(human_data_path)
 
     return dict(
         session_store=store_data,

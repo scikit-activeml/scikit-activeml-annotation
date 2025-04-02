@@ -7,10 +7,22 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from PIL import Image
 
+from paths import ROOT_PATH
+
+
+def relative_to_root(path: str | Path) -> str:
+    """
+    Convert an absolute path to a path that is relative to the project root.
+    """
+    if isinstance(path, str):
+        path = Path(path)
+
+    return str(path.relative_to(ROOT_PATH))
+
 
 class BaseAdapter(ABC):
     @abstractmethod
-    def compute_embeddings(self, data_path: Path, set_progress=None) -> tuple[np.ndarray, list[str]]:
+    def compute_embeddings(self, data_path: Path, set_progress: callable = None) -> tuple[np.ndarray, list[str]]:
         """
         Compute and return the feature matrix and corresponding file paths for the given directory of data.
 
@@ -27,19 +39,16 @@ class BaseAdapter(ABC):
         Returns:
             tuple: A tuple containing:
                 - `np.ndarray`: The feature matrix of shape (num_samples, num_features).
-                - `list[str]`: A list of file paths corresponding to the samples in `X`.
+                - `list[str]`: A list of file paths relative to the root of the project.
+                                Used to display human readable sample.
         """
         pass
-
-    # @abstractmethod
-    # def get_supported_datatypes(self):
-    #     pass
 
 
 class ImageDataset(torch.utils.data.Dataset):
     def __init__(self, data_path: Path, transform: callable):
         self.transform = transform
-        self.image_paths = [str(path) for path in data_path.glob('*')]
+        self.image_paths = [path for path in data_path.iterdir() if path.is_file()]
 
     def __len__(self):
         return len(self.image_paths)
@@ -55,7 +64,7 @@ class ImageDataset(torch.utils.data.Dataset):
             return None, image_path  # If there's an error, return None and the file name
 
         image = self.transform(image)  # Apply the transformations
-        return image, image_path
+        return image, relative_to_root(image_path)
 
 
 class TorchVisionAdapter(BaseAdapter):
@@ -104,19 +113,11 @@ class TorchVisionAdapter(BaseAdapter):
         # Disable gradient tracking since we are in inference mode
         with torch.no_grad():
             for batch, file_paths in dataloader:
-                assert len(batch) == len(file_paths)
 
                 # Filter out any failed image loads (None entries)
                 batch = [img for img in batch if img is not None]
                 if not batch:
                     continue
-
-                # Update progress counter and print every 1000 samples
-                processed_samples += len(batch)
-                if processed_samples >= next_report:
-                    print(f"Processed {processed_samples} samples")
-                    next_report += steps
-                    progress_func((processed_samples / n_samples) * 100)
 
                 # Stack the images into a tensor and move to the correct device
                 batch_tensor = torch.stack(batch).to(self.device)
@@ -127,6 +128,13 @@ class TorchVisionAdapter(BaseAdapter):
                 # Append the embeddings and corresponding file names
                 embeddings_list.append(embeddings.cpu().numpy())
                 file_path_list.extend(file_paths)  # Ensure file_paths match embeddings
+
+                # Update progress counter and print every 1000 samples
+                processed_samples += len(batch)
+                if processed_samples >= next_report:
+                    print(f"Processed {processed_samples} samples")
+                    next_report += steps
+                    progress_func((processed_samples / n_samples) * 100)
 
         # Concatenate all embeddings into a single feature matrix
         feature_matrix = np.concatenate(embeddings_list, axis=0)
@@ -145,8 +153,10 @@ class SimpleFlattenAdapter(BaseAdapter):
         and return the stacked feature matrix.
         """
         feature_list = []
+        file_path_list = []
         # iterdir does not ensure order of files in dir.
-        files = [str(file) for file in data_path.iterdir() if file.is_file()]
+        files = [file for file in data_path.iterdir() if file.is_file()]
+
         n_files = len(files)
 
         for progress, file in enumerate(files):
@@ -162,6 +172,7 @@ class SimpleFlattenAdapter(BaseAdapter):
 
                 feature = img_data.flatten().reshape(1, -1)
                 feature_list.append(feature)
+                file_path_list.append(relative_to_root(file))
 
                 progress_func((progress / n_files) * 100)
 
@@ -173,4 +184,4 @@ class SimpleFlattenAdapter(BaseAdapter):
         except Exception as e:
             raise RuntimeError(f"Some images are RBG while others are Greyscale: {e}")
 
-        return feature_matrix, files
+        return feature_matrix, file_path_list

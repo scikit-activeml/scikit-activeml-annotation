@@ -57,6 +57,7 @@ def layout():
                             }
                         ),
 
+                        # TODO cleanup.
                         # dmc.Stack(
                         #     [
                         #         dmc.Group(
@@ -119,6 +120,7 @@ def setup_page(
 def on_embedding_start(
         n_clicks,
 ):
+    print("on_embedding_start callback")
     return dict(
         title="Embedding in progress...",
         # cancel_disabled=False
@@ -168,6 +170,8 @@ def compute_embedding(
 ):
     if n_clicks is None:
         raise PreventUpdate
+
+    print("compute embedding background callback")
 
     _compute_embedding(store_data, progress_func)
 

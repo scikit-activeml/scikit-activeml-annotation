@@ -30,7 +30,8 @@ from paths import (
     MODEL_CONFIG_PATH,
     ADAPTER_CONFIG_PATH,
     DATASETS_PATH,
-    CACHE_PATH
+    CACHE_PATH,
+    ROOT_PATH
 )
 
 
@@ -67,7 +68,8 @@ def is_dataset_embedded(dataset_id, adapter_id) -> bool:
 
 
 def dataset_path_exits(dataset_path: str) -> bool:
-    return Path(dataset_path).exists()
+    path = ROOT_PATH / Path(dataset_path)
+    return path.exists()
 
 
 def request_query(
@@ -124,28 +126,29 @@ def request_query(
     return batch_state
 
 
-def compute_embeddings(activeml_cfg: ActiveMlConfig, progress_func=None):
+def compute_embeddings(
+        activeml_cfg: ActiveMlConfig,
+        progress_func: callable
+):
     adapter_cfg = activeml_cfg.adapter
     dataset_cfg = activeml_cfg.dataset
-
     dataset_id = dataset_cfg.id
-    data_path = dataset_cfg.data_path
 
+    data_path = dataset_cfg.data_path
     data_path = Path(data_path)
     if not data_path.is_absolute():
-        data_path = DATASETS_PATH / data_path
-
-    # Unique key
-    cache_key = f"{dataset_id}_{adapter_cfg.id}"
-    print(f"cache key: {cache_key}")
-
-    cache_path = CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
+        data_path = ROOT_PATH / data_path
 
     adapter: BaseAdapter = instantiate(adapter_cfg.definition)
 
     X, file_paths = adapter.compute_embeddings(data_path, progress_func)
 
-    np.savez(str(cache_path), X=X, file_paths=file_paths)
+    # Unique key
+    cache_key = f"{dataset_id}_{adapter_cfg.id}"
+    cache_path = CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
+
+    # Store relative file_paths
+    np.savez(cache_path, X=X, file_paths=file_paths)
 
     return X, file_paths
 
@@ -285,7 +288,6 @@ def _build_activeml_classifier(
         return wrapped_est
     else:
         raise RuntimeError(f"Estimator is not a sklearn ClassifierMixin")
-
 
 
 # TODO can use from skactiveml.utils import call_func instead?
