@@ -480,7 +480,17 @@ def on_skip_batch(
         raise PreventUpdate
 
     # reset batch state
-    session_data.pop(StoreKey.BATCH_STATE.value, None)
+    batch_json = session_data.pop(StoreKey.BATCH_STATE.value, None)
+    dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
+
+    # Store annotations that have been made so far.
+    batch = Batch.from_json(batch_json)
+
+    for idx, val in enumerate(batch.annotations):
+        if val is None:
+            batch.annotations[idx] = MISSING_LABEL
+
+    completed_batch(dataset_id, batch)
 
     return dict(
         session_data=session_data,
