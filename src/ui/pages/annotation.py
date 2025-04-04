@@ -34,6 +34,8 @@ register_page(
     description='The main annotation page',
 )
 
+# TODO create variables for the id's
+
 
 def layout(**kwargs):
     return html.Div([

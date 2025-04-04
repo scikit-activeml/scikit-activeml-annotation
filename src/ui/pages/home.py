@@ -43,7 +43,7 @@ app = Dash(
 
 
 # region Layout
-def layout():
+def layout(**kwargs):
     return (
         dmc.Center(
             [
