@@ -84,6 +84,9 @@ class Batch:
         data = json.loads(json_str)
         return Batch(**data)
 
+    def is_completed(self) -> bool:
+        return self.progress >= len(self.indices)
+
 
 @dataclass
 class Annotation:

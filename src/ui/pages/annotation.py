@@ -1,5 +1,6 @@
 from typing import Any
 
+import dash
 from dash import (
     html,
     dcc,
@@ -40,6 +41,7 @@ register_page(
 def layout(**kwargs):
     return html.Div([
         dcc.Location(id='url-annotation', refresh=True),
+        dcc.Store(id='last-batch-store', storage_type='session'),
         dmc.AppShell(
             [
                 dmc.AppShellNavbar(
@@ -170,13 +172,24 @@ def create_chip(idx, label, probability=None):
     )
 
 
-def create_chip_group(classes, class_prob):
+def create_chip_group(classes, batch, class_prob):
+    # Check if there is some annotation already for that sample in case the user used back btn.
+    annotation = batch.annotations[batch.progress]
+    was_annotated = annotation is not None
+    was_labaled = was_annotated and isinstance(annotation, int)
+
     if class_prob is None:
         chips = [create_chip(idx, label) for idx, label in enumerate(classes)]
-        preselect = None
+        preselect = str(annotation) if was_labaled else None
     else:
-        highest_prob_idx = np.argmax(class_prob)
-        preselect = str(highest_prob_idx)
+        if was_labaled:
+            preselect = str(annotation)
+        elif was_annotated:
+            preselect = None
+        else:
+            highest_prob_idx = np.argmax(class_prob)
+            preselect = str(highest_prob_idx)
+
         chips = [create_chip(idx, label, probability) for idx, (label, probability) in
                  enumerate(zip(classes, class_prob))]
 
@@ -246,7 +259,7 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
                     dmc.Stack(
                         [
                             dmc.Title('Select Label', order=4),
-                            create_chip_group(classes, class_prob),
+                            create_chip_group(classes, batch, class_prob),
                         ],
                         style={
                             'textAlign': 'center',
@@ -263,8 +276,8 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
                 dmc.Group(
                     [
                         dmc.Button(
-                            'Undo',
-                            id="undo-button",
+                            'Back',
+                            id="back-button",
                             color='dark'
                         ),
 
@@ -338,6 +351,7 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
     output=dict(
         session_store=Output('session-store', 'data', allow_duplicate=True),
         hero_container=Output('hero-container-annotation', 'children'),
+        last_batch=Output('last-batch-store', 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
@@ -369,6 +383,7 @@ def setup_annotations_page(
 
     # TODO This should only be needed when a batch is completed.
     X, file_names = get_embeddings(activeMl_cfg)
+    last_batch_json = dash.no_update
 
     if StoreKey.BATCH_STATE.value not in store_data:
         # New Session
@@ -377,13 +392,15 @@ def setup_annotations_page(
     else:
         # Existing Session
         batch: Batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
-        batch_completed = len(batch.indices) <= batch.progress
-        if batch_completed:
+        if batch.is_completed():
             print("BATCH IS COMPLETED")
             # Store labeling data to disk
             # TODO to much serialization deserialization
+
             completed_batch(dataset_id, batch)
 
+            # Override last batch
+            last_batch_json = batch.to_json()
             # Initialize the next batch
             batch = request_query(activeMl_cfg, session_cfg, X, file_names)
             store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
@@ -409,7 +426,8 @@ def setup_annotations_page(
 
     return dict(
         session_store=store_data,
-        hero_container=create_hero_section(classes, dataset_cfg, human_data_path, batch, progress_percent)
+        hero_container=create_hero_section(classes, dataset_cfg, human_data_path, batch, progress_percent),
+        last_batch=last_batch_json
     )
 
 
@@ -498,6 +516,50 @@ def on_skip_batch(
         session_data=session_data,
         pathname=None  # By passing None the page is reloaded
     )
+
+
+@callback(
+    Input('back-button', 'n_clicks'),
+    State('session-store', 'data'),
+    State('last-batch-store', 'data'),
+    output=dict(
+        session_data=Output('session-store', 'data'),
+        pathname=Output('url-annotation', 'pathname', allow_duplicate=True),
+        last_batch=Output('last-batch-store', 'data', allow_duplicate=True),
+    ),
+    prevent_initial_call=True
+)
+def on_back_clicked(
+    clicks,
+    session_data,
+    last_batch,
+):
+    if clicks is None:
+        raise PreventUpdate
+
+    print("on back click callback")
+    batch = Batch.from_json(session_data[StoreKey.BATCH_STATE.value])
+
+    if batch.progress == 0:
+        print("Have to get last batch to be able to go back.")
+        if last_batch is None:
+            print("CANNOT go back further!")
+            raise PreventUpdate
+
+        batch = Batch.from_json(last_batch)
+        last_batch = None
+    else:
+        last_batch = dash.no_update
+
+    batch.progress -= 1
+    session_data[StoreKey.BATCH_STATE.value] = batch.to_json()
+    return dict(
+        session_data=session_data,
+        pathname=None,  # None to refresh the page.
+        last_batch=last_batch
+    )
+
+
 # TODO add cleanup function when switching away from annot page.
 
 
