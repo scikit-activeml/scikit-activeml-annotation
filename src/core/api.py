@@ -1,4 +1,5 @@
 import inspect
+from pathlib import Path
 from typing import cast
 from inspect import signature
 from functools import partial
@@ -17,7 +18,7 @@ from skactiveml.base import (
 from sklearn.base import ClassifierMixin
 
 from core.schema import *
-from core.adapter import *
+from embedding.base import EmbeddingBaseAdapter
 
 from util.deserialize import (
     parse_yaml_config_dir,
@@ -139,7 +140,7 @@ def compute_embeddings(
     if not data_path.is_absolute():
         data_path = ROOT_PATH / data_path
 
-    adapter: BaseAdapter = instantiate(adapter_cfg.definition)
+    adapter: EmbeddingBaseAdapter = instantiate(adapter_cfg.definition)
 
     X, file_paths = adapter.compute_embeddings(data_path, progress_func)
 

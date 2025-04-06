@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, asdict
 import numpy as np
 from omegaconf import MISSING
 
-from core.adapter import BaseAdapter
+from embedding.base import EmbeddingBaseAdapter
 
 
 class DataType(Enum):
@@ -20,7 +20,7 @@ class AdapterConfig:
     id: str = MISSING
     display_name: str = MISSING
     # TODO definition has wrong type here.
-    definition: BaseAdapter = MISSING
+    definition: EmbeddingBaseAdapter = MISSING
 
 
 @dataclass
