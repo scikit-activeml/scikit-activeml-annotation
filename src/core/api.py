@@ -1,4 +1,5 @@
 import inspect
+from pathlib import Path
 from typing import cast
 from inspect import signature
 from functools import partial
@@ -17,7 +18,7 @@ from skactiveml.base import (
 from sklearn.base import ClassifierMixin
 
 from core.schema import *
-from core.adapter import *
+from embedding.adapter import BaseAdapter
 
 from util.deserialize import (
     parse_yaml_config_dir,

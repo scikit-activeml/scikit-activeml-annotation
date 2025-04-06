@@ -1,49 +1,9 @@
-from pathlib import Path
-from abc import ABC, abstractmethod
-
 import numpy as np
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
+
 from PIL import Image
-
-from paths import ROOT_PATH
-
-
-def relative_to_root(path: str | Path) -> str:
-    """
-    Convert an absolute path to a path that is relative to the project root.
-    """
-    if isinstance(path, str):
-        path = Path(path)
-
-    return str(path.relative_to(ROOT_PATH))
-
-
-class BaseAdapter(ABC):
-    @abstractmethod
-    def compute_embeddings(self, data_path: Path, set_progress: callable = None) -> tuple[np.ndarray, list[str]]:
-        """
-        Compute and return the feature matrix and corresponding file paths for the given directory of data.
-
-        This function loads the data from the specified directory, preprocesses it,
-        and potentially creates embeddings such that the resulting feature matrix X
-        has shape (num_samples, num_features). The following invariant must hold:
-
-        - X[i] corresponds to file_paths[i] for all i.
-
-        Args:
-            data_path (str): The absolute path to the directory containing the data
-                             to be processed and embedded.
-
-        Returns:
-            tuple: A tuple containing:
-                - `np.ndarray`: The feature matrix of shape (num_samples, num_features).
-                - `list[str]`: A list of file paths relative to the root of the project.
-                                Used to display human readable sample.
-        """
-        pass
-
 
 class ImageDataset(torch.utils.data.Dataset):
     def __init__(self, data_path: Path, transform: callable):
@@ -140,48 +100,4 @@ class TorchVisionAdapter(BaseAdapter):
         feature_matrix = np.concatenate(embeddings_list, axis=0)
 
         # Return the feature matrix and corresponding file_paths
-        return feature_matrix, file_path_list
-
-
-class SimpleFlattenAdapter(BaseAdapter):
-    def __init__(self):
-        pass
-
-    def compute_embeddings(self, data_path: Path, progress_func=None) -> tuple[np.ndarray, list[str]]:
-        """
-        Load images one by one from the directory, flatten them,
-        and return the stacked feature matrix.
-        """
-        feature_list = []
-        file_path_list = []
-        # iterdir does not ensure order of files in dir.
-        files = [file for file in data_path.iterdir() if file.is_file()]
-
-        n_files = len(files)
-
-        for progress, file in enumerate(files):
-            try:
-                # img = Image.open(file).convert("RGB")
-                img = Image.open(file)
-                if img.mode == "L":
-                    # Greyscale image
-                    img_data = np.array(img)  # Shape (H, W)
-                else:
-                    # RGB image
-                    img_data = np.array(img.convert("RGB"))  # Shape (H, W, 3)
-
-                feature = img_data.flatten().reshape(1, -1)
-                feature_list.append(feature)
-                file_path_list.append(relative_to_root(file))
-
-                progress_func((progress / n_files) * 100)
-
-            except Exception as e:
-                print(f"Error processing {file}: {e}")
-
-        try:
-            feature_matrix = np.concatenate(feature_list, axis=0)
-        except Exception as e:
-            raise RuntimeError(f"Some images are RBG while others are Greyscale: {e}")
-
         return feature_matrix, file_path_list

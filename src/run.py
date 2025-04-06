@@ -22,7 +22,7 @@ def main():
     elif args.prod:
         run_prod_mode()
     else:
-        app.run(debug=True, dev_tools_hot_reload_interval=1, port=PORT)
+        app.run(debug=True, host='localhost', dev_tools_hot_reload_interval=1, port=PORT)
 
 
 def run_profile_mode():
@@ -35,7 +35,7 @@ def run_profile_mode():
         profile_dir=str(PROFILER_PATH)
     )
     print("Starting app in profiler mode")
-    app.run(debug=True, dev_tools_hot_reload=False, port=PORT)
+    app.run(debug=True, host='localhost', dev_tools_hot_reload=False, port=PORT)
 
 
 def run_prod_mode():
@@ -43,7 +43,7 @@ def run_prod_mode():
     from waitress import serve
 
     webbrowser.open(f"http://127.0.0.1:{PORT}/")
-    serve(app.server, host='127.0.0.1', port=PORT)
+    serve(app.server, host='localhost', port=PORT)
 
 
 if __name__ == "__main__":

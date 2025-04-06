@@ -25,7 +25,6 @@ from core.api import (
     get_embeddings
 )
 from core.schema import *
-from core.adapter import *
 from ui.storekey import StoreKey
 from ui.components.data_display import *
 

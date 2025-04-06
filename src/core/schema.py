@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, asdict
 import numpy as np
 from omegaconf import MISSING
 
-from core.adapter import BaseAdapter
+from embedding.adapter import BaseAdapter
 
 
 class DataType(Enum):
