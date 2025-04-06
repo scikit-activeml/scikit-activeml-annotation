@@ -1,34 +1,19 @@
 ## Setup
-### Recommended: Setup and active virtual environment (venv)
-*Create and active virtual environment:*
-```sh 
-$ python -m venv .venv
-$ .venv/Scripts/activate
-```
 
-*Install dependencies:*
+###Install dependencies:
 ```sh 
 $ pip install -r requirements.md
 ```
 
-*With Cuda support
-```sh
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-```
+### Optional: Additional Dependencies for Embedding Methods
+Some embedding methods require PyTorch. 
+We recommend installing it from the official Pytorch website with cuda support for maximum performance if possible.<br>
+[Link to PyTorch](https://pytorch.org/get-started/locally/)
 
-*Without Cuda support
-```sh
-pip install torch torchvision torchaudio
-```
-
+---
 
 ## Start the App
-*Make sure the venv is enabled, if used in setup and not already done so:*
-```sh 
-$ .venv/Scripts/activate
-```
-
-*Run the app:*
+*Run the app (if starting from root of project):*
 ```sh 
 $ python src/run.py
 ```
