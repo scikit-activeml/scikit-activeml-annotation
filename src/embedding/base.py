@@ -16,7 +16,7 @@ def relative_to_root(path: str | Path) -> str:
     return str(path.relative_to(ROOT_PATH))
 
 
-class BaseAdapter(ABC):
+class EmbeddingBaseAdapter(ABC):
     @abstractmethod
     def compute_embeddings(self, data_path: Path, set_progress: callable = None) -> tuple[np.ndarray, list[str]]:
         """

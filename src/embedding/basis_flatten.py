@@ -1,9 +1,15 @@
 
-import numpy as np
-
 from PIL import Image
+import numpy as np
+from pathlib import Path
 
-class SimpleFlattenAdapter(BaseAdapter):
+from .base import (
+    EmbeddingBaseAdapter,
+    relative_to_root
+)
+
+
+class SimpleFlattenAdapter(EmbeddingBaseAdapter):
     def __init__(self):
         pass
 

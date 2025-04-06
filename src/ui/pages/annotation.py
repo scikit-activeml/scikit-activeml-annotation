@@ -28,6 +28,8 @@ from core.schema import *
 from ui.storekey import StoreKey
 from ui.components.data_display import *
 
+from paths import ROOT_PATH
+
 register_page(
     __name__,
     path_template='/annotation/<dataset_name>',

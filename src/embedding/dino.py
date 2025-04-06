@@ -1,9 +1,17 @@
+from pathlib import Path
+
 import numpy as np
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
+from .base import (
+    relative_to_root,
+    EmbeddingBaseAdapter
+)
+
 from PIL import Image
+
 
 class ImageDataset(torch.utils.data.Dataset):
     def __init__(self, data_path: Path, transform: callable):
@@ -27,7 +35,7 @@ class ImageDataset(torch.utils.data.Dataset):
         return image, relative_to_root(image_path)
 
 
-class TorchVisionAdapter(BaseAdapter):
+class TorchVisionAdapter(EmbeddingBaseAdapter):
     def __init__(self,
                  batch_size: int = 16,
                  model_variant: str = "dinov2_vitb14"):
