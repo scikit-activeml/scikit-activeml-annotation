@@ -68,7 +68,10 @@ def layout(**kwargs):
                                         html.Div(id='radio-selection'),  # workaround so id exists at the start
                                         id='selection_container',
                                         # TODO use Mantine styling for this.
-                                        style={"width": "15vw", "whiteSpace": "normal", "wordWrap": "break-word"}
+                                        style={
+                                            "min-width": "15vw",
+                                            "whiteSpace": "normal", "wordWrap": "break-word"
+                                        }
                                     ),
                                     type='circle',
                                 )
@@ -85,6 +88,7 @@ def layout(**kwargs):
                     style={'border': '2px solid gold'}
                 )
             ],
+            mt='1%',
             style={'height': '100%'}
         )
     )
@@ -121,7 +125,9 @@ def create_stepper():
             # TODO consider using horizontal orientation
             orientation='vertical',
             iconSize=30,
-            style={'border': '2px solid red'},
+            style={
+                'border': '2px solid red',
+            },
             allowNextStepsSelect=False
         )
     )

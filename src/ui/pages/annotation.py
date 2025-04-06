@@ -13,6 +13,7 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
+from dash_iconify import DashIconify
 
 from hydra.utils import instantiate
 
@@ -39,61 +40,73 @@ register_page(
 
 
 def layout(**kwargs):
-    return html.Div([
-        dcc.Location(id='url-annotation', refresh=True),
-        dcc.Store(id='last-batch-store', storage_type='session'),
-        dmc.AppShell(
+    return (
+        dmc.Box(
             [
-                dmc.AppShellNavbar(
-                    id="sidebar-container-annotation",
-                    children=[
-                        create_sidebar()
-                    ],
-                    p="md",
-                    style={'border': '4px solid red'}
-                ),
-                dmc.AppShellMain(
-                    id="hero-container-annotation",
-                    children=dmc.Stack(
-                        children=[
-                            # Insert your main content components here
-                            html.Div("Main Content")
-                        ],
-                    ),
-                    style={'border': '5px dotted blue'}
-                ),
-                dmc.AppShellAside(
-                    id="right-panel",
-                    children=[
-                        dmc.Stack(
-                            [
-                                dmc.SemiCircleProgress(
-                                    label="Annotation Progress",
-                                    id='annotation-progress-circle',
-                                    value=40,
+                dcc.Location(id='url-annotation', refresh=True),
+                dcc.Store(id='last-batch-store', storage_type='session'),
+                dmc.AppShell(
+                    [
+                        dmc.AppShellNavbar(
+                            id="sidebar-container-annotation",
+                            children=[
+                                create_sidebar()
+                            ],
+                            p="md",
+                            style={'border': '4px solid red'}
+                        ),
+                        dmc.Box(
+                            id="hero-container-annotation",
+                            children=dmc.Stack(
+                                [
+                                    html.Div("Main Content")
+                                ],
+                            ),
+                            style={
+                                'border': '5px dotted blue',
+                                 'height': '100%'
+                            },
+                            py=0,
+                            px=150
+                        ),
+                        dmc.AppShellAside(
+                            id="right-panel",
+                            children=[
+                                dmc.Stack(
+                                    [
+                                        dmc.SemiCircleProgress(
+                                            label="Annotation Progress",
+                                            id='annotation-progress-circle',
+                                            value=40,
+                                        )
+                                    ],
+                                    align='center'
                                 )
                             ],
-                            align='center'
-                        )
+                            p="md",
+                            style={'border': '4px solid red'}
+                        ),
                     ],
-                    p="md",
-                    style={'border': '4px solid red'}
-                ),
+                    navbar={
+                        "width": '12vw',
+                        "breakpoint": "sm",
+                        "collapsed": {"mobile": True},
+                    },
+                    aside={
+                        "width": '12vw',
+                        "breakpoint": "sm",
+                        "collapsed": {"mobile": True},
+                    },
+                    padding=0,
+                    id="appshell",
+                )
             ],
-            navbar={
-                "width": 200,
-                "breakpoint": "sm",
-                "collapsed": {"mobile": True},
-            },
-            aside={
-                "width": 200,
-                "breakpoint": "sm",
-                "collapsed": {"mobile": True},
-            },
-            padding="md",
-            id="appshell",
+            style={
+                # 'height': '100%',
+                'border': 'green dotted 5px'
+            }
         )
-    ])
+    )
 
 
 def create_sidebar():
@@ -117,24 +130,12 @@ def create_sidebar():
                 ),
 
                 # Subsampling selection
-                dmc.Text("Subsampling"),
-                dmc.Flex(
-                    [
-                        dmc.NumberInput(
-                            # label="Subsampling",
-                            id='subsampling-input',
-                            allowNegative=False,
-                            debounce=True,
-                            hideControls=True
-                        ),
-                        dmc.Switch(
-                            id='my-checkbox',
-                            checked=False
-                        )
-                    ],
-                    direction="row",
-                    align="center",  # centers items vertically
-                    gap="md"         # optional, for spacing between elements
+                dmc.NumberInput(
+                    label="Subsampling",
+                    id='subsampling-input',
+                    allowNegative=False,
+                    debounce=True,
+                    hideControls=True
                 ),
 
                 dmc.Text(
@@ -206,20 +207,22 @@ def create_chip_group(classes, batch, class_prob):
                 chip_group,
                 wrap='wrap',
                 justify='flex-start',
-                gap='10px'
+                gap='10px',
             ),
 
             style={
                 'maxHeight': '40vh',
+                'border': 'gold dashed 2px'
             }
         ),
 
         type='auto',
         offsetScrollbars=True,
         style={
-            "width": "100%",
+            # "width": "100%",
             'border': 'green dashed 3px',
         },
+        w='50%'
     )
 
 
@@ -243,33 +246,32 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
         class_prob = batch.class_probas[batch.progress]
 
     return (
+        # TODO this should be a Stack maybe. As I have to put a stack arround everything for no reason now.
         dmc.Container(
             [
                 # Data display Container
                 dmc.Stack(
-                    # dmc.Container(
-                        rendered_data,
-                        style={'border': '4px dotted pink'},
-                    # ),
+                    rendered_data,
+                    style={'border': '4px dotted pink'},
                     align="center",
                 ),
 
                 # Label selection
                 dmc.Group(
-                    dmc.Stack(
-                        [
-                            dmc.Title('Select Label', order=4),
-                            create_chip_group(classes, batch, class_prob),
-                        ],
-                        style={
-                            'textAlign': 'center',
-                            # 'marginTop': '5px'
-                        },
-                        gap='xs'
-                    ),
-                    # style={
-                    #     'border': 'red solid 4px'
-                    # }
+                    [
+                        dmc.Title('Select Label', order=4),
+                        dmc.ActionIcon(
+                            DashIconify(icon="clarity:settings-line", width=20),
+                            variant="filled",
+                            id="label-setting-popup",
+                        )
+                    ],
+                    justify='center'
+                ),
+
+                dmc.Stack(
+                    create_chip_group(classes, batch, class_prob),
+                    align='center'
                 ),
 
                 # Confirm button
@@ -302,10 +304,11 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
                     ],
                     style={'border': 'red dashed 2px'},
                     justify='center',
+                    # gap=20
                 ),
 
                 # Progress bar
-                html.Div(
+                dmc.Box(
                     [
                         # The Mantine Progress bar with dynamic section
                         dmc.ProgressRoot(
@@ -315,6 +318,7 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
                                 # animated=True,
                                 # striped=True
                             ),
+                            transitionDuration=500,
                             radius=25,
                             size="lg",
                             style={"height": "40px"},
@@ -338,7 +342,10 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
                 ),
             ],
             fluid=True,
-            style={'border': '4px dashed green'},
+            style={
+                'border': '4px dashed green',
+            },
+
         )
     )
 

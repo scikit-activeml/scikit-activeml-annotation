@@ -45,27 +45,30 @@ app.layout = (
                 dcc.Store('session-store', storage_type='session'),
                 create_navbar(),
                 dmc.AppShellMain(
-                    dmc.Container(
-                        [
-                            # TODO only use spinnger on home screen. It does not seem to work for other screen.
-                            app_spinner_container := html.Div(
-                                loading_page_spinner := dash_loading_spinners.Pacman(
-                                    fullscreen=True,
-                                    id='loading_page_spinner'
-                                ),
-                                id='app_spinner_container'
+                    [
+                        # TODO only use spinnger on home screen. It does not seem to work for other screen.
+                        app_spinner_container := html.Div(
+                            loading_page_spinner := dash_loading_spinners.Pacman(
+                                fullscreen=True,
+                                id='loading_page_spinner'
                             ),
+                            id='app_spinner_container'
+                        ),
 
-                            page_content_container := dmc.Container(
-                                dash.page_container,
-                                id='page_content_container'
-                            )
-                        ],
-                        style={'border': '5px dashed red'}
-                    ),
+                        page_content_container := dmc.Container(
+                            dash.page_container,
+                            id='page_content_container',
+                            fluid=True,
+                            style={'padding': 0}
+                        )
+                    ],
+                    style={
+                        'border': '5px dashed red',
+                        # 'height': '80%'
+                    },
                 )
             ],
-            header={'height': 50}
+            header={'height': 50},
         )
     )
 )

@@ -54,36 +54,9 @@ def layout(**kwargs):
                             style={
                                 'width': '75%',
                                 'height': '30px'
-                            }
+                            },
+                            transitionDuration=500
                         ),
-
-                        # TODO cleanup.
-                        # dmc.Stack(
-                        #     [
-                        #         dmc.Group(
-                        #             [
-                        #                 dmc.Button("Cancel", id='cancel-embedding-button', disabled=True),
-                        #                 dmc.Button("Start Embedding", id='embedding-button')
-                        #             ]
-                        #         ),
-                        #
-                        #         dmc.Progress(
-                        #             id="embedding-progress",
-                        #             value=0,
-                        #             size="xl",
-                        #             animated=True,
-                        #             style={
-                        #                 'width': '75%',
-                        #                 'height': '30px'
-                        #             }
-                        #         ),
-                        #     ],
-                        #     id='embedding-progress-container',
-                        #     align='center',
-                        #     style={
-                        #         'width': '100%'
-                        #     }
-                        # )
                     ],
                     align='center'
                 ),
