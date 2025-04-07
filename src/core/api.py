@@ -323,7 +323,7 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
     # max_candidates for subsampling.
     qs: QueryStrategy = instantiate(cfg.query_strategy.definition, random_state=random_state)
 
-    print("Subsampling")
+    print("\nSubsampling")
     print(session_cfg.subsampling)
     print(type(session_cfg.subsampling))
     if session_cfg.subsampling is not None:

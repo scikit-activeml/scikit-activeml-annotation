@@ -377,6 +377,8 @@ def setup_annotations_page(
     dataset_id = pathname.split('/')[-1]
     print("[Annot] init annotation page with dataset: ", dataset_id)
 
+    if subsampling == '':
+        subsampling = None
     session_cfg = SessionConfig(batch_size=batch_size, subsampling=subsampling)
 
     # info overrides of lower lvl config can be done like so:
