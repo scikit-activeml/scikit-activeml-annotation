@@ -1,0 +1,11 @@
+id: "dinov2_vits14"
+display_name: "DINOv2 small 384"
+
+data_type:
+  _target_: core.schema.DataType
+  _args_: [Image]
+
+definition:
+  _target_: embedding.dino.TorchVisionAdapter
+  model_variant: "dinov2_vits14"
+  batch_size: 8 # TODO remove batch_size from here and let the user set it the the UI.
