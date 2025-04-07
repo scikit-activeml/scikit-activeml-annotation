@@ -215,9 +215,14 @@ def create_chip_group(classes, batch, class_prob):
         id='my-scroll-area',
         type='auto',
         offsetScrollbars=True,
+        styles=dict(
+            viewport={
+                'max-height': '35vh'
+            },
+            border='green dashed 3px',
+        ),
         style={
-            # "width": "100%",
-            'border': 'green dashed 3px',
+            'border': 'green dashed 3px'
         },
         w='50%'
     )
@@ -257,11 +262,15 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
                 dmc.Group(
                     [
                         dmc.Title('Select Label', order=4),
-                        dmc.ActionIcon(
-                            DashIconify(icon="clarity:settings-line", width=20),
-                            variant="filled",
-                            id="label-setting-popup",
-                        )
+                        dmc.Tooltip(
+                            dmc.ActionIcon(
+                                DashIconify(icon="clarity:settings-line", width=20),
+                                variant="filled",
+                                id="label-setting-popup",
+                            ),
+                            label='Label settings',
+                        ),
+                        dmc.TextInput(placeholder='Search', id='label-search-text-input'),
                     ],
                     justify='center'
                 ),
@@ -376,7 +385,7 @@ def setup_annotations_page(
     overrides = {
         'dataset': store_data[StoreKey.DATASET_SELECTION.value],
         'query_strategy': store_data[StoreKey.QUERY_SELECTION.value],
-        'adapter': store_data[StoreKey.ADAPTER_SELECTION.value],
+        'embedding': store_data[StoreKey.EMBEDDING_SELECTION.value],
         '+model': store_data[StoreKey.MODEL_SELECTION.value]  # add model to default list
     }
     print(overrides)
