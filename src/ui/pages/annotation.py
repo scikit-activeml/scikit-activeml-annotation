@@ -372,6 +372,8 @@ def setup_annotations_page(
     dataset_id = pathname.split('/')[-1]
     print("[Annot] init annotation page with dataset: ", dataset_id)
 
+    if subsampling == '':
+        subsampling = None
     session_cfg = SessionConfig(batch_size=batch_size, subsampling=subsampling)
 
     # info overrides of lower lvl config can be done like so:
@@ -380,7 +382,7 @@ def setup_annotations_page(
     overrides = {
         'dataset': store_data[StoreKey.DATASET_SELECTION.value],
         'query_strategy': store_data[StoreKey.QUERY_SELECTION.value],
-        'adapter': store_data[StoreKey.ADAPTER_SELECTION.value],
+        'embedding': store_data[StoreKey.EMBEDDING_SELECTION.value],
         '+model': store_data[StoreKey.MODEL_SELECTION.value]  # add model to default list
     }
     print(overrides)

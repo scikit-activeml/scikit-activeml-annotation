@@ -39,6 +39,7 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
     def __init__(self,
                  batch_size: int = 16,
                  model_variant: str = "dinov2_vitb14"):
+        self.model_variant = model_variant
         self.batch_size = batch_size
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -53,7 +54,7 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
 
         try:
             # Load the pretrained model from PyTorch Hub
-            self.model = torch.hub.load("facebookresearch/dinov2", model_variant)
+            self.model = torch.hub.load("facebookresearch/dinov2", self.model_variant)
         except Exception as e:
             raise RuntimeError("DINOv2 model is not available") from e
 

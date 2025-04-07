@@ -26,7 +26,7 @@ from core.api import (
     get_dataset_config_options,
     get_qs_config_options,
     get_model_config_options,
-    get_adapter_config_options,
+    get_embedding_config_options,
     is_dataset_embedded,
     dataset_path_exits,
 )
@@ -103,7 +103,7 @@ def create_step_ui(step, session_data):
             preselect = session_data.get(StoreKey.DATASET_SELECTION.value)
         return _create_dataset_selection(preselect)
     elif step == 1:
-        return _create_adapter_radio_group(session_data)
+        return _create_embedding_radio_group(session_data)
     elif step == 2:
         return _create_radio_group(get_qs_config_options(), session_data.get(StoreKey.QUERY_SELECTION.value))
     elif step == 3:
@@ -158,11 +158,11 @@ def _create_dataset_selection(preselect):
     )
 
 
-def _create_adapter_radio_group(session_data):
-    options = get_adapter_config_options()
+def _create_embedding_radio_group(session_data):
+    options = get_embedding_config_options()
     formatted_options = [(cfg.id, cfg.display_name) for cfg in options]
 
-    preselect = session_data.get(StoreKey.ADAPTER_SELECTION.value)
+    preselect = session_data.get(StoreKey.EMBEDDING_SELECTION.value)
 
     return dmc.RadioGroup(
         id='radio-selection',
@@ -281,7 +281,7 @@ def handle_confirm(
         session_data[StoreKey.DATASET_SELECTION.value] = radio_value
 
     elif current_step == 1:
-        session_data[StoreKey.ADAPTER_SELECTION.value] = radio_value
+        session_data[StoreKey.EMBEDDING_SELECTION.value] = radio_value
 
     elif current_step == 2:
         session_data[StoreKey.QUERY_SELECTION.value] = radio_value
@@ -344,9 +344,9 @@ def go_to_next_page(
         raise PreventUpdate
 
     dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
-    adapter_id = session_data[StoreKey.ADAPTER_SELECTION.value]
+    embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
 
-    if is_dataset_embedded(dataset_id, adapter_id):
+    if is_dataset_embedded(dataset_id, embedding_id):
         pathname = f'/annotation/{dataset_id}'
     else:
         pathname = f'/embedding'

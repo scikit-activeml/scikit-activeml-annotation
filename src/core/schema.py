@@ -16,7 +16,7 @@ class DataType(Enum):
 
 # region Hydra Config Schema
 @dataclass
-class AdapterConfig:
+class EmbeddingConfig:
     id: str = MISSING
     display_name: str = MISSING
     # TODO definition has wrong type here.
@@ -54,7 +54,7 @@ class ActiveMlConfig:
     model: ModelConfig | None = field(default_factory=ModelConfig)
     dataset: DatasetConfig = field(default_factory=DatasetConfig)
     query_strategy: QueryStrategyConfig = field(default_factory=QueryStrategyConfig)
-    adapter: AdapterConfig = field(default_factory=AdapterConfig)
+    embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
 # endregion
 
 

@@ -8,7 +8,7 @@ class StoreKey(Enum):
         return name  # Automatically use the name of the member as its value
 
     DATASET_SELECTION = auto()
-    ADAPTER_SELECTION = auto()
+    EMBEDDING_SELECTION = auto()
     QUERY_SELECTION = auto()
     MODEL_SELECTION = auto()
     BATCH_STATE = auto()

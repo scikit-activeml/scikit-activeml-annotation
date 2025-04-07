@@ -1,6 +1,6 @@
 defaults:
   - dataset: digits_toy
-  - adapter: dino_adapter
+  - embedding: dino_adapter
   - prequery: null
   - query_strategy: random_sampling
   - _self_

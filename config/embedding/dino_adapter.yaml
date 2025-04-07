@@ -1,5 +1,5 @@
 id: "dino_adapter"
-display_name: "Dino Adapter vitb14"
+display_name: "DINOv2 base 768"
 
 data_type:
   _target_: core.schema.DataType
