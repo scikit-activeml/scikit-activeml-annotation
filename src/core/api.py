@@ -29,7 +29,7 @@ from paths import (
     ANNOTATED_PATH,
     QS_CONFIG_PATH,
     MODEL_CONFIG_PATH,
-    ADAPTER_CONFIG_PATH,
+    EMBEDDING_CONFIG_PATH,
     DATASETS_PATH,
     CACHE_PATH,
     ROOT_PATH
@@ -52,9 +52,9 @@ def get_model_config_options() -> list[ModelConfig]:
     return cast(list[ModelConfig], cfgs)
 
 
-def get_adapter_config_options() -> list[AdapterConfig]:
-    cfgs = parse_yaml_config_dir(ADAPTER_CONFIG_PATH)
-    return cast(list[AdapterConfig], cfgs)
+def get_embedding_config_options() -> list[EmbeddingConfig]:
+    cfgs = parse_yaml_config_dir(EMBEDDING_CONFIG_PATH)
+    return cast(list[EmbeddingConfig], cfgs)
 
 
 def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
@@ -62,8 +62,8 @@ def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
     return cast(QueryStrategyConfig, cfg)
 
 
-def is_dataset_embedded(dataset_id, adapter_id) -> bool:
-    key = f"{dataset_id}_{adapter_id}"
+def is_dataset_embedded(dataset_id, embedding_id) -> bool:
+    key = f"{dataset_id}_{embedding_id}"
     path = Path(str(CACHE_PATH)) / f"{key}.npz"
     return path.exists()
 
@@ -131,7 +131,7 @@ def compute_embeddings(
         activeml_cfg: ActiveMlConfig,
         progress_func: callable
 ):
-    adapter_cfg = activeml_cfg.adapter
+    embedding_cfg = activeml_cfg.embedding
     dataset_cfg = activeml_cfg.dataset
     dataset_id = dataset_cfg.id
 
@@ -140,12 +140,12 @@ def compute_embeddings(
     if not data_path.is_absolute():
         data_path = ROOT_PATH / data_path
 
-    adapter: EmbeddingBaseAdapter = instantiate(adapter_cfg.definition)
+    adapter: EmbeddingBaseAdapter = instantiate(embedding_cfg.definition)
 
     X, file_paths = adapter.compute_embeddings(data_path, progress_func)
 
     # Unique key
-    cache_key = f"{dataset_id}_{adapter_cfg.id}"
+    cache_key = f"{dataset_id}_{embedding_cfg.id}"
     cache_path = CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
 
     # Store relative file_paths
@@ -158,9 +158,9 @@ def get_embeddings(
         activeml_cfg: ActiveMlConfig
 ) -> tuple[np.ndarray, list[str]]:
     dataset_cfg = activeml_cfg.dataset
-    adapter_cfg = activeml_cfg.adapter
+    embedding_cfg = activeml_cfg.embedding
 
-    cache_key = f"{dataset_cfg.id}_{adapter_cfg.id}"
+    cache_key = f"{dataset_cfg.id}_{embedding_cfg.id}"
     cache_path = CACHE_PATH / f"{cache_key}.npz"
 
     if not cache_path.exists():

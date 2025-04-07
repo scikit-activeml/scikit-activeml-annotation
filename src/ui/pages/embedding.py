@@ -158,7 +158,7 @@ def _compute_embedding(store_data, progress_func):
     overrides = {
         'dataset': store_data[StoreKey.DATASET_SELECTION.value],
         'query_strategy': store_data[StoreKey.QUERY_SELECTION.value],
-        'adapter': store_data[StoreKey.ADAPTER_SELECTION.value],
+        'embedding': store_data[StoreKey.EMBEDDING_SELECTION.value],
         '+model': store_data[StoreKey.MODEL_SELECTION.value]  # add model to default list
     }
     activeMl_cfg = compose_config(overrides)
@@ -168,7 +168,7 @@ def _compute_embedding(store_data, progress_func):
 
 def create_selected_embedding_view(session_data):
     dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
-    embedding_id = session_data[StoreKey.ADAPTER_SELECTION.value]
+    embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
 
     return (
         dmc.Card(

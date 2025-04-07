@@ -1,7 +1,7 @@
 from pathlib import Path
 
 # Go up twice. Assumes src and paths.py is not moved
-ROOT_PATH = Path(__file__).resolve().parent.parent
+ROOT_PATH = Path(__file__).parent.parent
 
 # Top Level
 ASSETS_PATH = ROOT_PATH / 'assets'
@@ -11,7 +11,7 @@ OUTPUT_PATH = ROOT_PATH / 'output'
 SRC_PATH = ROOT_PATH / 'src'
 
 # config
-ADAPTER_CONFIG_PATH = CONFIG_PATH / 'adapter'
+EMBEDDING_CONFIG_PATH = CONFIG_PATH / 'embedding'
 DATA_CONFIG_PATH = CONFIG_PATH / 'dataset'
 MODEL_CONFIG_PATH = CONFIG_PATH / 'model'
 QS_CONFIG_PATH = CONFIG_PATH / 'query_strategy'
