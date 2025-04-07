@@ -9,7 +9,9 @@ from dash import (
     Input,
     Output,
     State,
-    callback_context
+    callback_context,
+    clientside_callback,
+    ClientsideFunction
 )
 from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
@@ -159,6 +161,7 @@ def create_sidebar():
 def create_chip(idx, label, probability=None):
     chip = dmc.Chip(
         label,
+        id=f'chip-{idx}',
         value=str(idx),
         styles={"label": {"textAlign": "center"}},  # Ensures label is centered
     )
@@ -203,20 +206,13 @@ def create_chip_group(classes, batch, class_prob):
     )
 
     return dmc.ScrollArea(
-        dmc.Box(
-            dmc.Flex(
-                chip_group,
-                wrap='wrap',
-                justify='flex-start',
-                gap='10px',
-            ),
-
-            style={
-                'maxHeight': '40vh',
-                'border': 'gold dashed 2px'
-            }
+        dmc.Flex(
+            chip_group,
+            wrap='wrap',
+            justify='flex-start',
+            gap='10px',
         ),
-
+        id='my-scroll-area',
         type='auto',
         offsetScrollbars=True,
         style={
@@ -566,6 +562,14 @@ def on_back_clicked(
         pathname=None,  # None to refresh the page.
         last_batch=last_batch
     )
+
+
+clientside_callback(
+    ClientsideFunction(namespace='clientside', function_name='scrollToChip'),
+    Output("label-radio", 'value'),
+    Input("label-search-text-input", "value"),
+    prevent_initial_call=True,
+)
 
 
 # TODO add cleanup function when switching away from annot page.
