@@ -42,12 +42,61 @@ register_page(
 # TODO create variables for the id's
 
 
+def create_modal():
+    return dmc.Stack(
+        [
+            dmc.NumberInput(
+                id='img-resize=factor',
+                label="Scale factor",
+                value='',
+                hideControls=True,
+                w='55%',
+                persistence='img-reisze-factor-persistence',
+                persistence_type='local',
+            ),
+
+            dmc.Switch(
+                id="lanczos-switch",
+                label="Use LANCZOS Resampling",
+                checked=False,
+                persistence='lanczos-switch-persistence',
+                persistence_type='local',
+                style={'display': "none"}
+            ),
+
+            dmc.Button(
+                'Confirm',
+                id='modal-confirm-btn'
+            )
+
+            # dmc.Slider(
+            #     id='resize-factor-slider',
+            #     step=1,
+            #     value=0,
+            #     min=min_val,
+            #     max=max_val,
+            #     marks=marks,
+            #     labelAlwaysOn=True
+            # ),
+
+        ],
+        align='flex-starts',
+        h='100%'
+    )
+
+
 def layout(**kwargs):
     return (
         dmc.Box(
             [
                 dcc.Location(id='url-annotation', refresh=True),
                 dcc.Store(id='last-batch-store', storage_type='session'),
+                dmc.Modal(
+                    id='data-vis-modal',
+                    children=create_modal(),
+                    title="Data display settings",
+                    centered=True,
+                ),
                 dmc.AppShell(
                     [
                         dmc.AppShellNavbar(
@@ -141,16 +190,29 @@ def create_sidebar():
                     hideControls=True
                 ),
 
-                dmc.Text(
-                    'Query Strategy'
-                ),
+                # TODO
+                # dmc.Text(
+                #     'Query Strategy'
+                # ),
 
                 # Skip Button
                 dmc.Center(
-                    dmc.Button(
-                        "Skip Batch",
-                        id="skip-batch-button",
+                    dmc.Stack(
+                        [
+                            dmc.Button(
+                                "Skip Batch",
+                                id="skip-batch-button",
+                            ),
+
+                            dmc.Button(
+                                "Data display",
+                                id='data-vis-button'
+                            )
+                        ],
+                        align='center',
+                        w='75%'
                     ),
+
                 ),
             ],
             style={'border': '2px solid red'},
@@ -230,14 +292,14 @@ def create_chip_group(classes, batch, class_prob):
 
 # TODO seperate Loading Image from
 # TODO rename this function to have a better name.
-def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_data_path: str, batch: Batch, progress: float):
+def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_data_path: str, batch: Batch, progress: float, img_res_fac, is_lanzos):
     # TODO instantiate the data_type enum somewhere else
     data_type: DataType = instantiate(dataset_cfg.data_type)
 
     human_data_path = ROOT_PATH / human_data_path
 
     if data_type.value == DataType.IMAGE.value:
-        rendered_data = create_image_display(human_data_path)
+        rendered_data = create_image_display(human_data_path, img_res_fac, is_lanzos)
     elif data_type.value == DataType.TEXT.value:
         rendered_data = create_text_display(human_data_path)
     else:
@@ -339,7 +401,7 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
                                 "left": "50%",
                                 "transform": "translate(-50%, -50%)",
                                 "textAlign": "center",
-                                "color": "white",
+                                "color": "black",
                                 "pointerEvents": "none",
                             },
                         ),
@@ -361,6 +423,8 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
     State('session-store', 'data'),
     State('batch-size-input', 'value'),
     State('subsampling-input', 'value'),
+    State('img-resize=factor', 'value'),  # TODO Create a store for this. This is insane.
+    State('lanczos-switch', 'checked'),
     output=dict(
         session_store=Output('session-store', 'data', allow_duplicate=True),
         hero_container=Output('hero-container-annotation', 'children'),
@@ -373,6 +437,8 @@ def setup_annotations_page(
         store_data,
         batch_size,
         subsampling,
+        img_resize_fac,
+        is_lanszos
 ):
     dataset_id = pathname.split('/')[-1]
     print("[Annot] init annotation page with dataset: ", dataset_id)
@@ -441,7 +507,7 @@ def setup_annotations_page(
 
     return dict(
         session_store=store_data,
-        hero_container=create_hero_section(classes, dataset_cfg, human_data_path, batch, progress_percent),
+        hero_container=create_hero_section(classes, dataset_cfg, human_data_path, batch, progress_percent, img_resize_fac, is_lanszos),
         last_batch=last_batch_json
     )
 
@@ -572,6 +638,24 @@ def on_back_clicked(
         session_data=session_data,
         pathname=None,  # None to refresh the page.
         last_batch=last_batch
+    )
+
+
+@callback(
+    Input('data-vis-button', 'n_clicks'),
+    output=dict(
+        is_open=Output('data-vis-modal', 'opened')
+    ),
+    prevent_initial_call=True,
+)
+def on_data_modal_btn(
+    clicks,
+):
+    if clicks is None:
+        raise PreventUpdate
+
+    return dict(
+        is_open=True
     )
 
 

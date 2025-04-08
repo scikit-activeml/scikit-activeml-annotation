@@ -3,35 +3,23 @@ import dash_mantine_components as dmc
 
 import plotly.express as px
 from PIL import Image
+from PIL.Image import Resampling
 
 
 # TODO make components out of these.
-def create_image_display(path_to_img):
-    # Use a separate Callback to update the image.
+def create_image_display(path_to_img, factor, is_lanzos):
     image = Image.open(path_to_img).convert("RGB")
-    print("Size of Image:")
-    print(image.size)
 
-    from PIL import ImageFilter
-    from PIL.Image import Resampling
-
-    # image = image.filter(ImageFilter.SMOOTH_MORE)
-
-    w_original = image.width
-    h_original = image.height
-
-    factor = 10
-    image = image.resize(
-        (image.width * factor, image.height * factor),
-        resample=Resampling.LANCZOS,
-        # reducing_gap=4
-    )
-
-    # image = image.resize(w_original, h_original)
+    if factor != '':
+        new_width = int(image.width * factor)
+        new_height = int(image.height * factor)
+        image = image.resize(
+            (new_width, new_height),
+            resample=Resampling.LANCZOS,
+        )
 
     fig = px.imshow(image, labels={})
 
-    # INFO Graph does not support loading wrapper
     return (
         dcc.Graph(
             figure=fig,
