@@ -17,9 +17,9 @@ from paths import CONFIG_PATH
 from core.schema import ActiveMlConfig
 
 
-def _dict_overrides_to_list(overrides: Dict[str, str]) -> list[str]:
+def _overrides_to_list(overrides: tuple[tuple[str, str], ...]) -> list[str]:
     out = []
-    for idx, (key, value) in enumerate(overrides.items()):
+    for key, value in overrides:
         if value is not None:
             out.append(f'{key}={value}')
 
@@ -27,15 +27,17 @@ def _dict_overrides_to_list(overrides: Dict[str, str]) -> list[str]:
 
 
 # TODO this should be inside the api file
-def compose_config(overrides: Dict[str, str] | None = None) -> ActiveMlConfig:
+from functools import lru_cache
+from typing import cast
+
+@lru_cache(maxsize=1)
+def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> ActiveMlConfig:
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
         # TODO
         # schema: DictConfig = OmegaConf.structured(ActiveMlConfig)
-
         if overrides is not None:
-            overrides = _dict_overrides_to_list(overrides)
-
-        return compose('config', overrides=overrides)
+            overrides = _overrides_to_list(overrides)
+        return cast(ActiveMlConfig, compose('config', overrides=overrides))
 
         # TODO validation is no longer possible because model could be null
         # # Make sure cfg has at least the attributes that schema has.

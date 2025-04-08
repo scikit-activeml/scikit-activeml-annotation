@@ -339,7 +339,6 @@ def go_to_next_page(
     current_step,
     session_data
 ):
-    print("go_to_annotation_page callback")
     if current_step < 4:
         raise PreventUpdate
 
@@ -347,8 +346,10 @@ def go_to_next_page(
     embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
 
     if is_dataset_embedded(dataset_id, embedding_id):
+        print("Home to annotation \n -------------------------- \n")
         pathname = f'/annotation/{dataset_id}'
     else:
+        print("Home to embedding \n -------------------------- \n")
         pathname = f'/embedding'
 
     return dict(pathname=pathname)

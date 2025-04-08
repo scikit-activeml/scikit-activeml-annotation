@@ -9,8 +9,8 @@ from PIL import Image
 def create_image_display(path_to_img):
     # Use a separate Callback to update the image.
     image = Image.open(path_to_img).convert("RGB")
-    print("Size of Image:")
-    print(image.size)
+    # print("Size of Image:")
+    # print(image.size)
 
     from PIL import ImageFilter
     from PIL.Image import Resampling

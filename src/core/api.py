@@ -82,10 +82,6 @@ def request_query(
     y = _load_or_init_annotations(X, file_names, cfg.dataset.id)
     query_func, clf = _setup_query(cfg, session_cfg)
 
-    print("shape of X in request_query")
-    print(X.shape)
-    print(y.shape)
-
     # Only fit and query on the samples not marked as outliers
     X_cand, y_cand, mapping = _filter_outliers(X, y)
 
@@ -323,9 +319,6 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
     # max_candidates for subsampling.
     qs: QueryStrategy = instantiate(cfg.query_strategy.definition, random_state=random_state)
 
-    print("\nSubsampling")
-    print(session_cfg.subsampling)
-    print(type(session_cfg.subsampling))
     if session_cfg.subsampling is not None:
         qs: SubSamplingWrapper = SubSamplingWrapper(
             qs,

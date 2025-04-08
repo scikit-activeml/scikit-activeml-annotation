@@ -42,7 +42,7 @@ def run_prod_mode():
     import webbrowser
     from waitress import serve
 
-    webbrowser.open(f"http://127.0.0.1:{PORT}/")
+    webbrowser.open(f"http://localhost:{PORT}/")
     serve(app.server, host='localhost', port=PORT)
 
 
