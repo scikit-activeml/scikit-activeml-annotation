@@ -144,14 +144,19 @@ def compute_embeddings(
 
     X, file_paths = adapter.compute_embeddings(data_path, progress_func)
 
+    if any(f_path.is_absolute() for f_path in file_paths):
+        # TODO use logging instead.
+        print("[WARNING] file paths are absolute. Results wont be easily shareable")
+        file_paths_str = [str(f_path) for f_path in file_paths]
+    else:
+        file_paths_str = [f_path.as_posix() for f_path in file_paths]
+
     # Unique key
     cache_key = f"{dataset_id}_{embedding_cfg.id}"
     cache_path = CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
 
     # Store relative file_paths
-    np.savez(cache_path, X=X, file_paths=file_paths)
-
-    return X, file_paths
+    np.savez(cache_path, X=X, file_paths=file_paths_str)
 
 
 def get_embeddings(

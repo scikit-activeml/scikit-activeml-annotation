@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from dash import dcc
 import dash_mantine_components as dmc
 
@@ -6,7 +8,7 @@ from PIL import Image
 
 
 # TODO make components out of these.
-def create_image_display(path_to_img):
+def create_image_display(path_to_img: Path):
     # Use a separate Callback to update the image.
     image = Image.open(path_to_img).convert("RGB")
     print("Size of Image:")

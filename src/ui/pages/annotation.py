@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 import dash
@@ -233,7 +234,9 @@ def create_hero_section(classes: list[str], dataset_cfg: DatasetConfig, human_da
     # TODO instantiate the data_type enum somewhere else
     data_type: DataType = instantiate(dataset_cfg.data_type)
 
-    human_data_path = ROOT_PATH / human_data_path
+    human_data_path = Path(human_data_path)
+    if not human_data_path.is_absolute():
+        human_data_path = ROOT_PATH / human_data_path
 
     if data_type.value == DataType.IMAGE.value:
         rendered_data = create_image_display(human_data_path)
@@ -387,12 +390,12 @@ def setup_annotations_page(
     }
     print(overrides)
 
-    # TODO avoid reloading X and file_names every time. Cache could make sense.
+    # TODO avoid reloading X and file_paths every time. Cache could make sense.
     activeMl_cfg = compose_config(overrides)
     dataset_cfg = activeMl_cfg.dataset
 
     # TODO This should only be needed when a batch is completed.
-    X, file_names = get_embeddings(activeMl_cfg)
+    X, file_paths = get_embeddings(activeMl_cfg)
     last_batch_json = dash.no_update
 
     if StoreKey.BATCH_STATE.value not in store_data:
@@ -407,7 +410,7 @@ def setup_annotations_page(
             # Store labeling data to disk
             # TODO to much serialization deserialization
 
-            completed_batch(dataset_id, batch, file_names)
+            completed_batch(dataset_id, batch, file_paths)
 
             # Override last batch
             last_batch_json = batch.to_json()
@@ -421,7 +424,7 @@ def setup_annotations_page(
     print('annotations:', batch.annotations)
 
     idx = batch.progress
-    # query_idx -> file_name
+    # query_idx -> file_path
     query_idx = batch.indices[idx]
     progress_percent = idx / len(batch.indices)
 
@@ -430,7 +433,7 @@ def setup_annotations_page(
     classes = dataset_cfg.classes
 
     # TODO maybe the adapter should be responsible with specifying how to get human representation for sample with idx
-    human_data_path = file_names[query_idx]
+    human_data_path = file_paths[query_idx]
     print('human data path')
     print(human_data_path)
 
@@ -527,8 +530,8 @@ def on_skip_batch(
         '+model': session_data[StoreKey.MODEL_SELECTION.value]  # add model to default list
     }
     activeml_cfg = compose_config(overrides)
-    _, file_names = get_embeddings(activeml_cfg)
-    completed_batch(dataset_id, batch, file_names)
+    _, file_paths = get_embeddings(activeml_cfg)
+    completed_batch(dataset_id, batch, file_paths)
 
     return dict(
         session_data=session_data,
