@@ -5,6 +5,7 @@ from inspect import signature
 from functools import partial
 from typing import Callable
 
+import numpy as np
 from hydra.utils import instantiate
 
 from skactiveml.utils import MISSING_LABEL
@@ -77,9 +78,8 @@ def request_query(
         cfg: ActiveMlConfig,
         session_cfg: SessionConfig,
         X: np.ndarray,
-        file_names: list[str],
 ) -> Batch:
-    y = _load_or_init_annotations(X, file_names, cfg.dataset.id)
+    y = _load_or_init_annotations(X, cfg.dataset.id)
     query_func, clf = _setup_query(cfg, session_cfg)
 
     print("shape of X in request_query")
@@ -172,7 +172,54 @@ def get_embeddings(
     return X, file_paths
 
 
+def completed_batch(dataset_id: str, batch: Batch, file_paths):
+    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
+    print("completed batch")
+    print(json_file_path)
+
+    # Get existing annotations
+    annotations: list[Annotation] = _deserialize_annotations(json_file_path)
+
+    print(batch.annotations)
+
+    # Create new Annotations
+    new_annotations = [
+        Annotation(
+            embedding_idx=idx,  # TODO use better names
+            file_name=file_paths[idx],  # TODO store unix like file paths.
+            label=annot_val
+        )
+        for idx, annot_val in zip(batch.indices, batch.annotations)
+        if not np.isnan(annot_val)  # Do not store missing LABEL
+    ]
+
+    # Append new_annotations to existing ones
+    _serialize_annotations(json_file_path,  annotations + new_annotations)
+# endregion
+
+
+# TODO put this stuff into utils package?
+def _load_or_init_annotations(
+        X: np.ndarray,
+        dataset_id: str
+) -> np.ndarray:
+    """Load existing labels or initialize with missing labels."""
+    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
+    num_samples = len(X)
+
+    if json_file_path.exists():
+        labels = _load_labels_as_np(num_samples, json_file_path)
+    else:
+        # Put all labels to missing.
+        labels = np.full(num_samples, MISSING_LABEL, dtype=float)
+
+    return labels
+
+
 def _deserialize_annotations(json_path: Path) -> list[Annotation]:
+    if not json_path.exists():
+        return []
+
     with json_path.open('r') as f:
         annotations_data: dict = json.load(f)
 
@@ -185,62 +232,20 @@ def _serialize_annotations(path: Path, annotations: list[Annotation]):
         json.dump([asdict(ann) for ann in annotations], f, indent=4)
 
 
-def _load_labels(json_path: Path) -> np.ndarray:
+def _load_labels_as_np(num_samples: int, json_path: Path) -> np.ndarray:
     """Load labels from a JSON file and return as a numpy array."""
     with json_path.open('r') as f:
         annotations = json.load(f)
-        num_annotations = len(annotations)
 
-        labels = np.empty(num_annotations, dtype=float)
+        labels = np.full(num_samples, MISSING_LABEL, dtype=float)
 
         # TODO check if there is still some missing labels.
         # Else there is nothing more to label.
-        for i, ann in enumerate(annotations):
-            labels[i] = ann['label']
+        for ann in annotations:
+            idx = ann['embedding_idx']
+            labels[idx] = ann['label']
 
     return labels
-
-
-def _load_or_init_annotations(
-        X: np.ndarray,
-        file_names: list[str],
-        dataset_id: str
-) -> np.ndarray:
-    """Load existing labels or initialize with missing labels."""
-    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
-
-    if json_file_path.exists():
-        labels = _load_labels(json_file_path)
-    else:
-        # No annotations yet, initialize new JSON File putting labels to missing.
-        annotations = [Annotation(file_name=f_name, label=MISSING_LABEL) for f_name in file_names]
-        _serialize_annotations(json_file_path, annotations)
-        # Initialize all labels to missing.
-        labels = np.full(len(X), MISSING_LABEL, dtype=float)
-
-    return labels
-
-
-def completed_batch(dataset_id: str, batch: Batch):
-    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
-
-    print("completed batch")
-    print(json_file_path)
-
-    if not json_file_path.exists():
-        raise RuntimeError("JSON file should already exist here!")
-
-    annotations: list[Annotation] = _deserialize_annotations(json_file_path)
-
-    # Update labeled data with new annotations.
-    # Use string keys to avoid duplicates.
-    for idx, annotation_val in zip(batch.indices, batch.annotations):
-        # labels[idx] = annotation_val
-        annotations[idx].label = annotation_val
-
-    # Write back the updated labels overwriting existing file.
-    _serialize_annotations(json_file_path, annotations)
-# endregion
 
 
 def _estimator_accepts_random(est_cls) -> bool:
@@ -337,15 +342,3 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
                                           discriminator=estimator)
     return query_func, estimator
 
-
-def finish_label_session():
-    # Notify UI that. There is not more labels to label.
-    raise NotImplementedError
-
-
-def stop_labelling_session():
-    raise NotImplementedError
-
-
-def retrain():
-    raise NotImplementedError

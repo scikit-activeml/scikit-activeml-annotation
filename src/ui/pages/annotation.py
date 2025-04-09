@@ -397,7 +397,7 @@ def setup_annotations_page(
 
     if StoreKey.BATCH_STATE.value not in store_data:
         # New Session
-        batch = request_query(activeMl_cfg, session_cfg, X, file_names)
+        batch = request_query(activeMl_cfg, session_cfg, X)
         store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
     else:
         # Existing Session
@@ -407,12 +407,12 @@ def setup_annotations_page(
             # Store labeling data to disk
             # TODO to much serialization deserialization
 
-            completed_batch(dataset_id, batch)
+            completed_batch(dataset_id, batch, file_names)
 
             # Override last batch
             last_batch_json = batch.to_json()
             # Initialize the next batch
-            batch = request_query(activeMl_cfg, session_cfg, X, file_names)
+            batch = request_query(activeMl_cfg, session_cfg, X)
             store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
 
     print("Batch")
@@ -520,7 +520,15 @@ def on_skip_batch(
         if val is None:
             batch.annotations[idx] = MISSING_LABEL
 
-    completed_batch(dataset_id, batch)
+    overrides = {
+        'dataset': session_data[StoreKey.DATASET_SELECTION.value],
+        'query_strategy': session_data[StoreKey.QUERY_SELECTION.value],
+        'embedding': session_data[StoreKey.EMBEDDING_SELECTION.value],
+        '+model': session_data[StoreKey.MODEL_SELECTION.value]  # add model to default list
+    }
+    activeml_cfg = compose_config(overrides)
+    _, file_names = get_embeddings(activeml_cfg)
+    completed_batch(dataset_id, batch, file_names)
 
     return dict(
         session_data=session_data,
