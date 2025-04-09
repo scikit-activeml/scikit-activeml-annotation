@@ -217,6 +217,7 @@ def _load_or_init_annotations(
     return labels
 
 
+# TODO rename this to update json annotation or somethign?
 def completed_batch(dataset_id: str, batch: Batch):
     json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
 

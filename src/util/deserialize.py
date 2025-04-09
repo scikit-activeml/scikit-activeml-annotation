@@ -1,3 +1,6 @@
+from functools import lru_cache
+from typing import cast
+
 from typing import Dict
 from pathlib import Path
 
@@ -27,9 +30,6 @@ def _overrides_to_list(overrides: tuple[tuple[str, str], ...]) -> list[str]:
 
 
 # TODO this should be inside the api file
-from functools import lru_cache
-from typing import cast
-
 @lru_cache(maxsize=1)
 def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> ActiveMlConfig:
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
