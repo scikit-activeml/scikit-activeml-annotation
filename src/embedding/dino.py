@@ -63,7 +63,10 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
         # Set the model to evaluation mode
         self.model.eval()
 
-    def compute_embeddings(self, data_path: Path, progress_func=None) -> tuple:
+    def compute_embeddings(
+            self, data_path: Path,
+            progress_func=None
+    ) -> tuple[np.ndarray, list[Path]]:
         """
         Load images from the directory in batches, process them through the model,
         and return the concatenated feature matrix and corresponding file names.
@@ -101,7 +104,6 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
                 # Update progress counter and print every 1000 samples
                 processed_samples += len(batch)
                 if processed_samples >= next_report:
-                    print(f"Processed {processed_samples} samples")
                     next_report += steps
                     progress_func((processed_samples / n_samples) * 100)
 

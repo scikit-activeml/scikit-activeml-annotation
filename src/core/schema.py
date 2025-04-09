@@ -72,9 +72,9 @@ class SessionConfig:
 class Batch:
     # TODO use correct datatypes
     indices: list[int]
+    annotations: list[int]
     class_probas: np.ndarray  # shape len(indices) x num_of_classes
     progress: int  # progress
-    annotations: list[int]
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
@@ -90,6 +90,7 @@ class Batch:
 
 @dataclass
 class Annotation:
+    embedding_idx: int
     file_name: str
     label: int
 
