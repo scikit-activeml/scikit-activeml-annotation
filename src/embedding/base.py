@@ -6,7 +6,10 @@ import numpy as np
 from paths import ROOT_PATH
 
 
-def relative_to_root(path: str | Path) -> Path:
+FilePath = str | Path
+
+
+def relative_to_root(path: FilePath) -> Path:
     """
     Convert an absolute path to a path that is relative to the project root.
     """
@@ -18,7 +21,7 @@ def relative_to_root(path: str | Path) -> Path:
 
 class EmbeddingBaseAdapter(ABC):
     @abstractmethod
-    def compute_embeddings(self, data_path: Path, set_progress: callable = None) -> tuple[np.ndarray, list[Path]]:
+    def compute_embeddings(self, data_path: Path, set_progress: callable = None) -> tuple[np.ndarray, list[FilePath]]:
         """
         Compute and return the feature matrix and corresponding file paths for the given directory of data.
 

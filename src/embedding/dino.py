@@ -32,7 +32,7 @@ class ImageDataset(torch.utils.data.Dataset):
             return None, image_path  # If there's an error, return None and the file name
 
         image = self.transform(image)  # Apply the transformations
-        return image, relative_to_root(image_path)
+        return image, str(relative_to_root(image_path))
 
 
 class TorchVisionAdapter(EmbeddingBaseAdapter):
@@ -43,7 +43,6 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
         self.batch_size = batch_size
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # Define image transformations
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -66,7 +65,7 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
     def compute_embeddings(
             self, data_path: Path,
             progress_func=None
-    ) -> tuple[np.ndarray, list[Path]]:
+    ) -> tuple[np.ndarray, list[str]]:
         """
         Load images from the directory in batches, process them through the model,
         and return the concatenated feature matrix and corresponding file names.
@@ -102,6 +101,7 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
                 file_path_list.extend(file_paths)  # Ensure file_paths match embeddings
 
                 # Update progress counter and print every 1000 samples
+                # TODO simply this. Its bad.
                 processed_samples += len(batch)
                 if processed_samples >= next_report:
                     next_report += steps
