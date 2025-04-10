@@ -2,7 +2,7 @@ import inspect
 from pathlib import Path
 from typing import cast
 from inspect import signature
-from functools import partial
+from functools import partial, lru_cache
 from typing import Callable
 
 import numpy as np
@@ -140,12 +140,7 @@ def compute_embeddings(
 
     X, file_paths = adapter.compute_embeddings(data_path, progress_func)
 
-    if any(f_path.is_absolute() for f_path in file_paths):
-        # TODO use logging instead.
-        print("[WARNING] file paths are absolute. Results wont be easily shareable")
-        file_paths_str = [str(f_path) for f_path in file_paths]
-    else:
-        file_paths_str = [f_path.as_posix() for f_path in file_paths]
+    file_paths_str = _normalize_and_validate_paths(file_paths, X)
 
     # Unique key
     cache_key = f"{dataset_id}_{embedding_cfg.id}"
@@ -155,13 +150,13 @@ def compute_embeddings(
     np.savez(cache_path, X=X, file_paths=file_paths_str)
 
 
-def get_embeddings(
-        activeml_cfg: ActiveMlConfig
-) -> tuple[np.ndarray, list[str]]:
-    dataset_cfg = activeml_cfg.dataset
-    embedding_cfg = activeml_cfg.embedding
+@lru_cache(maxsize=1)
+def load_embeddings(
+        dataset_id: str,
+        embedding_id: str,
+) -> np.ndarray:
 
-    cache_key = f"{dataset_cfg.id}_{embedding_cfg.id}"
+    cache_key = f"{dataset_id}_{embedding_id}"
     cache_path = CACHE_PATH / f"{cache_key}.npz"
 
     if not cache_path.exists():
@@ -169,18 +164,18 @@ def get_embeddings(
 
     with np.load(str(cache_path)) as data:
         X = data['X']
-        file_paths = data['file_paths'].tolist()
-    return X, file_paths
+    return X
 
 
-def completed_batch(dataset_id: str, batch: Batch, file_paths):
+# TODO rename to update json_annotations
+def completed_batch(dataset_id: str, batch: Batch, embedding_id: str):
     json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
     print("completed batch")
     print(json_file_path)
 
     # Get existing annotations
     annotations: list[Annotation] = _deserialize_annotations(json_file_path)
-
+    file_paths = load_file_paths(dataset_id, embedding_id)
     print(batch.annotations)
 
     # Create new Annotations
@@ -340,3 +335,54 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
                                           discriminator=estimator)
     return query_func, estimator
 
+
+def _normalize_and_validate_paths(
+        file_paths: list[str | Path],
+        X: np.ndarray
+) -> list[str]:
+    if len(file_paths) != len(X):
+        raise RuntimeError(f'Amount of samples does not match amount of file paths!')
+
+    file_paths_str = []
+    has_absolute = False
+
+    for p in file_paths:
+        if isinstance(p, str):
+            p = Path(p)
+        if p.is_absolute():
+            has_absolute = True
+            if not p.is_file():
+                raise RuntimeError(f'path does not exist or is not a file: {p}')
+
+            p_str = str(p)
+        else:
+            full_p = ROOT_PATH / p
+            if not full_p.is_file():
+                raise RuntimeError(
+                    f'Resolved path: {full_p} does not exist or is not a file.\n'
+                    f'resolved from relative path: {p}'
+                )
+
+            p_str = p.as_posix()
+
+        file_paths_str.append(p_str)
+
+    if has_absolute:
+        print("[WARNING] absolute paths were provided. Results won't be easily shareable.")
+    return file_paths_str
+
+
+@lru_cache(maxsize=1)
+def load_file_paths(
+        dataset_id: str,
+        embedding_id: str
+) -> list[str]:
+    cache_key = f'{dataset_id}_{embedding_id}'
+    cache_path = CACHE_PATH / f"{cache_key}.npz"
+
+    if not cache_path.exists():
+        raise RuntimeError(f"Cannot get embedding at path: {cache_path}! \nEmbedding should exists already")
+
+    with np.load(str(cache_path)) as data:
+        file_paths = data['file_paths'].tolist()  # TODO is this tolist needed?
+    return file_paths

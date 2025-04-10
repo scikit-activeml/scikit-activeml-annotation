@@ -23,7 +23,8 @@ from util.deserialize import compose_config
 from core.api import (
     request_query,
     completed_batch,
-    get_embeddings
+    load_embeddings,
+    load_file_paths
 )
 from core.schema import *
 from ui.storekey import StoreKey
@@ -39,14 +40,6 @@ register_page(
 )
 
 # TODO create variables for the id's
-
-
-def id_placeholder():
-    return dmc.Box(
-        [
-            dmc.Box(id='label-radio'),  # avoid id error
-        ]
-    )
 
 
 def compose_from_state(store_data) -> ActiveMlConfig:
@@ -74,7 +67,7 @@ def layout(**kwargs):
                 dcc.Location(id=ANNOTATION_INIT, refresh=False),
                 dcc.Store(id=UI_TRIGGER),
                 dcc.Store(id=QUERY_TRIGGER),
-                id_placeholder(),
+                dmc.Box(id='label-radio'),  # avoid id error
                 dcc.Store(id='last-batch-store', storage_type='session'),
                 dmc.AppShell(
                     [
@@ -176,8 +169,8 @@ def layout(**kwargs):
     Input(ANNOTATION_INIT, 'pathname'),
     State('session-store', 'data'),
     output=dict(
-        ui_trigger=Output(UI_TRIGGER, 'data'),
-        query_trigger=Output(QUERY_TRIGGER, 'data'),
+        ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
+        query_trigger=Output(QUERY_TRIGGER, 'data', allow_duplicate=True),
     ),
     prevent_initial_call='initial_duplicate'
 )
@@ -245,8 +238,10 @@ def on_confirm(
 
     if batch.is_completed():
         dataset_id = store_data[StoreKey.DATASET_SELECTION.value]
+        embedding_id = store_data[StoreKey.EMBEDDING_SELECTION.value]
+
         # TODO when a batch is completed the last_batch has to be stored always
-        completed_batch(dataset_id, batch)
+        completed_batch(dataset_id, batch, embedding_id)
         last_batch_json = batch.to_json()
 
         set_props(QUERY_TRIGGER, dict(data=True))
@@ -277,13 +272,13 @@ def on_ui_update(
         raise PreventUpdate
 
     activeml_cfg = compose_from_state(store_data)
-    X, file_names = get_embeddings(activeml_cfg)
+    file_paths = load_file_paths(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
     data_type: DataType = instantiate(activeml_cfg.dataset.data_type)
 
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     idx = batch.progress
     query_idx = batch.indices[idx]
-    human_data_path = file_names[query_idx]
+    human_data_path = file_paths[query_idx]
 
     return dict(
         label_container=create_chip_group(activeml_cfg.dataset.classes, batch),
@@ -322,10 +317,10 @@ def on_query(
 
     print("on query")
     activeml_cfg = compose_from_state(store_data)
-    X, file_names = get_embeddings(activeml_cfg)
+    X = load_embeddings(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
     session_cfg = SessionConfig(batch_size, subsampling)
 
-    batch = request_query(activeml_cfg, session_cfg, X, file_names)
+    batch = request_query(activeml_cfg, session_cfg, X)
     store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
 
     return dict(
@@ -354,6 +349,7 @@ def on_skip_batch(
     # reset batch state
     batch_json = session_data.pop(StoreKey.BATCH_STATE.value, None)
     dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
+    embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
 
     # Store annotations that have been made so far.
     batch = Batch.from_json(batch_json)
@@ -363,7 +359,7 @@ def on_skip_batch(
         if val is None:
             batch.annotations[idx] = MISSING_LABEL
 
-    completed_batch(dataset_id, batch)
+    completed_batch(dataset_id, batch, embedding_id)
     # TODO Should you be allowed to back when skipping the batch?
     # last_batch_json = batch.to_json()
 
