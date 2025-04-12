@@ -76,7 +76,6 @@ def layout(**kwargs):
                 dcc.Store(id=QUERY_TRIGGER),
                 dcc.Store(id=ANNOT_PROGRESS),
                 dmc.Box(id='label-radio'),  # avoid id error
-                dcc.Store(id='last-batch-store', storage_type='session'),
                 dmc.AppShell(
                     [
                         dmc.AppShellNavbar(
@@ -242,7 +241,6 @@ def init_annot_progress(store_data):
     State(ANNOT_PROGRESS, 'data'),
     output=dict(
         store_data=Output('session-store', 'data', allow_duplicate=True),
-        last_batch=Output('last-batch-store', 'data', allow_duplicate=True),
         annot_data=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True
@@ -271,17 +269,12 @@ def on_confirm(
     # Override existing batch
     store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
 
-    last_batch_json = dash.no_update
-
     if batch.is_completed():
         dataset_id = store_data[StoreKey.DATASET_SELECTION.value]
         embedding_id = store_data[StoreKey.EMBEDDING_SELECTION.value]
 
-        # TODO when a batch is completed the last_batch has to be stored always
         num_annotated = completed_batch(dataset_id, batch, embedding_id)
         annot_data[AnnotProgress.PROGRESS.value] = num_annotated
-
-        last_batch_json = batch.to_json()
 
         set_props(QUERY_TRIGGER, dict(data=True))
     else:
@@ -291,7 +284,6 @@ def on_confirm(
 
     return dict(
         store_data=store_data,
-        last_batch=last_batch_json,
         annot_data=annot_data
     )
 
@@ -377,7 +369,6 @@ def on_query(
     output=dict(
         query_trigger=Output(QUERY_TRIGGER, 'data'),
         session_data=Output('session-store', 'data', allow_duplicate=True),
-        last_batch=Output('last-batch-store', 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
@@ -402,32 +393,26 @@ def on_skip_batch(
             batch.annotations[idx] = MISSING_LABEL
 
     completed_batch(dataset_id, batch, embedding_id)
-    # TODO Should you be allowed to back when skipping the batch?
-    # last_batch_json = batch.to_json()
 
     return dict(
         query_trigger=True,
         session_data=session_data,
-        last_batch=None,
     )
 
 
 @callback(
     Input('back-button', 'n_clicks'),
     State('session-store', 'data'),
-    State('last-batch-store', 'data'),
     State('batch-size-input', 'value'),
     output=dict(
         session_data=Output('session-store', 'data'),
         ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
-        last_batch=Output('last-batch-store', 'data', allow_duplicate=True),
     ),
     prevent_initial_call=True
 )
 def on_back_clicked(
     clicks,
     session_data,
-    last_batch,
     batch_size,
 ):
     if clicks is None:
@@ -448,7 +433,6 @@ def on_back_clicked(
     return dict(
         ui_trigger=True,
         session_data=session_data,
-        last_batch=last_batch
     )
 
 
