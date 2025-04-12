@@ -92,7 +92,14 @@ def request_query(
 
     print("Querying the active ML model ...")
 
-    query_indices_cand = query_func(X=X_cand, y=y_cand)
+    try:
+        query_indices_cand = query_func(X=X_cand, y=y_cand)
+    except Exception as e:
+        # TODO add error handling, UI notification and logging.
+        raise RuntimeError(
+            f'[ERROR] Sample selection process failed with error: {e}'
+        )
+
     # Map back to original indices.
     query_indices = mapping[query_indices_cand]
 

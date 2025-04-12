@@ -1,3 +1,4 @@
+import logging  # TODO configure and setup logging.
 import argparse
 
 from werkzeug.middleware.profiler import ProfilerMiddleware
