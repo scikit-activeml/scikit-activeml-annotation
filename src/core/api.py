@@ -88,6 +88,7 @@ def request_query(
     # TODO fitting classifier here might negate Subsampling QS wrapper
     if clf is not None:
         print("Fitting the classifier")
+        # TODO can fitting the classifier fail?
         clf.fit(X_cand, y_cand)
 
     print("Querying the active ML model ...")
@@ -101,6 +102,7 @@ def request_query(
         )
 
     # Map back to original indices.
+    # TODo naming sometimes query_indices sometimes embedding. Inconsistent.
     query_indices = mapping[query_indices_cand]
 
     # TODO sometimes query returns list of np.int64? It has be be serializeable in current implementation.
@@ -114,9 +116,10 @@ def request_query(
     if clf is None:
         class_probas = np.empty(0)
     else:
+        # TODO clf could not have predict_proba
         class_probas = clf.predict_proba(query_samples)
 
-    count_labeled_samples = np.sum(~np.isnan(y))
+    num_labeled_samples = np.sum(~np.isnan(y))
     total = X.shape[0]
 
     batch_state = Batch(
@@ -126,7 +129,7 @@ def request_query(
         annotations=[None] * len(query_indices)
     )
     print("\nNew Batch decided")
-    print(f"Labaled/total: {count_labeled_samples} / {total}")
+    print(f"Labaled/total: {num_labeled_samples} / {total}")
     return batch_state
 
 
@@ -175,7 +178,7 @@ def load_embeddings(
 
 
 # TODO rename to update json_annotations
-def completed_batch(dataset_id: str, batch: Batch, embedding_id: str):
+def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
     json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
     print("completed batch")
     print(json_file_path)
@@ -196,14 +199,28 @@ def completed_batch(dataset_id: str, batch: Batch, embedding_id: str):
         if not np.isnan(annot_val)  # Do not store missing LABEL
     ]
 
-    # Append new_annotations to existing ones
-    _serialize_annotations(json_file_path,  annotations + new_annotations)
+    updated_annotations = annotations + new_annotations
+
+    # Override annotations
+    _serialize_annotations(json_file_path,  updated_annotations)
+
+    num_annotated = len(updated_annotations)
+    return num_annotated
+
+
+def get_num_annotated(dataset_id: str) -> int:
+    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
+    return len(_deserialize_annotations(json_file_path))
+
+
+def get_total_num_samples(dataset_id, embedding_id) -> int:
+    return len(load_embeddings(dataset_id, embedding_id))
 # endregion
 
 
 # TODO put this stuff into utils package?
 def _load_or_init_annotations(
-        X: np.ndarray,
+        X: np.ndarray,  # TODO Should not take X but rather num_of_samples
         dataset_id: str
 ) -> np.ndarray:
     """Load existing labels or initialize with missing labels."""

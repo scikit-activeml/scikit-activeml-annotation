@@ -1,4 +1,5 @@
 import dash
+import dash_mantine_components as dmc
 from dash import (
     html,
     register_page,
@@ -24,12 +25,15 @@ from core.api import (
     request_query,
     completed_batch,
     load_embeddings,
-    load_file_paths
+    load_file_paths,
+    get_total_num_samples,
+    get_num_annotated,
+
 )
 from core.api import undo_annots_and_restore_batch
 
 from core.schema import *
-from ui.storekey import StoreKey
+from ui.storekey import StoreKey, AnnotProgress
 
 from ui.pages.annotation.ids import *
 from ui.pages.annotation.components import *
@@ -37,6 +41,7 @@ from ui.pages.annotation.data_display import *
 
 register_page(
     __name__,
+    # title='annotation',
     path_template='/annotation/<dataset_name>',
     description='The main annotation page',
 )
@@ -69,6 +74,7 @@ def layout(**kwargs):
                 dcc.Location(id=ANNOTATION_INIT, refresh=False),
                 dcc.Store(id=UI_TRIGGER),
                 dcc.Store(id=QUERY_TRIGGER),
+                dcc.Store(id=ANNOT_PROGRESS),
                 dmc.Box(id='label-radio'),  # avoid id error
                 dcc.Store(id='last-batch-store', storage_type='session'),
                 dmc.AppShell(
@@ -132,10 +138,22 @@ def layout(**kwargs):
                             children=[
                                 dmc.Stack(
                                     [
-                                        dmc.SemiCircleProgress(
-                                            label="Annotation Progress",
-                                            id='annotation-progress-circle',
-                                            value=40,
+                                        dmc.Card(
+                                            dmc.Group(
+                                                [
+                                                    dmc.NumberFormatter(
+                                                        id=ANNOT_PROGRESS_TEXT,
+                                                        value=500,
+                                                        thousandSeparator='_'
+                                                    ),
+                                                    dmc.Text("/"),
+                                                    dmc.NumberFormatter(
+                                                        id=NUM_SAMPLES_TEXT,
+                                                        value=60000,
+                                                        thousandSeparator='_'
+                                                    )
+                                                ]
+                                            )
                                         )
                                     ],
                                     align='center'
@@ -171,6 +189,7 @@ def layout(**kwargs):
     Input(ANNOTATION_INIT, 'pathname'),
     State('session-store', 'data'),
     output=dict(
+        annot_progress=Output(ANNOT_PROGRESS, 'data'),
         ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
         query_trigger=Output(QUERY_TRIGGER, 'data', allow_duplicate=True),
     ),
@@ -185,6 +204,7 @@ def init(
         return dict(
             ui_trigger=dash.no_update,
             query_trigger=True,
+            annot_progress=init_annot_progress(store_data)
         )
 
     batch = Batch.from_json(batch_json)
@@ -193,12 +213,24 @@ def init(
         return dict(
             ui_trigger=dash.no_update,
             query_trigger=True,
+            annot_progress=init_annot_progress(store_data)
         )
     else:
         return dict(
             ui_trigger=True,
             query_trigger=dash.no_update,
+            annot_progress=init_annot_progress(store_data)
         )
+
+
+def init_annot_progress(store_data):
+    dataset_id = store_data.get(StoreKey.DATASET_SELECTION.value)
+    embedding_id = store_data.get(StoreKey.EMBEDDING_SELECTION.value)
+
+    return {
+        AnnotProgress.PROGRESS.value: get_num_annotated(dataset_id),
+        AnnotProgress.TOTAL_NUM.value: get_total_num_samples(dataset_id, embedding_id)
+    }
 
 
 @callback(
@@ -207,9 +239,11 @@ def init(
     Input('skip-button', 'n_clicks'),
     State('session-store', 'data'),
     State('label-radio', 'value'),
+    State(ANNOT_PROGRESS, 'data'),
     output=dict(
         store_data=Output('session-store', 'data', allow_duplicate=True),
         last_batch=Output('last-batch-store', 'data', allow_duplicate=True),
+        annot_data=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
@@ -219,6 +253,7 @@ def on_confirm(
     skip_click,
     store_data,
     value,
+    annot_data
 ):
     if confirm_click is None and discard_click is None and skip_click is None:
         raise PreventUpdate
@@ -243,16 +278,21 @@ def on_confirm(
         embedding_id = store_data[StoreKey.EMBEDDING_SELECTION.value]
 
         # TODO when a batch is completed the last_batch has to be stored always
-        completed_batch(dataset_id, batch, embedding_id)
+        num_annotated = completed_batch(dataset_id, batch, embedding_id)
+        annot_data[AnnotProgress.PROGRESS.value] = num_annotated
+
         last_batch_json = batch.to_json()
 
         set_props(QUERY_TRIGGER, dict(data=True))
     else:
         set_props(UI_TRIGGER, dict(data=True))
+        # TODO this wont work always if the user went back or skipped?
+        # annot_data[AnnotProgress.PROGRESS.value] += 1
 
     return dict(
         store_data=store_data,
         last_batch=last_batch_json,
+        annot_data=annot_data
     )
 
 
@@ -409,6 +449,28 @@ def on_back_clicked(
         ui_trigger=True,
         session_data=session_data,
         last_batch=last_batch
+    )
+
+
+@callback(
+    Input(UI_TRIGGER, 'data'),
+    State(ANNOT_PROGRESS, 'data'),
+    output=dict(
+        annot_progress=Output(ANNOT_PROGRESS_TEXT, 'value'),
+        num_samples=Output(NUM_SAMPLES_TEXT, 'value'),
+    ),
+    prevent_initial_call=True
+)
+def on_annot_progress(
+    trigger,
+    annot_data
+):
+    if trigger is None:
+        raise PreventUpdate
+
+    return dict(
+        annot_progress=annot_data.get(AnnotProgress.PROGRESS.value),
+        num_samples=annot_data.get(AnnotProgress.TOTAL_NUM.value)
     )
 
 
