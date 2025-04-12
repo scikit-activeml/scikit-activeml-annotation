@@ -26,6 +26,8 @@ from core.api import (
     load_embeddings,
     load_file_paths
 )
+from core.api import undo_annots_and_restore_batch
+
 from core.schema import *
 from ui.storekey import StoreKey
 
@@ -374,6 +376,7 @@ def on_skip_batch(
     Input('back-button', 'n_clicks'),
     State('session-store', 'data'),
     State('last-batch-store', 'data'),
+    State('batch-size-input', 'value'),
     output=dict(
         session_data=Output('session-store', 'data'),
         ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
@@ -385,6 +388,7 @@ def on_back_clicked(
     clicks,
     session_data,
     last_batch,
+    batch_size,
 ):
     if clicks is None:
         raise PreventUpdate
@@ -394,14 +398,10 @@ def on_back_clicked(
 
     if batch.progress == 0:
         print("Have to get last batch to be able to go back.")
-        if last_batch is None:
-            print("CANNOT go back further!")
-            raise PreventUpdate
+        activeml_cfg = compose_from_state(session_data)
 
-        batch = Batch.from_json(last_batch)
-        last_batch = None
-    else:
-        last_batch = dash.no_update
+        # TODO it could be there is not enough labeled samples or there is no labeled samples anymore!
+        batch = undo_annots_and_restore_batch(activeml_cfg, batch_size)
 
     batch.progress -= 1
     session_data[StoreKey.BATCH_STATE.value] = batch.to_json()

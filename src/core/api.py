@@ -393,3 +393,46 @@ def load_file_paths(
     with np.load(str(cache_path)) as data:
         file_paths = data['file_paths'].tolist()  # TODO is this tolist needed?
     return file_paths
+
+
+def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> Batch:
+    # Assumes annotations are stored in json in the same order they were made.
+    json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
+    annotations = _deserialize_annotations(json_file_path)
+
+    write_back, reconstruct = annotations[:-num_undo], annotations[-num_undo:]
+
+    json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
+    _serialize_annotations(json_file_path, write_back)
+
+    # TODO
+    # Restore class probabilities
+
+    # TODO Should i write_back first or no?
+    model_cfg = cfg.model
+    if model_cfg is None:
+        # TODO use estimator to have more accurate terminology
+        estimator = None
+    else:
+        random_state = np.random.RandomState(cfg.random_seed)
+        estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+
+    embedding_indices = [annot.embedding_idx for annot in reconstruct]
+
+    if estimator is not None:
+        X = load_embeddings(cfg.dataset.id, cfg.embedding.id)
+        y = _load_or_init_annotations(X, cfg.dataset.id)
+        X_cand, y_cand, _ = _filter_outliers(X, y)
+
+        estimator.fit(X_cand, y_cand)
+        class_probas = estimator.predict_proba(X[embedding_indices])
+    else:
+        class_probas = np.empty(0)
+
+    # Restored Batch
+    return Batch(
+        indices=embedding_indices,
+        annotations=[annot.label for annot in reconstruct],
+        class_probas=class_probas.tolist(),
+        progress=num_undo,
+    )
