@@ -274,6 +274,10 @@ def on_confirm(
         embedding_id = store_data[StoreKey.EMBEDDING_SELECTION.value]
 
         num_annotated = completed_batch(dataset_id, batch, embedding_id)
+        if num_annotated == annot_data[AnnotProgress.TOTAL_NUM.value]:
+            print("ANNOTATION COMPLETE")
+            raise PreventUpdate
+
         annot_data[AnnotProgress.PROGRESS.value] = num_annotated
 
         set_props(QUERY_TRIGGER, dict(data=True))
