@@ -412,20 +412,24 @@ def load_file_paths(
     return file_paths
 
 
-def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> Batch:
+def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> Batch | None:
     # Assumes annotations are stored in json in the same order they were made.
     json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
     annotations = _deserialize_annotations(json_file_path)
+
+    # Check there is enough annotations made to go back that far.
+    num_annotations = len(annotations)
+    if num_undo > num_annotations:
+        if num_annotations == 0:
+            return None
+
+        num_undo = num_annotations
 
     write_back, reconstruct = annotations[:-num_undo], annotations[-num_undo:]
 
     json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
     _serialize_annotations(json_file_path, write_back)
 
-    # TODO
-    # Restore class probabilities
-
-    # TODO Should i write_back first or no?
     model_cfg = cfg.model
     if model_cfg is None:
         # TODO use estimator to have more accurate terminology
