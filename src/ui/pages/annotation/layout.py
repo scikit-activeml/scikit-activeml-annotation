@@ -1,3 +1,5 @@
+import logging
+
 import dash
 import dash_mantine_components as dmc
 from dash import (
@@ -404,9 +406,11 @@ def on_skip_batch(
     Input('back-button', 'n_clicks'),
     State('session-store', 'data'),
     State('batch-size-input', 'value'),
+    State(ANNOT_PROGRESS, 'data'),
     output=dict(
         session_data=Output('session-store', 'data'),
         ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
+        annot_progress=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
@@ -414,6 +418,7 @@ def on_back_clicked(
     clicks,
     session_data,
     batch_size,
+    annot_progress,
 ):
     if clicks is None:
         raise PreventUpdate
@@ -426,13 +431,22 @@ def on_back_clicked(
         activeml_cfg = compose_from_state(session_data)
 
         # TODO it could be there is not enough labeled samples or there is no labeled samples anymore!
-        batch = undo_annots_and_restore_batch(activeml_cfg, batch_size)
+        batch, num_annotations = undo_annots_and_restore_batch(activeml_cfg, batch_size)
+        # Decrease amount of annotations
+
+        if batch is None:
+            # There is no annotations anymore.
+            logging.warning("Cannot go back further. No Annotations")
+            return util.no_update()
+        else:
+            annot_progress[AnnotProgress.PROGRESS.value] = num_annotations
 
     batch.progress -= 1
     session_data[StoreKey.BATCH_STATE.value] = batch.to_json()
     return dict(
         ui_trigger=True,
         session_data=session_data,
+        annot_progress=annot_progress
     )
 
 

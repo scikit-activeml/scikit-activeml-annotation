@@ -412,7 +412,7 @@ def load_file_paths(
     return file_paths
 
 
-def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> Batch | None:
+def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[Batch | None, int]:
     # Assumes annotations are stored in json in the same order they were made.
     json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
     annotations = _deserialize_annotations(json_file_path)
@@ -421,13 +421,12 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> Batch |
     num_annotations = len(annotations)
     if num_undo > num_annotations:
         if num_annotations == 0:
-            return None
+            return None, 0
 
         num_undo = num_annotations
 
     write_back, reconstruct = annotations[:-num_undo], annotations[-num_undo:]
 
-    json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
     _serialize_annotations(json_file_path, write_back)
 
     model_cfg = cfg.model
@@ -451,9 +450,12 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> Batch |
         class_probas = np.empty(0)
 
     # Restored Batch
-    return Batch(
-        indices=embedding_indices,
-        annotations=[annot.label for annot in reconstruct],
-        class_probas=class_probas.tolist(),
-        progress=num_undo,
+    return (
+        Batch(
+            indices=embedding_indices,
+            annotations=[annot.label for annot in reconstruct],
+            class_probas=class_probas.tolist(),
+            progress=num_undo,
+        ),
+        len(write_back)
     )
