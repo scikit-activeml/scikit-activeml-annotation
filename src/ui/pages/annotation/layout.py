@@ -22,6 +22,7 @@ from hydra.utils import instantiate
 
 from skactiveml.utils import MISSING_LABEL
 
+from ui import util
 from util.deserialize import compose_config
 from core.api import (
     request_query,
@@ -43,12 +44,9 @@ from ui.pages.annotation.data_display import *
 
 register_page(
     __name__,
-    # title='annotation',
     path_template='/annotation/<dataset_name>',
     description='The main annotation page',
 )
-
-# TODO create variables for the id's
 
 
 def compose_from_state(store_data) -> ActiveMlConfig:
