@@ -32,14 +32,9 @@ from core.api import (
 )
 
 from ui.storekey import StoreKey
-from core.api import get_query_cfg_from_id
+
 
 register_page(__name__, path='/')
-app = Dash(
-    __name__,
-    prevent_initial_callbacks=True,
-    # suppress_callback_exceptions=True
-)
 
 
 # region Layout
