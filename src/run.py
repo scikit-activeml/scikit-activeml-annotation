@@ -1,5 +1,7 @@
-import logging  # TODO configure and setup logging.
+import os
 import argparse
+
+import util.logging
 
 from werkzeug.middleware.profiler import ProfilerMiddleware
 
@@ -23,10 +25,19 @@ def main():
     elif args.prod:
         run_prod_mode()
     else:
-        app.run(debug=True, host='localhost', dev_tools_hot_reload_interval=1, port=PORT)
+        run_debug_mode()
+
+
+def run_debug_mode():
+    if os.environ.get("WERKZEUG_RUN_MAIN") == 'true':
+        util.logging.setup_logging()
+
+    app.run(debug=True, host='localhost', dev_tools_hot_reload_interval=1, port=PORT)
 
 
 def run_profile_mode():
+    util.logging.setup_logging()
+
     # TODO Profiler should create a new dir with timestamp for the next log.
     app.server.config["PROFILE"] = True
     app.server.wsgi_app = ProfilerMiddleware(
@@ -42,6 +53,8 @@ def run_profile_mode():
 def run_prod_mode():
     import webbrowser
     from waitress import serve
+
+    util.logging.setup_logging()
 
     webbrowser.open(f"http://localhost:{PORT}/")
     serve(app.server, host='localhost', port=PORT)
