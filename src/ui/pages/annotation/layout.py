@@ -85,9 +85,7 @@ def layout(**kwargs):
                             style={'border': '4px solid red'}
                         ),
                         dmc.Box(
-                            id="hero-container-annotation",
                             children=[
-
                                 dcc.Loading(
                                     children=[
                                         dmc.Box(

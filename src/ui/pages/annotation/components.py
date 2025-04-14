@@ -143,6 +143,7 @@ def create_data_display(data_type, human_data_path):
     )
 
 
+# TODO bad name
 def create_chip_group(classes, batch):
     # Check if there is some annotation already for that sample in case the user used back btn.
     annotation = batch.annotations[batch.progress]
@@ -176,11 +177,16 @@ def create_chip_group(classes, batch):
     )
 
     return dmc.ScrollArea(
-        dmc.Flex(
-            chip_group,
-            wrap='wrap',
-            justify='flex-start',
-            gap='10px',
+        dmc.Center(
+            dmc.Box(
+                chip_group,
+                style={
+                    'display': 'inline-flex',
+                    'flex-direction': 'row',
+                    'flex-wrap': 'wrap',
+                    'gap': '10px'
+                }
+            ),
         ),
         id='my-scroll-area',
         type='auto',
@@ -194,7 +200,7 @@ def create_chip_group(classes, batch):
         style={
             'border': 'green dashed 3px'
         },
-        w='50%'
+        w='50vw'
     )
 
 
