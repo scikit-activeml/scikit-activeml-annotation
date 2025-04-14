@@ -133,42 +133,60 @@ def layout(**kwargs):
                             px=150
                         ),
                         dmc.AppShellAside(
-                            id="right-panel",
                             children=[
                                 dmc.Stack(
                                     [
                                         dmc.Card(
-                                            dmc.Group(
+                                            dmc.Stack(
                                                 [
-                                                    dmc.NumberFormatter(
-                                                        id=ANNOT_PROGRESS_TEXT,
-                                                        value=500,
-                                                        thousandSeparator='_'
+                                                    dmc.Group(
+                                                        [
+                                                            dmc.Text("Annotated:", style={"fontSize": "1vw"}),
+                                                            dmc.Text(
+                                                                dmc.NumberFormatter(
+                                                                    id=ANNOT_PROGRESS_TEXT,
+                                                                    thousandSeparator=' ',
+                                                                ),
+                                                                style={"fontSize": "1vw"}
+                                                            ),
+                                                        ],
+                                                        gap=4
                                                     ),
-                                                    dmc.Text("/"),
-                                                    dmc.NumberFormatter(
-                                                        id=NUM_SAMPLES_TEXT,
-                                                        value=60000,
-                                                        thousandSeparator='_'
+
+                                                    dmc.Group(
+                                                        [
+                                                            dmc.Text("Total:", style={"fontSize": "1vw"}),
+                                                            dmc.Text(
+                                                                dmc.NumberFormatter(
+                                                                    id=NUM_SAMPLES_TEXT,
+                                                                    thousandSeparator=' '
+                                                                ),
+                                                                style={"fontSize": "1vw"}
+                                                            )
+                                                        ],
+                                                        gap=4
                                                     )
-                                                ]
+                                                ],
+                                                gap=5
                                             )
                                         )
                                     ],
+                                    # p='xs',
+                                    style={'border': '3px dashed green'},
                                     align='center'
                                 )
                             ],
-                            p="md",
+                            p="xs",
                             style={'border': '4px solid red'}
                         ),
                     ],
                     navbar={
-                        "width": '12vw',
+                        "width": '13vw',
                         "breakpoint": "sm",
                         "collapsed": {"mobile": True},
                     },
                     aside={
-                        "width": '12vw',
+                        "width": '13vw',
                         "breakpoint": "sm",
                         "collapsed": {"mobile": True},
                     },
