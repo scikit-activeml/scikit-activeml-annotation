@@ -1,0 +1,8 @@
+id: "digits_toy2"
+display_name: "Handwritten Digits (10 samples)"
+classes: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+data_path: 'datasets/digits_images2'
+
+data_type:
+  _target_: core.schema.DataType
+  _args_: [Image]
