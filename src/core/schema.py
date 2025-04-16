@@ -62,8 +62,11 @@ class ActiveMlConfig:
 @dataclass
 class SessionConfig:
     batch_size: int = 10  # How many samples to label before retraining
-    subsampling: int | float = 1000  #
+    subsampling: int | float | None = None
 
+    def __post_init__(self):
+        if self.subsampling == '':
+            self.subsampling = None
 
 # endregion
 
