@@ -11,7 +11,7 @@ def create_sidebar():
         dmc.Stack(
             [
                 dmc.Center(
-                    dmc.Text("Settings"),
+                    dmc.Title("Settings", order=3),
                 ),
 
                 # Batch Size selection
@@ -32,18 +32,22 @@ def create_sidebar():
                     id='subsampling-input',
                     allowNegative=False,
                     debounce=True,
-                    hideControls=True
+                    hideControls=True,
+                    persistence='subsampling-persistence',
+                    persistence_type='local',
                 ),
 
-                dmc.Text(
-                    'Query Strategy'
-                ),
+                # TODO allow to switch Query Strategy during annotation.
+                # dmc.Text(
+                #     'Query Strategy'
+                # ),
 
                 # Skip Button
                 dmc.Center(
                     dmc.Button(
                         "Skip Batch",
                         id="skip-batch-button",
+                        color='dark'
                     ),
                 ),
             ],
