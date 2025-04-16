@@ -17,12 +17,12 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 from dash_iconify import DashIconify
+import dash_loading_spinners as dls
 
 from hydra.utils import instantiate
 
 from skactiveml.utils import MISSING_LABEL
 
-from ui import util
 from util.deserialize import compose_config
 from core.api import (
     request_query,
@@ -84,35 +84,87 @@ def layout(**kwargs):
                             p="md",
                             style={'border': '4px solid red'}
                         ),
-                        dmc.Box(
-                            children=[
-                                dcc.Loading(
-                                    children=[
-                                        dmc.Box(
-                                            id=DATA_DISPLAY_CONTAINER
-                                        ),
-                                    ],
-                                    delay_hide=10,
-                                    custom_spinner=dmc.Skeleton(
-                                        visible=True,
-                                        h="100%"
-                                    )
-                                ),
 
-                                dmc.Group(
+
+                        dmc.Flex(
+                            [
+                                dmc.Box(
                                     [
-                                        dmc.Title('Select Label', order=4),
-                                        dmc.Tooltip(
-                                            dmc.ActionIcon(
-                                                DashIconify(icon="clarity:settings-line", width=20),
-                                                variant="filled",
-                                                id="label-setting-popup",
+                                        dmc.LoadingOverlay(
+                                            id=COMPUTING_OVERLAY,
+                                            zIndex=10,
+                                            loaderProps=dict(
+                                                children=dmc.Stack(
+                                                    [
+                                                        dmc.Group(
+                                                            [
+                                                                dmc.Title("Computing next batch", order=2),
+                                                                dmc.Loader(
+                                                                    size='xl',
+                                                                    type='dots',
+                                                                    color='var(--mantine-color-dark-7)',
+                                                                ),
+                                                            ],
+                                                            justify='center',
+                                                            wrap='wrap',
+                                                            mb='5vh'
+                                                        ),
+                                                    ],
+                                                    align='center',
+                                                    style=dict(border='red dashed 3px')
+                                                )
                                             ),
-                                            label='Label settings',
+                                            overlayProps=dict(
+                                                radius='lg',
+                                                center=True,
+                                                blur=7
+                                            ),
+                                            transitionProps=dict(
+                                                transition='fade',
+                                                duration=150,
+                                                # exitDuration=500,
+                                            ),
                                         ),
-                                        dmc.TextInput(placeholder='Search', id='label-search-text-input'),
+
+                                        dcc.Loading(
+                                            dmc.Box(
+                                                id=DATA_DISPLAY_CONTAINER,
+                                                # TODO infer how large the displayed data will be
+                                                miw='250px',
+                                                mih='250px',
+                                            ),
+                                            delay_hide=250,
+                                            delay_show=250,
+                                           custom_spinner=dls.ThreeDots(radius=7)
+                                        ),
+
+                                        dmc.Group(
+                                            [
+                                                dmc.Tooltip(
+                                                    dmc.ActionIcon(
+                                                        DashIconify(icon="clarity:settings-line", width=20),
+                                                        variant="filled",
+                                                        id="label-setting-popup",
+                                                        color='dark',
+                                                    ),
+                                                    label='Label settings',
+                                                ),
+
+                                                create_confirm_buttons(),
+
+                                                dmc.TextInput(
+                                                    placeholder='Select Label',
+                                                    id='label-search-text-input',
+                                                    radius='sm',
+                                                    w='150px'
+                                                ),
+                                            ],
+                                            mt=15,
+                                            justify='center'
+                                        ),
                                     ],
-                                    justify='center'
+                                    p='10px',
+                                    pos="relative",
                                 ),
 
                                 dmc.Stack(
@@ -120,16 +172,25 @@ def layout(**kwargs):
                                     # h='400px'
                                     align='center'
                                 ),
-                                create_confirm_buttons(),
+                                # create_confirm_buttons(),
                                 create_progress_bar()
                             ],
+
+
                             style={
                                 'border': '5px dotted blue',
-                                 'height': '100%'
+                                'height': '100%',
+                                'widht': '100%',
                             },
+                            justify='center',
+                            align='center',
+                            direction='column',
+                            wrap='nowrap',
+                            gap='10px',
                             py=0,
-                            px=150
+                            px=150,
                         ),
+
                         dmc.AppShellAside(
                             children=[
                                 dmc.Stack(
@@ -137,33 +198,40 @@ def layout(**kwargs):
                                         dmc.Card(
                                             dmc.Stack(
                                                 [
-                                                    dmc.Group(
-                                                        [
-                                                            dmc.Text("Annotated:", style={"fontSize": "1vw"}),
-                                                            dmc.Text(
-                                                                dmc.NumberFormatter(
-                                                                    id=ANNOT_PROGRESS_TEXT,
-                                                                    thousandSeparator=' ',
+                                                    dmc.Tooltip(
+                                                        dmc.Group(
+                                                            [
+                                                                dmc.Text("Annotated:", style={"fontSize": "1vw"}),
+                                                                dmc.Text(
+                                                                    dmc.NumberFormatter(
+                                                                        id=ANNOT_PROGRESS_TEXT,
+                                                                        thousandSeparator=' ',
+                                                                    ),
+                                                                    style={"fontSize": "1vw"}
                                                                 ),
-                                                                style={"fontSize": "1vw"}
-                                                            ),
-                                                        ],
-                                                        gap=4
+                                                            ],
+                                                            gap=4
+                                                        ),
+                                                        label="Number of samples annotated."
                                                     ),
 
-                                                    dmc.Group(
-                                                        [
-                                                            dmc.Text("Total:", style={"fontSize": "1vw"}),
-                                                            dmc.Text(
-                                                                dmc.NumberFormatter(
-                                                                    id=NUM_SAMPLES_TEXT,
-                                                                    thousandSeparator=' '
-                                                                ),
-                                                                style={"fontSize": "1vw"}
-                                                            )
-                                                        ],
-                                                        gap=4
+                                                    dmc.Tooltip(
+                                                        dmc.Group(
+                                                            [
+                                                                dmc.Text("Total:", style={"fontSize": "1vw"}),
+                                                                dmc.Text(
+                                                                    dmc.NumberFormatter(
+                                                                        id=NUM_SAMPLES_TEXT,
+                                                                        thousandSeparator=' '
+                                                                    ),
+                                                                    style={"fontSize": "1vw"}
+                                                                )
+                                                            ],
+                                                            gap=4
+                                                        ),
+                                                        label='Total number of samples in dataset'
                                                     )
+
                                                 ],
                                                 gap=5
                                             )
@@ -225,6 +293,7 @@ def init(
     batch = Batch.from_json(batch_json)
 
     if batch.is_completed():
+        # TODO Check if all samples are annotated allready.
         return dict(
             ui_trigger=dash.no_update,
             query_trigger=True,
@@ -315,6 +384,7 @@ def on_confirm(
         label_container=Output(LABELS_CONTAINER, 'children'),
         show_container=Output(DATA_DISPLAY_CONTAINER, 'children'),
         batch_progress=Output('batch-progress-bar', 'value'),
+        is_computing_overlay=Output(COMPUTING_OVERLAY, 'visible', allow_duplicate=True),
     ),
     prevent_initial_call=True,
 )
@@ -338,7 +408,22 @@ def on_ui_update(
         label_container=create_chip_group(activeml_cfg.dataset.classes, batch),
         show_container=create_data_display(data_type, human_data_path),
         batch_progress=(idx / len(batch.indices)) * 100,
+        is_computing_overlay=False,
     )
+
+
+@callback(
+    Input(QUERY_TRIGGER, 'data'),
+    output=dict(
+        is_computing_overlay=Output(COMPUTING_OVERLAY, 'visible')
+    )
+)
+def on_query_start(
+    trigger
+):
+    if trigger is None:
+        raise PreventUpdate
+    return dict(is_computing_overlay=True)
 
 
 @callback(
@@ -351,14 +436,7 @@ def on_ui_update(
         ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True,
-    # background=True,
-    # TODO why is this loading so delayed?
-    running=[
-        (Output('confirm-button', 'loading'), True, False),
-        (Output('discard-button', 'loading'), True, False),
-        (Output('skip-button', 'loading'), True, False),
-        (Output('back-button', 'loading'), True, False),
-    ],
+    background=True,
 )
 def on_query(
     trigger,
@@ -386,15 +464,18 @@ def on_query(
 @callback(
     Input('skip-batch-button', 'n_clicks'),
     State('session-store', 'data'),
+    State(ANNOT_PROGRESS, 'data'),
     output=dict(
         query_trigger=Output(QUERY_TRIGGER, 'data'),
         session_data=Output('session-store', 'data', allow_duplicate=True),
+        annot_progress=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
 def on_skip_batch(
     n_clicks: int,
     session_data: dict,
+    annot_progress,
 ):
     if n_clicks is None or n_clicks == 0:
         raise PreventUpdate
@@ -412,11 +493,13 @@ def on_skip_batch(
         if val is None:
             batch.annotations[idx] = MISSING_LABEL
 
-    completed_batch(dataset_id, batch, embedding_id)
+    num_annotated = completed_batch(dataset_id, batch, embedding_id)
+    annot_progress[AnnotProgress.PROGRESS.value] = num_annotated
 
     return dict(
         query_trigger=True,
         session_data=session_data,
+        annot_progress=annot_progress
     )
 
 

@@ -10,3 +10,5 @@ ANNOT_PROGRESS = 'annot-progress'
 
 NUM_SAMPLES_TEXT = 'num_samples_text'
 ANNOT_PROGRESS_TEXT = 'annot-progress-text'
+
+COMPUTING_OVERLAY = 'computing-overlay'
