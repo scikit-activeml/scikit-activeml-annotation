@@ -106,9 +106,9 @@ def create_progress_bar(progress=0):
                         # striped=True
                     ),
                     transitionDuration=500,
-                    radius=25,
+                    radius=8,
                     size="lg",
-                    style={"height": "40px"},
+                    style={"height": "25px"},
                 ),
                 # The overlay text: always centered
                 dmc.Box(
@@ -120,12 +120,16 @@ def create_progress_bar(progress=0):
                         "left": "50%",
                         "transform": "translate(-50%, -50%)",
                         "textAlign": "center",
-                        "color": "white",
+                        "color": "black",
                         "pointerEvents": "none",
                     },
                 ),
             ],
-            style={"position": "relative", "width": "100%"},
+            style={
+                "position": "relative",
+                "width": "50vw",
+                'border': 'gold dotted 3px'
+            },
         )
     )
 
