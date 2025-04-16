@@ -436,7 +436,7 @@ def on_query_start(
         ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True,
-    background=True,
+    # background=True, # INFO LRU Cache won't work with this
 )
 def on_query(
     trigger,
@@ -538,7 +538,7 @@ def on_back_clicked(
         if batch is None:
             # There is no annotations anymore.
             logging.warning("Cannot go back further. No Annotations")
-            return util.no_update()
+            return PreventUpdate
         else:
             annot_progress[AnnotProgress.PROGRESS.value] = num_annotations
 

@@ -17,7 +17,7 @@ class DataType(Enum):
 # region Hydra Config Schema
 @dataclass
 class EmbeddingConfig:
-    id: str = MISSING
+    id: str
     display_name: str = MISSING
     # TODO definition has wrong type here.
     definition: EmbeddingBaseAdapter = MISSING
@@ -25,7 +25,7 @@ class EmbeddingConfig:
 
 @dataclass
 class DatasetConfig:
-    id: str = MISSING
+    id: str
     display_name: str = MISSING  # Name that will be displayed in ui for that dataset
     classes: list[str] = MISSING  # All the possible data labels.
     data_path: str = MISSING  # Path to data dir. Relative to project root
@@ -34,14 +34,14 @@ class DatasetConfig:
 
 @dataclass
 class ModelConfig:
-    id: str = MISSING
+    id: str
     display_name: str = MISSING
     definition: dict = MISSING
 
 
 @dataclass
 class QueryStrategyConfig:
-    id: str = MISSING
+    id: str
     display_name: str = MISSING
     # TODO This could be automated
     model_agnostic: bool = MISSING

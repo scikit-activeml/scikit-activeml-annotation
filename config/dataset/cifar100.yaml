@@ -1,4 +1,3 @@
-id: "cifar100"
 display_name: "CIFAR-100"
 classes: [
   'apples', 'aquarium fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle',

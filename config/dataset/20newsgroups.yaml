@@ -1,4 +1,3 @@
-id: "20newsgroups"
 display_name: "20 News Groups"
 classes: [] # TODO
 data_path: "todo" # TODO
