@@ -69,6 +69,8 @@ def layout(**kwargs):
                                         }
                                     ),
                                     type='circle',
+                                    delay_hide=150,
+                                    delay_show=250  # INFO only need to show when it takes longer than 5ms.
                                 )
                             ]
                         ),
