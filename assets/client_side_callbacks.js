@@ -23,8 +23,15 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
             }
 
             return window.dash_clientside.no_update;
-        }
+        },
 
+        triggerTrue: function(trigger) {
+            if (trigger === null) {
+                return window.dash_clientside.no_update;
+            }
+
+            return true;
+        }
     }
 });
 

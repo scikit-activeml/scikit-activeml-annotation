@@ -133,8 +133,8 @@ def layout(**kwargs):
                                                 miw='250px',
                                                 mih='250px',
                                             ),
-                                            delay_hide=250,
-                                            delay_show=250,
+                                            delay_hide=150,
+                                            delay_show=150,
                                            custom_spinner=dls.ThreeDots(radius=7)
                                         ),
 
@@ -412,18 +412,12 @@ def on_ui_update(
     )
 
 
-@callback(
-    Input(QUERY_TRIGGER, 'data'),
-    output=dict(
-        is_computing_overlay=Output(COMPUTING_OVERLAY, 'visible')
-    )
+# On Query start. Show loading overlay.
+clientside_callback(
+    ClientsideFunction(namespace='clientside', function_name='triggerTrue'),
+    Output(COMPUTING_OVERLAY, 'visible'),
+    Input(QUERY_TRIGGER, 'data')
 )
-def on_query_start(
-    trigger
-):
-    if trigger is None:
-        raise PreventUpdate
-    return dict(is_computing_overlay=True)
 
 
 @callback(
