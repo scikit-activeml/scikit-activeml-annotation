@@ -326,7 +326,8 @@ def init_annot_progress(store_data):
     State(ANNOT_PROGRESS, 'data'),
     output=dict(
         store_data=Output('session-store', 'data', allow_duplicate=True),
-        annot_data=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True)
+        annot_data=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True),
+        search_text=Output('label-search-text-input', 'value'),
     ),
     prevent_initial_call=True
 )
@@ -373,7 +374,8 @@ def on_confirm(
 
     return dict(
         store_data=store_data,
-        annot_data=annot_data
+        annot_data=annot_data,
+        search_text='',
     )
 
 
