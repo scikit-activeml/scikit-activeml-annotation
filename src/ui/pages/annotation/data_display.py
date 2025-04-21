@@ -8,8 +8,7 @@ from PIL import Image
 
 
 # TODO make components out of these.
-def create_image_display(path_to_img: Path):
-    # Use a separate Callback to update the image.
+def create_image_display(path_to_img: Path, dpr):
     image = Image.open(path_to_img).convert("RGB")
     # print("Size of Image:")
     # print(image.size)
@@ -31,7 +30,9 @@ def create_image_display(path_to_img: Path):
 
     # image = image.resize(w_original, h_original)
 
-    fig = px.imshow(image, labels={})
+    # Account for screen dpr to avoid resizing the image again to prevent artifacts.
+    w = int(w / dpr)
+    h = int(h / dpr)
 
     # INFO Graph does not support loading wrapper
     return (

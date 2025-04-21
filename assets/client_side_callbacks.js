@@ -31,6 +31,14 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
             }
 
             return true;
+        },
+
+        getDpr: function(trigger) {
+            if (trigger === null) {
+                return window.dash_clientside.no_update;
+            }
+
+            return window.devicePixelRatio;
         }
     }
 });

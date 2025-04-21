@@ -43,7 +43,9 @@ app.layout = (
     dmc.MantineProvider(
         dmc.AppShell(
             [
+                dcc.Store('browser-data'),
                 dcc.Store('session-store', storage_type='session'),
+
                 create_navbar(),
                 dmc.AppShellMain(
                     [

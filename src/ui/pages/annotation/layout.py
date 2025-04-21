@@ -268,6 +268,14 @@ def layout(**kwargs):
     )
 
 
+# Get initial browser config like dpr.
+clientside_callback(
+    ClientsideFunction(namespace='clientside', function_name='getDpr'),
+    Output('browser-data', 'data'),
+    Input(ANNOTATION_INIT, 'pathname')
+)
+
+
 @callback(
     Input(ANNOTATION_INIT, 'pathname'),
     State('session-store', 'data'),
