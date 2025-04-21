@@ -5,6 +5,8 @@ import dash_mantine_components as dmc
 from core.schema import DataType
 from ui.pages.annotation.data_display import *
 
+from ui.pages.annotation.ids import *
+
 
 def create_sidebar():
     return (
@@ -48,6 +50,18 @@ def create_sidebar():
                         "Skip Batch",
                         id="skip-batch-button",
                         color='dark'
+                    ),
+                ),
+
+                dmc.Center(
+                    dmc.Tooltip(
+                        dmc.Button(
+                            'Display Settings',
+                            id=DATA_DISPLAY_BTN,
+                            color='dark'
+                        ),
+                        label="Change how data is displayed",
+                        openDelay=500
                     ),
                 ),
             ],
@@ -134,20 +148,18 @@ def create_progress_bar(progress=0):
     )
 
 
-def create_data_display(data_type, human_data_path):
+def create_data_display(data_type, human_data_path, dpr):
     if data_type.value == DataType.IMAGE.value:
-        rendered_data = create_image_display(human_data_path)
+        rendered_data, w, h = create_image_display(human_data_path, dpr)
     elif data_type.value == DataType.TEXT.value:
         rendered_data = create_text_display(human_data_path)
     else:
         rendered_data = create_audio_display(human_data_path)
 
     return (
-        dmc.Stack(
-            rendered_data,
-            style={'border': '4px dotted pink'},
-            align="center",
-        )
+        rendered_data,
+        w,
+        h
     )
 
 

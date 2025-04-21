@@ -23,6 +23,7 @@ from hydra.utils import instantiate
 
 from skactiveml.utils import MISSING_LABEL
 
+from ui.pages.annotation.data_display_modal import create_data_display_modal
 from util.deserialize import compose_config
 from core.api import (
     request_query,
@@ -67,7 +68,7 @@ def advance_batch(batch: Batch, annotation):
 
 
 def layout(**kwargs):
-    return (
+    return(
         dmc.Box(
             [
                 dcc.Location(id='url-annotation', refresh=True),
@@ -75,6 +76,9 @@ def layout(**kwargs):
                 dcc.Store(id=UI_TRIGGER),
                 dcc.Store(id=QUERY_TRIGGER),
                 dcc.Store(id=ANNOT_PROGRESS),
+
+                create_data_display_modal(),
+
                 dmc.Box(id='label-radio'),  # avoid id error
                 dmc.AppShell(
                     [
@@ -126,16 +130,20 @@ def layout(**kwargs):
                                             ),
                                         ),
 
-                                        dcc.Loading(
-                                            dmc.Box(
-                                                id=DATA_DISPLAY_CONTAINER,
-                                                # TODO infer how large the displayed data will be
-                                                miw='250px',
-                                                mih='250px',
+                                        dmc.Center(
+                                            dcc.Loading(
+                                                dmc.Box(
+                                                    id=DATA_DISPLAY_CONTAINER,
+                                                    # TODO infer how large the displayed data will be
+                                                    w='250px',
+                                                    h='250px',
+                                                    my=10,
+                                                    # style=dict(border='4px dotted red')
+                                                ),
+                                                delay_hide=150,
+                                                delay_show=150,
+                                                custom_spinner=dls.ThreeDots(radius=7)
                                             ),
-                                            delay_hide=150,
-                                            delay_show=150,
-                                           custom_spinner=dls.ThreeDots(radius=7)
                                         ),
 
                                         dmc.Group(
@@ -390,19 +398,23 @@ def on_confirm(
 @callback(
     Input(UI_TRIGGER, 'data'),
     State('session-store', 'data'),
+    State('browser-data', 'data'),
     output=dict(
         label_container=Output(LABELS_CONTAINER, 'children'),
         show_container=Output(DATA_DISPLAY_CONTAINER, 'children'),
         batch_progress=Output('batch-progress-bar', 'value'),
         is_computing_overlay=Output(COMPUTING_OVERLAY, 'visible', allow_duplicate=True),
+        data_width=Output(DATA_DISPLAY_CONTAINER, 'w'),
+        data_height=Output(DATA_DISPLAY_CONTAINER, 'h'),
     ),
     prevent_initial_call=True,
 )
 def on_ui_update(
     ui_trigger,
-    store_data
+    store_data,
+    browser_dpr,
 ):
-    if ui_trigger is None:
+    if ui_trigger is None and browser_dpr is None:
         raise PreventUpdate
 
     activeml_cfg = compose_from_state(store_data)
@@ -414,11 +426,17 @@ def on_ui_update(
     query_idx = batch.indices[idx]
     human_data_path = file_paths[query_idx]
 
+    rendered_data, w, h = create_data_display(data_type, human_data_path, browser_dpr)
+    print(f"width: {w}")
+    print(f"height: {h}")
+
     return dict(
         label_container=create_chip_group(activeml_cfg.dataset.classes, batch),
-        show_container=create_data_display(data_type, human_data_path),
+        show_container=rendered_data,
         batch_progress=(idx / len(batch.indices)) * 100,
         is_computing_overlay=False,
+        data_width=w,
+        data_height=h,
     )
 
 

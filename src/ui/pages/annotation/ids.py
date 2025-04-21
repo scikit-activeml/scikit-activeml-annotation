@@ -12,3 +12,11 @@ NUM_SAMPLES_TEXT = 'num_samples_text'
 ANNOT_PROGRESS_TEXT = 'annot-progress-text'
 
 COMPUTING_OVERLAY = 'computing-overlay'
+
+# Data Display Modal
+DATA_DISPLAY_MODAL = 'data-display-modal'
+DATA_DISPLAY_BTN = 'data-display-btn'
+CONFIRM_DATA_DISPLAY_BTN = 'confirm-data-display-btn'
+# Data Display Modal Inputs
+RESAMPLING_METHOD_RADIO = 'resampling-method-radio'
+RESAMPLING_FACTOR_INPUT = 'resampling-factor-input'

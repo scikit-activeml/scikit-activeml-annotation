@@ -20,3 +20,12 @@ class AnnotProgress(Enum):
 
     PROGRESS = auto()
     TOTAL_NUM = auto()
+
+
+class DataDisplayCfgKey(Enum):
+    @staticmethod
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+    RESCALE_FACTOR = auto()
+    RESAMPLING_METHOD = auto()
