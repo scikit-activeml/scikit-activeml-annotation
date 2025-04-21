@@ -4,7 +4,9 @@ from torchvision.datasets import (
     VisionDataset,
     CIFAR100,
     CIFAR10,
-    MNIST
+    MNIST,
+    STL10,
+    FashionMNIST
 )
 
 from paths import DATASETS_PATH
@@ -17,7 +19,7 @@ def load_cifar100_images():
         name,
         base_path,
         CIFAR100(
-            root=base_path,
+            root=base_path / 'temp',
             download=True,
             train=True,
         )
@@ -52,6 +54,34 @@ def load_mnist_images():
     )
 
 
+def load_fashion_mnist():
+    name = 'fashion-mnist'
+    base_path = DATASETS_PATH / f"{name}"
+    _load_torchvision_images(
+        name,
+        base_path,
+        FashionMNIST(
+            root=base_path / 'temp',
+            download=True,
+            train=True,
+        )
+    )
+
+
+def load_stl10_images():
+    name = 'stl10'
+    base_path = DATASETS_PATH / f"{name}"
+    _load_torchvision_images(
+        name,
+        base_path,
+        STL10(
+            root=base_path / 'temp',
+            download=True,
+            split='unlabeled',
+        )
+    )
+
+
 def _load_torchvision_images(
     name: str,
     path: Path,
@@ -68,4 +98,9 @@ def _load_torchvision_images(
 
 
 if __name__ == "__main__":
-    load_cifar100_images()
+    # load_cifar100_images()
+    # load_cifar10_images()
+    # load_mnist_images()
+    # load_fashion_mnist()
+    # load_stl10_images()
+    pass

@@ -1,0 +1,7 @@
+display_name: "Fashion Mnist"
+classes: ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat', 'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
+data_path: 'datasets/fashion-mnist/fashion-mnist_images'
+
+data_type:
+  _target_: core.schema.DataType
+  _args_: [Image]
