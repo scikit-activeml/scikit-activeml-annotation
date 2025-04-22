@@ -111,8 +111,10 @@ def create_step_ui(step, session_data):
         content = _create_radio_group(get_qs_config_options(), session_data.get(StoreKey.QUERY_SELECTION.value))
     elif step == 3:
         content = _create_radio_group(get_model_config_options(), session_data.get(StoreKey.MODEL_SELECTION.value))
+    elif step == 4:
+        return None
     else:
-        raise RuntimeError("Step is not in {0,...,3}")
+        raise RuntimeError("Step is not in {0,...,4}")
 
     return dmc.ScrollArea(
         content,
@@ -124,7 +126,6 @@ def create_step_ui(step, session_data):
                 'max-height': '100%',
             }
         )
-
     )
 
 
@@ -149,7 +150,7 @@ def create_stepper():
     )
 
 
-def _create_radio_item(cfg, cfg_display):
+def _create_dataset_radio_item(cfg, cfg_display):
     dataset_exists = dataset_path_exits(cfg.data_path)
 
     radio_item = (
@@ -182,12 +183,12 @@ def _create_dataset_selection(preselect):
             id='radio-selection',
             children=dmc.Stack(
                 [
-                    _create_radio_item(cfg, cfg_display)
+                    _create_dataset_radio_item(cfg, cfg_display)
                     for cfg, cfg_display in data
                 ]
             ),
             value=preselect,
-            size="sm",
+            size="md",
             # style={'border': '2px solid red'}
         )
 
@@ -204,7 +205,7 @@ def _create_embedding_radio_group(session_data):
             [
                 dmc.Group(
                     [
-                        dmc.Radio(label=cfg_name, value=cfg_id),
+                        dmc.Radio(label=cfg_name, value=cfg_id, size='md'),
                         _create_bool_icon(is_dataset_embedded(
                             session_data[StoreKey.DATASET_SELECTION.value],
                             cfg_id
@@ -215,7 +216,7 @@ def _create_embedding_radio_group(session_data):
             ]
         ),
         value=preselect,
-        size="sm",
+        size="md",
         # style={'border': '2px solid red'},
     )
 
@@ -250,9 +251,9 @@ def _create_radio_group(options, preselect):
     formatted_options = [(cfg.id, cfg.display_name) for cfg in options]
     return dmc.RadioGroup(
         id='radio-selection',
-        children=dmc.Stack([dmc.Radio(label=l, value=k) for k, l in formatted_options]),
+        children=dmc.Stack([dmc.Radio(label=l, value=k, size='md') for k, l in formatted_options]),
         value=preselect,
-        size="sm",
+        size="md",
         # style={'border': '2px solid red'},
     )
 # endregion
