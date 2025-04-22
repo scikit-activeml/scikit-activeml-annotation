@@ -101,7 +101,6 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
                 file_path_list.extend(file_paths)  # Ensure file_paths match embeddings
 
                 # Update progress counter and print every 1000 samples
-                # TODO simply this. Its bad.
                 processed_samples += len(batch)
                 if processed_samples >= next_report:
                     next_report += steps

@@ -23,6 +23,7 @@ from hydra.utils import instantiate
 
 from skactiveml.utils import MISSING_LABEL
 
+from ui.common import compose_from_state
 from ui.pages.annotation.data_display_modal import create_data_display_modal
 from util.deserialize import compose_config
 from core.api import (
@@ -48,17 +49,6 @@ register_page(
     path_template='/annotation/<dataset_name>',
     description='The main annotation page',
 )
-
-
-def compose_from_state(store_data) -> ActiveMlConfig:
-    overrides = (
-        ('dataset', store_data[StoreKey.DATASET_SELECTION.value]),
-        ('query_strategy', store_data[StoreKey.QUERY_SELECTION.value]),
-        ('embedding', store_data[StoreKey.EMBEDDING_SELECTION.value]),
-        ('+model', store_data[StoreKey.MODEL_SELECTION.value])  # add model to default list
-    )
-
-    return compose_config(overrides)
 
 
 def advance_batch(batch: Batch, annotation):
@@ -134,7 +124,6 @@ def layout(**kwargs):
                                             dcc.Loading(
                                                 dmc.Box(
                                                     id=DATA_DISPLAY_CONTAINER,
-                                                    # TODO infer how large the displayed data will be
                                                     w='250px',
                                                     h='250px',
                                                     my=10,

@@ -30,7 +30,6 @@ def create_image_display(path_to_img: Path, dpr):
         }
     )
 
-    # TODO when image is small there is a huge gap.
     factor = display_cfg[DataDisplayCfgKey.RESCALE_FACTOR.value]
     w = int(image.width * factor)
     h = int(image.height * factor)

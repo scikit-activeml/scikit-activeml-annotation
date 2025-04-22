@@ -10,6 +10,7 @@ from dash import (
 )
 
 from core.api import *
+from ui.common import compose_from_state
 from util.deserialize import *
 
 from dash.exceptions import PreventUpdate
@@ -145,7 +146,6 @@ def compute_embedding(
         raise PreventUpdate
 
     print("compute embedding background callback")
-
     _compute_embedding(store_data, progress_func)
 
     return dict(
@@ -155,16 +155,8 @@ def compute_embedding(
 
 
 def _compute_embedding(store_data, progress_func):
-    # TODO this is duplicate code
-    overrides = (
-        ('dataset', store_data[StoreKey.DATASET_SELECTION.value]),
-        ('query_strategy', store_data[StoreKey.QUERY_SELECTION.value]),
-        ('embedding', store_data[StoreKey.EMBEDDING_SELECTION.value]),
-        ('+model', store_data[StoreKey.MODEL_SELECTION.value])
-    )
-    activeMl_cfg = compose_config(overrides)
-
-    compute_embeddings(activeMl_cfg, progress_func)
+    activeml_cfg = compose_from_state(store_data)
+    compute_embeddings(activeml_cfg, progress_func)
 
 
 def create_selected_embedding_view(session_data):

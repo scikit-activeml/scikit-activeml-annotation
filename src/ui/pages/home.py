@@ -140,7 +140,6 @@ def create_stepper():
             ],
             id='stepper',
             active=0,
-            # TODO consider using horizontal orientation
             orientation='vertical',
             iconSize=40,
             size='xl',
@@ -302,7 +301,6 @@ def handle_confirm(
     session_data
 ):
     print(f"handle_confirm triggered at step {current_step} with radio_value: {radio_value}")
-    # TODO initialize session_data somewhere else.
     if current_step >= 4 or radio_value is None or n_clicks is None:
         raise PreventUpdate
 

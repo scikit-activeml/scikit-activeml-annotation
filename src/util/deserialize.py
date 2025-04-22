@@ -21,7 +21,6 @@ from paths import CONFIG_PATH
 from core.schema import ActiveMlConfig
 
 
-# TODO this should be inside the api file
 @lru_cache(maxsize=1)
 def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> ActiveMlConfig:
     with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
