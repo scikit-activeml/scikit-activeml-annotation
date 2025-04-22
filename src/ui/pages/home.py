@@ -54,6 +54,7 @@ def layout(**kwargs):
                             align='center',
                             p='xl'
                         ),
+
                         dmc.Flex(
                             [
                                 create_stepper(),
@@ -65,24 +66,29 @@ def layout(**kwargs):
                                         # TODO use Mantine styling for this.
                                         style={
                                             "min-width": "15vw",
-                                            "whiteSpace": "normal", "wordWrap": "break-word"
+                                            "whiteSpace": "normal", "wordWrap": "break-word",
+                                            # 'border': '3px dotted red'
                                         }
                                     ),
                                     type='circle',
                                     delay_hide=150,
                                     delay_show=250  # INFO only need to show when it takes longer than 5ms.
                                 )
-                            ]
+                            ],
+                            gap='xl',
+                            justify='center',
+                            align='flex-start',
                         ),
+
                         dmc.Group(
                             [
-                                dmc.Button("Back", id='back_button'),
-                                dmc.Button("Confirm", id='confirm_button', disabled=True)
+                                dmc.Button("Back", id='back_button', color='dark'),
+                                dmc.Button("Confirm", id='confirm_button', color='dark', disabled=True)
                             ]
                         )
                     ],
                     align='center',
-                    style={'border': '2px solid gold'}
+                    # style={'border': '2px solid gold'}
                 )
             ],
             mt='1%',
@@ -98,14 +104,28 @@ def create_step_ui(step, session_data):
             preselect = None
         else:
             preselect = session_data.get(StoreKey.DATASET_SELECTION.value)
-        return _create_dataset_selection(preselect)
+        content = _create_dataset_selection(preselect)
     elif step == 1:
-        return _create_embedding_radio_group(session_data)
+        content = _create_embedding_radio_group(session_data)
     elif step == 2:
-        return _create_radio_group(get_qs_config_options(), session_data.get(StoreKey.QUERY_SELECTION.value))
+        content = _create_radio_group(get_qs_config_options(), session_data.get(StoreKey.QUERY_SELECTION.value))
     elif step == 3:
-        return _create_radio_group(get_model_config_options(), session_data.get(StoreKey.MODEL_SELECTION.value))
-    return None
+        content = _create_radio_group(get_model_config_options(), session_data.get(StoreKey.MODEL_SELECTION.value))
+    else:
+        raise RuntimeError("Step is not in {0,...,3}")
+
+    return dmc.ScrollArea(
+        content,
+        offsetScrollbars='y',
+        type='auto',
+        scrollbars='y',
+        styles=dict(
+            viewport={
+                'max-height': '100%',
+            }
+        )
+
+    )
 
 
 def create_stepper():
@@ -121,12 +141,32 @@ def create_stepper():
             active=0,
             # TODO consider using horizontal orientation
             orientation='vertical',
-            iconSize=30,
-            style={
-                'border': '2px solid red',
-            },
+            iconSize=40,
+            size='xl',
+            # style={'border': '2px solid red'},
             allowNextStepsSelect=False
         )
+    )
+
+
+def _create_radio_item(cfg, cfg_display):
+    dataset_exists = dataset_path_exits(cfg.data_path)
+
+    radio_item = (
+        dmc.Radio(
+            label=cfg_display,
+            value=cfg.id,
+            disabled=not dataset_exists,
+            size='md'
+        )
+    )
+
+    if dataset_exists:
+        return radio_item
+
+    return dmc.Tooltip(
+        radio_item,
+        label=f'Dataset does not exist at path: {cfg.data_path}'
     )
 
 
@@ -137,22 +177,19 @@ def _create_dataset_selection(preselect):
             for cfg in dataset_options]
 
     # TODO repeated code.
-    return (
+    return \
         dmc.RadioGroup(
             id='radio-selection',
             children=dmc.Stack(
-                [dmc.Radio(
-                    label=cfg_display,
-                    value=cfg.id,
-                    disabled=not dataset_path_exits(cfg.data_path)
-                    )
-                 for cfg, cfg_display in data]
+                [
+                    _create_radio_item(cfg, cfg_display)
+                    for cfg, cfg_display in data
+                ]
             ),
             value=preselect,
             size="sm",
-            style={'border': '2px solid red'}
+            # style={'border': '2px solid red'}
         )
-    )
 
 
 def _create_embedding_radio_group(session_data):
@@ -179,7 +216,7 @@ def _create_embedding_radio_group(session_data):
         ),
         value=preselect,
         size="sm",
-        style={'border': '2px solid red'},
+        # style={'border': '2px solid red'},
     )
 
 
@@ -216,7 +253,7 @@ def _create_radio_group(options, preselect):
         children=dmc.Stack([dmc.Radio(label=l, value=k) for k, l in formatted_options]),
         value=preselect,
         size="sm",
-        style={'border': '2px solid red'},
+        # style={'border': '2px solid red'},
     )
 # endregion
 

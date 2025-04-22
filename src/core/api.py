@@ -85,7 +85,6 @@ def request_query(
     # Only fit and query on the samples not marked as outliers
     X_cand, y_cand, mapping = _filter_outliers(X, y)
 
-    # TODO fitting classifier here might negate Subsampling QS wrapper
     if clf is not None:
         print("Fitting the classifier")
         # TODO can fitting the classifier fail?

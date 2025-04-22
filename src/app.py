@@ -66,7 +66,7 @@ app.layout = (
                         )
                     ],
                     style={
-                        'border': '5px dashed red',
+                        # 'border': '5px dashed red',
                         # 'height': '80%'
                     },
                 )

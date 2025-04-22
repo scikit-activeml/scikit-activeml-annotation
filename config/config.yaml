@@ -5,7 +5,6 @@ defaults:
   - query_strategy: random_sampling
   - _self_
 
-# TODO maybe checking if key is not there is easier.
 # Dont add model to default list to not have to override it.
 model: null
 random_seed: 0

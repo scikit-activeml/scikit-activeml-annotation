@@ -86,7 +86,7 @@ def layout(**kwargs):
                             id="sidebar-container-annotation",
                             children=create_sidebar(),
                             p="md",
-                            style={'border': '4px solid red'}
+                            # style={'border': '4px solid red'}
                         ),
 
 
@@ -115,7 +115,7 @@ def layout(**kwargs):
                                                         ),
                                                     ],
                                                     align='center',
-                                                    style=dict(border='red dashed 3px')
+                                                    # style=dict(border='red dashed 3px')
                                                 )
                                             ),
                                             overlayProps=dict(
@@ -186,7 +186,7 @@ def layout(**kwargs):
 
 
                             style={
-                                'border': '5px dotted blue',
+                                # 'border': '5px dotted blue',
                                 'height': '100%',
                                 'widht': '100%',
                             },
@@ -246,12 +246,12 @@ def layout(**kwargs):
                                         )
                                     ],
                                     # p='xs',
-                                    style={'border': '3px dashed green'},
+                                    # style={'border': '3px dashed green'},
                                     align='center'
                                 )
                             ],
                             p="xs",
-                            style={'border': '4px solid red'}
+                            # style={'border': '4px solid red'}
                         ),
                     ],
                     navbar={
@@ -270,7 +270,7 @@ def layout(**kwargs):
             ],
             style={
                 # 'height': '100%',
-                'border': 'green dotted 5px'
+                # 'border': 'green dotted 5px'
             }
         )
     )

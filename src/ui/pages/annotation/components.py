@@ -65,7 +65,7 @@ def create_sidebar():
                     ),
                 ),
             ],
-            style={'border': '2px solid red'},
+            # style={'border': '2px solid red'},
         )
     )
 
@@ -99,7 +99,7 @@ def create_confirm_buttons():
                 ),
 
             ],
-            style={'border': 'red dashed 2px'},
+            # style={'border': 'red dashed 2px'},
             justify='center',
             # gap=20
         )
@@ -142,7 +142,7 @@ def create_progress_bar(progress=0):
             style={
                 "position": "relative",
                 "width": "50vw",
-                'border': 'gold dotted 3px'
+                # 'border': 'gold dotted 3px'
             },
         )
     )
@@ -215,10 +215,10 @@ def create_chip_group(classes, batch):
             viewport={
                 'max-height': '35vh'
             },
-            border='green dashed 3px',
+            # border='green dashed 3px',
         ),
         style={
-            'border': 'green dashed 3px'
+            # 'border': 'green dashed 3px'
         },
         w='50vw'
     )

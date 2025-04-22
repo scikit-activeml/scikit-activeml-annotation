@@ -35,10 +35,8 @@ def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> Acti
 
         return cast(ActiveMlConfig, cfg)
 
-        # TODO validation is no longer possible because model could be null
         # # Make sure cfg has at least the attributes that schema has.
         # try:
-        #     # TODO how do get validation right without losing fields?
         #     cfg: ActiveMlConfig = OmegaConf.merge(cfg, schema)
         #
         #     # Allow additional fields
@@ -75,7 +73,6 @@ def parse_yaml_config_dir(dir_path: Path | str) -> list[DictConfig]:
     for path in dir_path.iterdir():
         if path.is_file() and path.suffix.lower() == '.yaml':
             try:
-                # TODO allow user to not have to specify id in every config
                 config = OmegaConf.load(path)
                 # Use file name as id
                 file_id = path.stem

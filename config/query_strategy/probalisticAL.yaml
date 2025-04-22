@@ -1,4 +1,4 @@
-id: "probalisticAL"  # TODO id has to match file name right now
+id: "probalisticAL"
 display_name: "Probabilistic AL (McPAL)"
 model_agnostic: False
 
