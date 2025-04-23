@@ -549,7 +549,7 @@ def on_back_clicked(
         if batch is None:
             # There is no annotations anymore.
             logging.warning("Cannot go back further. No Annotations")
-            return PreventUpdate
+            raise PreventUpdate
         else:
             annot_progress[AnnotProgress.PROGRESS.value] = num_annotations
 
