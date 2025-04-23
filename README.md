@@ -1,8 +1,8 @@
 ## Setup
 
-###Install dependencies:
+### Install dependencies:
 ```sh 
-$ pip install -r requirements.md
+pip install -r requirements.md
 ```
 
 ### Optional: Additional Dependencies for Embedding Methods
@@ -15,7 +15,7 @@ We recommend installing it from the official Pytorch website with cuda support f
 ## Start the App
 *Run the app (if starting from root of project):*
 ```sh 
-$ python src/run.py
+python src/run.py
 ```
 
 
