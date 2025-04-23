@@ -21,6 +21,11 @@ ANNOTATED_PATH = OUTPUT_PATH / 'annotated'
 CACHE_PATH = OUTPUT_PATH / 'cache'
 PROFILER_PATH = OUTPUT_PATH / 'profiler'
 
+# output/cache
+BACKGROUND_CALLBACK_CACHE_PATH = CACHE_PATH / 'background_callback_cache'
+EMBEDDINGS_CACHE_PATH = CACHE_PATH / 'embeddings_cache'
+DATA_DISPLAY_CACHE_PATH = CACHE_PATH / 'data_display_cache'
+
 # src
 UI_PATH = SRC_PATH / 'ui'
 

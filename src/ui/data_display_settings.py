@@ -1,9 +1,9 @@
 
 import diskcache as dc
 
-from paths import OUTPUT_PATH
+from paths import DATA_DISPLAY_CACHE_PATH
 
-cache = dc.Cache(OUTPUT_PATH / 'frontend')
+cache = dc.Cache(DATA_DISPLAY_CACHE_PATH)
 
 
 def get_or_default(key, default) -> dict:

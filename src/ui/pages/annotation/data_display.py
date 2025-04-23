@@ -10,7 +10,7 @@ from PIL.Image import Resampling
 import base64
 from io import BytesIO
 
-from ui import cache_storage
+from ui import data_display_settings
 from ui.storekey import DataDisplayCfgKey
 
 DEFAULT_RESIZE_FACTOR = 1
@@ -22,7 +22,7 @@ def create_image_display(path_to_img: Path, dpr):
     image = Image.open(path_to_img).convert("RGB")
 
     # TODO set default values somewhere else.
-    display_cfg = cache_storage.get_or_default(
+    display_cfg = data_display_settings.get_or_default(
         'image',
         {
             DataDisplayCfgKey.RESCALE_FACTOR.value: DEFAULT_RESIZE_FACTOR,

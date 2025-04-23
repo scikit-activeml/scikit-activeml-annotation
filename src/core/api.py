@@ -31,9 +31,9 @@ from paths import (
     QS_CONFIG_PATH,
     MODEL_CONFIG_PATH,
     EMBEDDING_CONFIG_PATH,
-    DATASETS_PATH,
     CACHE_PATH,
-    ROOT_PATH
+    ROOT_PATH,
+    EMBEDDINGS_CACHE_PATH
 )
 
 
@@ -65,12 +65,12 @@ def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
 
 def is_dataset_embedded(dataset_id, embedding_id) -> bool:
     key = f"{dataset_id}_{embedding_id}"
-    path = Path(str(CACHE_PATH)) / f"{key}.npz"
+    path = EMBEDDINGS_CACHE_PATH / f"{key}.npz"
     return path.exists()
 
 
 def dataset_path_exits(dataset_path: str) -> bool:
-    path = ROOT_PATH / Path(dataset_path)
+    path = ROOT_PATH / dataset_path
     return path.exists()
 
 
@@ -118,17 +118,12 @@ def request_query(
         # TODO clf could not have predict_proba
         class_probas = clf.predict_proba(query_samples)
 
-    num_labeled_samples = np.sum(~np.isnan(y))
-    total = X.shape[0]
-
     batch_state = Batch(
         indices=query_indices,
         class_probas=class_probas.tolist(),
         progress=0,
         annotations=[None] * len(query_indices)
     )
-    print("\nNew Batch decided")
-    print(f"Labaled/total: {num_labeled_samples} / {total}")
     return batch_state
 
 
@@ -153,7 +148,7 @@ def compute_embeddings(
 
     # Unique key
     cache_key = f"{dataset_id}_{embedding_cfg.id}"
-    cache_path = CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
+    cache_path = EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
 
     # Store relative file_paths
     np.savez(cache_path, X=X, file_paths=file_paths_str)
@@ -166,7 +161,7 @@ def load_embeddings(
 ) -> np.ndarray:
 
     cache_key = f"{dataset_id}_{embedding_id}"
-    cache_path = CACHE_PATH / f"{cache_key}.npz"
+    cache_path = EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
 
     if not cache_path.exists():
         raise RuntimeError(f"Cannot get embedding at path: {cache_path}! \nEmbedding should exists already")
@@ -401,7 +396,7 @@ def load_file_paths(
         embedding_id: str
 ) -> list[str]:
     cache_key = f'{dataset_id}_{embedding_id}'
-    cache_path = CACHE_PATH / f"{cache_key}.npz"
+    cache_path = EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
 
     if not cache_path.exists():
         raise RuntimeError(f"Cannot get embedding at path: {cache_path}! \nEmbedding should exists already")

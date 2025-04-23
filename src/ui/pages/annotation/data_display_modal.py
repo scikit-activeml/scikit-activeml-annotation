@@ -8,7 +8,7 @@ from dash import (
 
 from dash.exceptions import PreventUpdate
 
-from ui import cache_storage
+from ui import data_display_settings
 from ui.pages.annotation.ids import *
 import dash_mantine_components as dmc
 
@@ -117,14 +117,14 @@ def on_confirm_data_display_btn(
     if clicks is None:
         raise PreventUpdate
 
-    display_cfg = cache_storage.cache['image']
+    display_cfg = data_display_settings.cache['image']
     # Modify in memory
     display_cfg[DataDisplayCfgKey.RESCALE_FACTOR.value] = rescale_factor
     display_cfg[DataDisplayCfgKey.RESAMPLING_METHOD.value] = int(resampling_method)
-    cache_storage.cache.set('image', display_cfg)
+    data_display_settings.cache.set('image', display_cfg)
 
     print("ON Confirm")
-    print(cache_storage.cache['image'])
+    print(data_display_settings.cache['image'])
 
     return dict(
         show_modal=False,

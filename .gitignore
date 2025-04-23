@@ -4,5 +4,3 @@ outputs
 __pycache__/
 .idea
 .vscode
-
-cache

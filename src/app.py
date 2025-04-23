@@ -18,10 +18,11 @@ import dash_loading_spinners
 from ui.components.navbar import create_navbar
 from paths import (
     PAGES_PATH,
-    ASSETS_PATH
+    ASSETS_PATH,
+    BACKGROUND_CALLBACK_CACHE_PATH
 )
 
-cache = diskcache.Cache('./cache')
+cache = diskcache.Cache(BACKGROUND_CALLBACK_CACHE_PATH)
 background_callback_manager = DiskcacheManager(cache)
 
 app = Dash(
