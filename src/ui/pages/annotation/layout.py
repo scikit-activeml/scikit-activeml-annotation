@@ -30,10 +30,9 @@ from core.api import (
     request_query,
     completed_batch,
     load_embeddings,
-    load_file_paths,
+    get_file_paths,
     get_total_num_samples,
     get_num_annotated,
-
 )
 from core.api import undo_annots_and_restore_batch
 
@@ -407,13 +406,17 @@ def on_ui_update(
         raise PreventUpdate
 
     activeml_cfg = compose_from_state(store_data)
-    file_paths = load_file_paths(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
     data_type: DataType = instantiate(activeml_cfg.dataset.data_type)
 
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     idx = batch.progress
-    query_idx = batch.indices[idx]
-    human_data_path = file_paths[query_idx]
+    embedding_idx = batch.indices[idx]
+
+    human_data_path = get_file_paths(
+        activeml_cfg.dataset.id,
+        activeml_cfg.embedding.id,
+        embedding_idx
+    )
 
     rendered_data, w, h = create_data_display(data_type, human_data_path, browser_dpr)
     print(f"width: {w}")

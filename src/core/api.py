@@ -6,6 +6,7 @@ from functools import partial, lru_cache
 from typing import Callable
 
 import numpy as np
+from numpy.typing import NDArray
 from hydra.utils import instantiate
 
 from skactiveml.utils import MISSING_LABEL
@@ -175,21 +176,20 @@ def load_embeddings(
 def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
     json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
     print("completed batch")
-    print(json_file_path)
 
     # Get existing annotations
     annotations: list[Annotation] = _deserialize_annotations(json_file_path)
-    file_paths = load_file_paths(dataset_id, embedding_id)
+    file_paths = get_file_paths(dataset_id, embedding_id, batch.indices)
     print(batch.annotations)
 
     # Create new Annotations
     new_annotations = [
         Annotation(
             embedding_idx=idx,  # TODO use better names
-            file_name=file_paths[idx],  # TODO store unix like file paths.
+            file_name=f_path,
             label=annot_val
         )
-        for idx, annot_val in zip(batch.indices, batch.annotations)
+        for idx, f_path, annot_val in zip(batch.indices, file_paths, batch.annotations)
         if not np.isnan(annot_val)  # Do not store missing LABEL
     ]
 
@@ -390,20 +390,21 @@ def _normalize_and_validate_paths(
     return file_paths_str
 
 
-@lru_cache(maxsize=1)
-def load_file_paths(
+def get_file_paths(
         dataset_id: str,
-        embedding_id: str
-) -> list[str]:
+        embedding_id: str,
+        emd_indices: list[int]
+) -> NDArray[np.str_] | np.str_:
     cache_key = f'{dataset_id}_{embedding_id}'
     cache_path = EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
 
     if not cache_path.exists():
         raise RuntimeError(f"Cannot get embedding at path: {cache_path}! \nEmbedding should exists already")
 
-    with np.load(str(cache_path)) as data:
-        file_paths = data['file_paths'].tolist()  # TODO is this tolist needed?
-    return file_paths
+    with np.load(str(cache_path), mmap_mode='r') as data:
+        file_paths = data['file_paths']
+        test = file_paths[emd_indices]
+        return test
 
 
 def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[Batch | None, int]:
