@@ -30,6 +30,7 @@ from core.api import (
     is_dataset_embedded,
     dataset_path_exits,
 )
+from ui.components.sampling_input import create_sampling_inputs
 
 from ui.storekey import StoreKey
 
@@ -112,6 +113,12 @@ def create_step_ui(step, session_data):
     elif step == 3:
         content = _create_radio_group(get_model_config_options(), session_data.get(StoreKey.MODEL_SELECTION.value))
     elif step == 4:
+        content = dmc.Stack(
+            [
+                *create_sampling_inputs()
+            ]
+        )
+    elif step == 5:
         return None
     else:
         raise RuntimeError("Step is not in {0,...,4}")
@@ -137,6 +144,7 @@ def create_stepper():
                 dmc.StepperStep(id={'type': 'stepper-step', 'index': 1}, label="Embedding", description="Select embedding method"),
                 dmc.StepperStep(id={'type': 'stepper-step', 'index': 2}, label="Query Strategy", description="Select a Query Strategy"),
                 dmc.StepperStep(id={'type': 'stepper-step', 'index': 3}, label="Model", description="Select a model"),
+                dmc.StepperStep(id={'type': 'stepper-step', 'index': 4}, label="Sampling", description="Set Sampling parameters"),
             ],
             id='stepper',
             active=0,

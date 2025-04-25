@@ -3,6 +3,7 @@ import numpy as np
 import dash_mantine_components as dmc
 
 from core.schema import DataType
+from ui.components.sampling_input import create_sampling_inputs
 from ui.pages.annotation.data_display import *
 
 from ui.pages.annotation.ids import *
@@ -16,28 +17,7 @@ def create_sidebar():
                     dmc.Title("Settings", order=3),
                 ),
 
-                # Batch Size selection
-                dmc.NumberInput(
-                    label="Batch Size",
-                    id='batch-size-input',
-                    allowNegative=False,
-                    debounce=True,
-                    value=5,
-                    required=True,
-                    persistence='batch-size-persistence',
-                    persistence_type='local',
-                ),
-
-                # Subsampling selection
-                dmc.NumberInput(
-                    label="Subsampling",
-                    id='subsampling-input',
-                    allowNegative=False,
-                    debounce=True,
-                    hideControls=True,
-                    persistence='subsampling-persistence',
-                    persistence_type='local',
-                ),
+                *create_sampling_inputs(),
 
                 # TODO allow to switch Query Strategy during annotation.
                 # dmc.Text(
