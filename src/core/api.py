@@ -226,7 +226,9 @@ def _load_or_init_annotations(
         for s in dataset_cfg.classes + [DISCARD_MARKER, MISSING_LABEL_MARKER]
     )
 
-    y = np.full(num_samples, MISSING_LABEL_MARKER, dtype=f'S{max_label_name_len}')
+    # TODO for performance maybe it can be better to use ascci string with dtype=S
+    # But then there is a disconnect.
+    y = np.full(num_samples, MISSING_LABEL_MARKER, dtype=f'U{max_label_name_len}')
 
     if json_file_path.exists():
         y = _load_labels_as_np(y, json_file_path)
