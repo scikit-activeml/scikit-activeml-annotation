@@ -80,7 +80,7 @@ def request_query(
         session_cfg: SessionConfig,
         X: np.ndarray,
 ) -> Batch:
-    y = _load_or_init_annotations(X, cfg.dataset.id)
+    y = _load_or_init_annotations(X, cfg.dataset)
     query_func, clf = _setup_query(cfg, session_cfg)
 
     # Only fit and query on the samples not marked as outliers
@@ -190,7 +190,7 @@ def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
             label=annot_val
         )
         for idx, f_path, annot_val in zip(batch.indices, file_paths, batch.annotations)
-        if not np.isnan(annot_val)  # Do not store missing LABEL
+        if annot_val != MISSING_LABEL_MARKER  # Do not store missing LABEL
     ]
 
     updated_annotations = annotations + new_annotations
@@ -215,19 +215,23 @@ def get_total_num_samples(dataset_id, embedding_id) -> int:
 # TODO put this stuff into utils package?
 def _load_or_init_annotations(
         X: np.ndarray,  # TODO Should not take X but rather num_of_samples
-        dataset_id: str
+        dataset_cfg: DatasetConfig
 ) -> np.ndarray:
     """Load existing labels or initialize with missing labels."""
-    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
+    json_file_path = ANNOTATED_PATH / f'{dataset_cfg.id}.json'
     num_samples = len(X)
+    # TODO Performance. Dont repeat this computation
+    max_label_name_len = max(
+        len(s)
+        for s in dataset_cfg.classes + [DISCARD_MARKER, MISSING_LABEL_MARKER]
+    )
+
+    y = np.full(num_samples, MISSING_LABEL_MARKER, dtype=f'S{max_label_name_len}')
 
     if json_file_path.exists():
-        labels = _load_labels_as_np(num_samples, json_file_path)
-    else:
-        # Put all labels to missing.
-        labels = np.full(num_samples, MISSING_LABEL, dtype=float)
+        y = _load_labels_as_np(y, json_file_path)
 
-    return labels
+    return y
 
 
 def _deserialize_annotations(json_path: Path) -> list[Annotation]:
@@ -246,20 +250,18 @@ def _serialize_annotations(path: Path, annotations: list[Annotation]):
         json.dump([asdict(ann) for ann in annotations], f, indent=4)
 
 
-def _load_labels_as_np(num_samples: int, json_path: Path) -> np.ndarray:
+def _load_labels_as_np(y: np.ndarray, json_path: Path) -> np.ndarray:
     """Load labels from a JSON file and return as a numpy array."""
     with json_path.open('r') as f:
         annotations = json.load(f)
-
-        labels = np.full(num_samples, MISSING_LABEL, dtype=float)
 
         # TODO check if there is still some missing labels.
         # Else there is nothing more to label.
         for ann in annotations:
             idx = ann['embedding_idx']
-            labels[idx] = ann['label']
+            y[idx] = ann['label']
 
-    return labels
+    return y
 
 
 def _estimator_accepts_random(est_cls) -> bool:
@@ -268,10 +270,11 @@ def _estimator_accepts_random(est_cls) -> bool:
 
 
 def _filter_outliers(X, y):
-    mask = np.isfinite(y) | np.isnan(y)  # np.isfinite(np.nan) == False
-    X_filtered = X[mask]
-    y_filtered = y[mask]
-    mapping = np.arange(len(X))[mask]
+    # keep = np.isfinite(y) | np.isnan(y)  # np.isfinite(np.nan) == False
+    keep = (y != DISCARD_MARKER)
+    X_filtered = X[keep]
+    y_filtered = y[keep]
+    mapping = np.arange(len(X))[keep]
     return X_filtered, y_filtered, mapping
 
 
@@ -282,9 +285,9 @@ def _build_activeml_classifier(
         dataset_cfg: DatasetConfig,
         random_state: np.random.RandomState
 ) -> SkactivemlClassifier:
-    # classes = dataset_cfg.classes
-    n_classes = len(dataset_cfg.classes)
-    classes = np.arange(n_classes)
+    classes = dataset_cfg.classes
+    # n_classes = len(dataset_cfg.classes)
+    # classes = np.arange(n_classes)
 
     # TODO rename to Estimator?
     est_cls = model_cfg.definition['_target_']
@@ -297,13 +300,14 @@ def _build_activeml_classifier(
 
     if isinstance(est, SkactivemlClassifier):
         # Classifier is already wrapped aka supports missing labels
+        # TODO missing_label wont have correct value.
         return est
     elif isinstance(est, ClassifierMixin):
         wrapped_est = SklearnClassifier(
             estimator=est,
             classes=classes,
             random_state=random_state,
-            # missing_label=schema.MISSING_LABEL_STR
+            missing_label=MISSING_LABEL_MARKER,
         )
         return wrapped_est
     else:
@@ -337,16 +341,21 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
         # TODO use estimator to have more accurate terminology
         estimator = None
     else:
-        estimator: SklearnClassifier = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+        estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
     # max_candidates for subsampling.
-    qs: QueryStrategy = instantiate(cfg.query_strategy.definition, random_state=random_state)
+    qs = instantiate(
+        cfg.query_strategy.definition,
+        random_state=random_state,
+        missing_label=MISSING_LABEL_MARKER,
+    )
 
     if session_cfg.subsampling is not None:
         qs: SubSamplingWrapper = SubSamplingWrapper(
             qs,
             max_candidates=session_cfg.subsampling,
-            random_state=random_state
+            random_state=random_state,
+            missing_label=MISSING_LABEL_MARKER,
         )
 
     query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,
@@ -436,7 +445,7 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
 
     if estimator is not None:
         X = load_embeddings(cfg.dataset.id, cfg.embedding.id)
-        y = _load_or_init_annotations(X, cfg.dataset.id)
+        y = _load_or_init_annotations(X, cfg.dataset)
         X_cand, y_cand, _ = _filter_outliers(X, y)
 
         estimator.fit(X_cand, y_cand)

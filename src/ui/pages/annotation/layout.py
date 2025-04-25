@@ -343,11 +343,11 @@ def on_confirm(
 
     trigger_id = callback_context.triggered_id
     if trigger_id == "confirm-button":
-        annotation = int(value)
+        annotation = value
     elif trigger_id == "skip-button":
-        annotation = MISSING_LABEL
+        annotation = MISSING_LABEL_MARKER
     else:
-        annotation = np.inf  # discarded
+        annotation = DISCARD_MARKER
 
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     advance_batch(batch, annotation)
@@ -414,11 +414,9 @@ def on_ui_update(
     )
 
     rendered_data, w, h = create_data_display(data_type, human_data_path, browser_dpr)
-    print(f"width: {w}")
-    print(f"height: {h}")
 
     return dict(
-        label_container=create_chip_group(activeml_cfg.dataset.classes, batch),
+        label_container=create_label_chips(activeml_cfg.dataset.classes, batch),
         show_container=rendered_data,
         batch_progress=(idx / len(batch.indices)) * 100,
         is_computing_overlay=False,
@@ -500,7 +498,7 @@ def on_skip_batch(
     for idx, val in enumerate(batch.annotations):
         # Put samples that have not been to missing so they come up again.
         if val is None:
-            batch.annotations[idx] = MISSING_LABEL
+            batch.annotations[idx] = MISSING_LABEL_MARKER
 
     num_annotated = completed_batch(dataset_id, batch, embedding_id)
     annot_progress[AnnotProgress.PROGRESS.value] = num_annotated

@@ -7,6 +7,9 @@ from omegaconf import MISSING
 
 from embedding.base import EmbeddingBaseAdapter
 
+MISSING_LABEL_MARKER = 'MISSING_LABEL'
+DISCARD_MARKER = "DISCARDED"
+
 
 class DataType(Enum):
     AUDIO = "Audio"

@@ -2,7 +2,7 @@ import numpy as np
 
 import dash_mantine_components as dmc
 
-from core.schema import DataType
+from core.schema import DataType, MISSING_LABEL_MARKER
 from ui.components.sampling_input import create_sampling_inputs
 from ui.pages.annotation.data_display import *
 
@@ -143,31 +143,30 @@ def create_data_display(data_type, human_data_path, dpr):
     )
 
 
-# TODO bad name
-def create_chip_group(classes, batch):
+def create_label_chips(classes, batch):
     # Check if there is some annotation already for that sample in case the user used back btn.
     annotation = batch.annotations[batch.progress]
     was_annotated = annotation is not None
-    was_labaled = was_annotated and isinstance(annotation, int)
+    was_labaled = was_annotated and annotation != MISSING_LABEL_MARKER
 
     class_prob = None
     if batch.class_probas:
         class_prob = batch.class_probas[batch.progress]
 
     if class_prob is None:
-        chips = [_create_chip(idx, label) for idx, label in enumerate(classes)]
-        preselect = str(annotation) if was_labaled else None
+        chips = [_create_chip(label) for label in classes]
+        preselect = annotation if was_labaled else None
     else:
         if was_labaled:
-            preselect = str(annotation)
+            preselect = annotation
         elif was_annotated:
             preselect = None
         else:
             highest_prob_idx = np.argmax(class_prob)
-            preselect = str(highest_prob_idx)
+            preselect = classes[int(highest_prob_idx)]
 
-        chips = [_create_chip(idx, label, probability) for idx, (label, probability) in
-                 enumerate(zip(classes, class_prob))]
+        chips = [_create_chip(label, probability) for label, probability in
+                 zip(classes, class_prob)]
 
     chip_group = dmc.ChipGroup(
         children=chips,
@@ -204,11 +203,11 @@ def create_chip_group(classes, batch):
     )
 
 
-def _create_chip(idx, label, probability=None):
+def _create_chip(label, probability=None):
     chip = dmc.Chip(
         label,
-        id=f'chip-{idx}',
-        value=str(idx),
+        id=f'chip-{label}',
+        value=label,
         styles={"label": {"textAlign": "center"}},  # Ensures label is centered
     )
     if probability is None:
