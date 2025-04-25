@@ -1,12 +1,15 @@
+import logging
 import numpy as np
 
 import dash_mantine_components as dmc
+from omegaconf import OmegaConf
 
 from core.schema import DataType, MISSING_LABEL_MARKER
 from ui.components.sampling_input import create_sampling_inputs
 from ui.pages.annotation.data_display import *
 
 from ui.pages.annotation.ids import *
+from ui.pages.annotation.label_setting_modal import SORT_BY_PROBA, SORT_BY_ALPHABET
 
 
 def create_sidebar():
@@ -143,7 +146,7 @@ def create_data_display(data_type, human_data_path, dpr):
     )
 
 
-def create_label_chips(classes, batch):
+def create_label_chips(classes, batch, show_probas, sort_by):
     # Check if there is some annotation already for that sample in case the user used back btn.
     annotation = batch.annotations[batch.progress]
     was_annotated = annotation is not None
@@ -152,9 +155,14 @@ def create_label_chips(classes, batch):
     class_prob = None
     if batch.class_probas:
         class_prob = batch.class_probas[batch.progress]
+    elif show_probas:
+        logging.info("Cannot show probas")
 
-    if class_prob is None:
-        chips = [_create_chip(label) for label in classes]
+    sorted_classes, sorted_probas = _sort(classes, class_prob, sort_by)
+
+    if class_prob is None or not show_probas:
+        # Dont show probabilities
+        chips = [_create_chip(label) for label in sorted_classes]
         preselect = annotation if was_labaled else None
     else:
         if was_labaled:
@@ -165,8 +173,9 @@ def create_label_chips(classes, batch):
             highest_prob_idx = np.argmax(class_prob)
             preselect = classes[int(highest_prob_idx)]
 
+        # Show probabilities
         chips = [_create_chip(label, probability) for label, probability in
-                 zip(classes, class_prob)]
+                 zip(sorted_classes, sorted_probas)]
 
     chip_group = dmc.ChipGroup(
         children=chips,
@@ -200,6 +209,27 @@ def create_label_chips(classes, batch):
             # 'border': 'green dashed 3px'
         },
         w='50vw'
+    )
+
+
+def _sort(classes, class_probas, sort_by):
+    # Sorting performance
+
+    if sort_by == SORT_BY_PROBA:
+        if class_probas is None:
+            logging.warning("Cannot sort by predicted class probabilities as this info is not available.")
+            return classes, class_probas
+
+        sorted_indices = sorted(range(len(class_probas)), key=lambda i: class_probas[i], reverse=True)
+    elif sort_by == SORT_BY_ALPHABET:
+        sorted_indices = sorted(range(len(classes)), key=lambda i: str.lower(classes[i]))
+
+    else:
+        return classes, class_probas
+
+    return (
+        [classes[i] for i in sorted_indices],
+        [class_probas[i] for i in sorted_indices]
     )
 
 

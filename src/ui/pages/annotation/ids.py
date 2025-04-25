@@ -20,3 +20,11 @@ CONFIRM_DATA_DISPLAY_BTN = 'confirm-data-display-btn'
 # Data Display Modal Inputs
 RESAMPLING_METHOD_RADIO = 'resampling-method-radio'
 RESAMPLING_FACTOR_INPUT = 'resampling-factor-input'
+
+
+# Label setting Modal
+LABEL_SETTING_BTN = 'label-setting-btn'
+LABEL_SETTING_MODAL = 'label-setting-modal'
+LABEL_SETTING_CONFIRM_BTN = 'label-setting-confirm-btn'
+LABEL_SETTING_SHOW_PROBAS = 'label-setting-show-probas'
+LABEL_SETTING_SORTBY = 'label-setting-sortby'

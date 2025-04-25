@@ -25,6 +25,7 @@ from skactiveml.utils import MISSING_LABEL
 
 from ui.common import compose_from_state
 from ui.pages.annotation.data_display_modal import create_data_display_modal
+from ui.pages.annotation.label_setting_modal import create_label_settings_modal
 from util.deserialize import compose_config
 from core.api import (
     request_query,
@@ -66,6 +67,7 @@ def layout(**kwargs):
                 dcc.Store(id=QUERY_TRIGGER),
                 dcc.Store(id=ANNOT_PROGRESS),
 
+                create_label_settings_modal(),
                 create_data_display_modal(),
 
                 dmc.Box(id='label-radio'),  # avoid id error
@@ -140,7 +142,7 @@ def layout(**kwargs):
                                                     dmc.ActionIcon(
                                                         DashIconify(icon="clarity:settings-line", width=20),
                                                         variant="filled",
-                                                        id="label-setting-popup",
+                                                        id=LABEL_SETTING_BTN,
                                                         color='dark',
                                                     ),
                                                     label='Label settings',
@@ -382,6 +384,8 @@ def on_confirm(
     Input(UI_TRIGGER, 'data'),
     State('session-store', 'data'),
     State('browser-data', 'data'),
+    State(LABEL_SETTING_SHOW_PROBAS, 'checked'),
+    State(LABEL_SETTING_SORTBY, 'value'),
     output=dict(
         label_container=Output(LABELS_CONTAINER, 'children'),
         show_container=Output(DATA_DISPLAY_CONTAINER, 'children'),
@@ -396,6 +400,8 @@ def on_ui_update(
     ui_trigger,
     store_data,
     browser_dpr,
+    show_probas,
+    sort_by
 ):
     if ui_trigger is None and browser_dpr is None:
         raise PreventUpdate
@@ -416,7 +422,7 @@ def on_ui_update(
     rendered_data, w, h = create_data_display(data_type, human_data_path, browser_dpr)
 
     return dict(
-        label_container=create_label_chips(activeml_cfg.dataset.classes, batch),
+        label_container=create_label_chips(activeml_cfg.dataset.classes, batch, show_probas, sort_by),
         show_container=rendered_data,
         batch_progress=(idx / len(batch.indices)) * 100,
         is_computing_overlay=False,
