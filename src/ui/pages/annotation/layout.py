@@ -287,22 +287,17 @@ def init(
     store_data,
 ):
     batch_json = store_data.get(StoreKey.BATCH_STATE.value)
-    if batch_json is None:
+
+    if (
+        batch_json is None or
+        Batch.from_json(batch_json).is_completed()
+    ):
         return dict(
             ui_trigger=dash.no_update,
             query_trigger=True,
             annot_progress=init_annot_progress(store_data)
         )
 
-    batch = Batch.from_json(batch_json)
-
-    if batch.is_completed():
-        # TODO Check if all samples are annotated allready.
-        return dict(
-            ui_trigger=dash.no_update,
-            query_trigger=True,
-            annot_progress=init_annot_progress(store_data)
-        )
     else:
         return dict(
             ui_trigger=True,
