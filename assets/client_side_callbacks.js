@@ -6,6 +6,10 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
         },
 
         scrollToChip: function (searchValue) {
+            if (searchValue === "") {
+                return window.dash_clientside.no_update;
+            }
+
             const scrollArea = document.getElementById('my-scroll-area');
             const chipInputs = scrollArea.querySelectorAll('[id^="chip-"]');
 
