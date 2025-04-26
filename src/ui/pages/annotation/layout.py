@@ -198,6 +198,10 @@ def layout(**kwargs):
                                         dmc.Card(
                                             dmc.Stack(
                                                 [
+                                                    dmc.Center(
+                                                        dmc.Title("Stats", order=3)
+                                                    ),
+
                                                     dmc.Tooltip(
                                                         dmc.Group(
                                                             [

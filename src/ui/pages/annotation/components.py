@@ -16,39 +16,90 @@ def create_sidebar():
     return (
         dmc.Stack(
             [
-                dmc.Center(
-                    dmc.Title("Settings", order=3),
+                dmc.Stack(
+                    [
+                        dmc.Center(
+                            dmc.Title("Settings", order=3),
+                        ),
+
+                        *create_sampling_inputs(),
+
+                        # Data display settings Button
+                        dmc.Center(
+                            dmc.Tooltip(
+                                dmc.Button(
+                                    'Display Settings',
+                                    id=DATA_DISPLAY_BTN,
+                                    color='dark',
+                                    mt=15
+                                ),
+                                label="Change how data is displayed",
+                                openDelay=500
+                            ),
+                        ),
+                    ],
+                    # style={'border': 'red 3px dotted'},
+                    gap=10,
+                    mb=10,
                 ),
 
-                *create_sampling_inputs(),
+                dmc.Divider(variant="solid"),
+
+                dmc.Stack(
+                    [
+                        dmc.Center(
+                            dmc.Title("Actions", order=3)
+                        ),
+
+                        # Skip Button
+                        dmc.Center(
+                            dmc.HoverCard(
+                                [
+                                    dmc.HoverCardTarget(
+                                        dmc.Button(
+                                            "Skip Batch",
+                                            id="skip-batch-button",
+                                            color='dark'
+                                        ),
+                                    ),
+
+                                    dmc.HoverCardDropdown(
+                                        dmc.Center(
+                                            dmc.Text(
+                                                'Write back all annotated samples in this batch. Skip the rest. '
+                                                'Then recompute next batch with current configuration. ',
+                                                maw='10vw'  # TODO hardcoded
+                                            )
+                                        )
+                                    )
+                                ],
+                                openDelay=500,
+                                shadow='lg',
+                            )
+                        ),
+
+                        dmc.Center(
+                            dmc.Button(
+                                'Auto Annotate',
+                                id=AUTO_ANNOTATE_BTN,
+                                color='dark'
+                            )
+                        )
+
+                    ],
+                    # style={'border': 'red 3px dotted'},
+                    gap=10
+                ),
 
                 # TODO allow to switch Query Strategy during annotation.
                 # dmc.Text(
                 #     'Query Strategy'
                 # ),
-
-                # Skip Button
-                dmc.Center(
-                    dmc.Button(
-                        "Skip Batch",
-                        id="skip-batch-button",
-                        color='dark'
-                    ),
-                ),
-
-                dmc.Center(
-                    dmc.Tooltip(
-                        dmc.Button(
-                            'Display Settings',
-                            id=DATA_DISPLAY_BTN,
-                            color='dark'
-                        ),
-                        label="Change how data is displayed",
-                        openDelay=500
-                    ),
-                ),
             ],
-            # style={'border': '2px solid red'},
+            p='xs',
+            # mt=15,
+            gap=10,
+            # style={'border': '2px solid blue'},
         )
     )
 
