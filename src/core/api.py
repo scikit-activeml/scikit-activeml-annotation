@@ -1,6 +1,7 @@
 import inspect
+import logging
 from pathlib import Path
-from typing import cast
+from typing import cast, Any, Sequence
 from inspect import signature
 from functools import partial, lru_cache
 from typing import Callable
@@ -213,6 +214,93 @@ def get_num_annotated(dataset_id: str) -> int:
 
 def get_total_num_samples(dataset_id, embedding_id) -> int:
     return len(load_embeddings(dataset_id, embedding_id))
+
+
+def auto_annotate(
+    X: np.ndarray,
+    cfg: ActiveMlConfig,
+    threshold: float,
+    sort_by_proba: bool = True
+):
+    y = _load_or_init_annotations(X, cfg.dataset)
+
+    model_cfg = cfg.model
+    if model_cfg is None:
+        # TODO use estimator to have more accurate terminology
+        logging.warning("Cannot auto complete as there is not estimator selected!")
+        return
+
+    # TODO there is some repeated code here.
+    random_state = np.random.RandomState(cfg.random_seed)
+    estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+
+    X_cand, y_cand, _ = _filter_outliers(X, y)
+    # TODO clf or estimator?
+    clf = estimator
+    clf.fit(X_cand, y_cand)
+
+    X_missing, y_missing, mapping = _filter_out_annotated(X, y)
+    class_probas = clf.predict_proba(X=X_missing)  # shape (num_samples * num_labels)
+
+    top_idxes = np.argmax(class_probas, axis=1)
+    top_classes = clf.classes_[top_idxes]
+    # Select top proba from each row
+    top_probas = class_probas[np.arange(class_probas.shape[0]), top_idxes]
+
+    # Select samples that are above the threshold probability
+    is_threshold = (top_probas > threshold)
+    emb_indices = mapping[is_threshold]
+    selected_classes = top_classes[is_threshold]
+    selected_probas = top_probas[is_threshold]
+
+    # Get file paths for embedding indices
+    selected_file_paths = get_file_paths(
+        cfg.dataset.id,
+        cfg.embedding.id,
+        emd_indices=emb_indices
+    )
+
+    automated_annots = [
+        AutomatedAnnotation(
+            embedding_idx=int(emb_idx),
+            label=label,
+            file_name=f_path,
+            confidence=float(proba),
+        )
+        for emb_idx, label, proba, f_path
+        in zip(emb_indices, selected_classes, selected_probas, selected_file_paths)
+    ]
+
+    if sort_by_proba:
+        automated_annots.sort(key=lambda ann: ann.confidence, reverse=True)
+
+    json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
+    manual_annots = _deserialize_annotations(json_file_path)
+
+    json_store_path = ANNOTATED_PATH / f'{cfg.dataset.id}-automated.json'
+    _serialize_annotations_with_keys(
+        json_store_path,
+        (manual_annots, automated_annots),
+        ('manual', 'automated')
+    )
+
+    num_auto_annotated = len(automated_annots)
+    num_total_annotated = num_auto_annotated + len(manual_annots)
+    logging.info(f'{num_auto_annotated} samples have been automatically annoted @\n{json_store_path}')
+    logging.info(f'In total annotated: {num_total_annotated}')
+
+    # TODO Do we want to use automatically generated labels for further fitting?
+    # total_annots = len(total_annots)
+    # return total_annots
+
+
+def save_partial_annotations(batch, dataset_id, embedding_id):
+    for idx, val in enumerate(batch.annotations):
+        # Put samples that have not been to missing so they come up again.
+        if val is None:
+            batch.annotations[idx] = MISSING_LABEL_MARKER
+    num_annotated = completed_batch(dataset_id, batch, embedding_id)
+    return num_annotated
 # endregion
 
 
@@ -256,6 +344,20 @@ def _serialize_annotations(path: Path, annotations: list[Annotation]):
         json.dump([asdict(ann) for ann in annotations], f, indent=4)
 
 
+def _serialize_annotations_with_keys(
+    path: Path,
+    data: Sequence[list],
+    keys: Sequence[str]
+):
+    payload = {
+        key: [asdict(obj) for obj in group]
+        for key, group in zip(keys, data)
+    }
+
+    with path.open('w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=4)
+
+
 def _load_labels_as_np(y: np.ndarray, json_path: Path) -> np.ndarray:
     """Load labels from a JSON file and return as a numpy array."""
     with json_path.open('r') as f:
@@ -275,12 +377,21 @@ def _estimator_accepts_random(est_cls) -> bool:
     return "random_state" in sig.parameters
 
 
+# TODO bad name it should be filter_discard_samples
 def _filter_outliers(X, y):
     # keep = np.isfinite(y) | np.isnan(y)  # np.isfinite(np.nan) == False
     keep = (y != DISCARD_MARKER)
     X_filtered = X[keep]
     y_filtered = y[keep]
     mapping = np.arange(len(X))[keep]
+    return X_filtered, y_filtered, mapping
+
+
+def _filter_out_annotated(X, y):
+    missing = (y == MISSING_LABEL_MARKER)
+    X_filtered = X[missing]
+    y_filtered = y[missing]
+    mapping = np.arange(len(X))[missing]
     return X_filtered, y_filtered, mapping
 
 

@@ -33,6 +33,7 @@ from core.api import (
     get_file_paths,
     get_total_num_samples,
     get_num_annotated,
+    save_partial_annotations,
 )
 from core.api import undo_annots_and_restore_batch
 
@@ -406,7 +407,7 @@ def on_ui_update(
     ui_trigger,
     store_data,
     browser_dpr,
-    show_probas,
+    show_probas,  # TODO this is confusing
     sort_by
 ):
     if ui_trigger is None and browser_dpr is None:
@@ -470,6 +471,7 @@ def on_query(
     print("on query")
     activeml_cfg = compose_from_state(store_data)
     X = load_embeddings(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
+    # TODO bad name. Sampling parameters
     session_cfg = SessionConfig(batch_size, subsampling)
 
     batch = request_query(activeml_cfg, session_cfg, X)
@@ -504,16 +506,10 @@ def on_skip_batch(
     batch_json = session_data.pop(StoreKey.BATCH_STATE.value, None)
     dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
     embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
-
-    # Store annotations that have been made so far.
     batch = Batch.from_json(batch_json)
 
-    for idx, val in enumerate(batch.annotations):
-        # Put samples that have not been to missing so they come up again.
-        if val is None:
-            batch.annotations[idx] = MISSING_LABEL_MARKER
-
-    num_annotated = completed_batch(dataset_id, batch, embedding_id)
+    # TODO this should not be necessary
+    num_annotated = save_partial_annotations(batch, dataset_id, embedding_id)
     annot_progress[AnnotProgress.PROGRESS.value] = num_annotated
 
     return dict(

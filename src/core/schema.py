@@ -120,4 +120,13 @@ class AutomatedAnnotation:
     embedding_idx: int
     file_name: str
     label: int
+    confidence: float
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+    @staticmethod
+    def from_json(json_str: str):
+        data = json.loads(json_str)
+        return AutomatedAnnotation(**data)
 # endregion
