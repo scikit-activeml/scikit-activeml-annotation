@@ -22,12 +22,10 @@ import dash_loading_spinners as dls
 
 from hydra.utils import instantiate
 
-from skactiveml.utils import MISSING_LABEL
-
 from ui.common import compose_from_state
+from ui.pages.annotation.auto_annotate_modal import create_auto_annotate_modal
 from ui.pages.annotation.data_display_modal import create_data_display_modal
 from ui.pages.annotation.label_setting_modal import create_label_settings_modal
-from util.deserialize import compose_config
 from core.api import (
     request_query,
     completed_batch,
@@ -71,6 +69,7 @@ def layout(**kwargs):
 
                 create_label_settings_modal(),
                 create_data_display_modal(),
+                create_auto_annotate_modal(),
 
                 dmc.Box(id='label-radio'),  # avoid id error
                 dmc.AppShell(
