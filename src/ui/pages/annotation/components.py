@@ -150,7 +150,6 @@ def create_label_chips(classes, batch, show_probas, sort_by):
     # Check if there is some annotation already for that sample in case the user used back btn.
     annotation = batch.annotations[batch.progress]
     was_annotated = annotation is not None
-    was_labaled = was_annotated and annotation != MISSING_LABEL_MARKER
 
     class_prob = None
     if batch.class_probas:
@@ -160,22 +159,23 @@ def create_label_chips(classes, batch, show_probas, sort_by):
 
     sorted_classes, sorted_probas = _sort(classes, class_prob, sort_by)
 
-    if class_prob is None or not show_probas:
-        # Dont show probabilities
-        chips = [_create_chip(label) for label in sorted_classes]
-        preselect = annotation if was_labaled else None
-    else:
-        if was_labaled:
-            preselect = annotation
-        elif was_annotated:
-            preselect = None
-        else:
-            highest_prob_idx = np.argmax(class_prob)
-            preselect = classes[int(highest_prob_idx)]
+    has_probas = class_prob is not None
+    show_probas = has_probas and show_probas
 
-        # Show probabilities
+    # Determine preselect
+    if was_annotated:
+        preselect = annotation
+    elif has_probas:
+        highest_prob_idx = np.argmax(sorted_probas)
+        preselect = sorted_classes[int(highest_prob_idx)]
+    else:
+        preselect = MISSING_LABEL_MARKER
+
+    if show_probas:
         chips = [_create_chip(label, probability) for label, probability in
                  zip(sorted_classes, sorted_probas)]
+    else:
+        chips = [_create_chip(label) for label in sorted_classes]
 
     chip_group = dmc.ChipGroup(
         children=chips,
