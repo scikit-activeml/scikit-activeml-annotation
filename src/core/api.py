@@ -120,7 +120,7 @@ def request_query(
         class_probas = clf.predict_proba(query_samples)
 
     batch_state = Batch(
-        indices=query_indices,
+        emb_indices=query_indices,
         class_probas=class_probas.tolist(),
         progress=0,
         annotations=[None] * len(query_indices)
@@ -179,13 +179,12 @@ def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
 
     # Get existing annotations
     annotations: list[Annotation] = _deserialize_annotations(json_file_path)
-    file_paths = get_file_paths(dataset_id, embedding_id, batch.indices)
-    print(batch.annotations)
+    file_paths = get_file_paths(dataset_id, embedding_id, batch.emb_indices)
 
     # Create new Annotations
     new_annotations = [
         Annotation(
-            embedding_idx=idx,  # TODO use better names
+            embedding_idx=emb_idx,
             file_name=f_path,
             label=annot_val
         )
@@ -196,7 +195,7 @@ def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
     updated_annotations = annotations + new_annotations
 
     # Override annotations
-    _serialize_annotations(json_file_path,  updated_annotations)
+    _serialize_annotations(json_file_path, updated_annotations)
 
     num_annotated = len(updated_annotations)
     return num_annotated
@@ -458,8 +457,8 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
     # Restored Batch
     return (
         Batch(
-            indices=embedding_indices,
-            annotations=[annot.label for annot in reconstruct],
+            emb_indices=emb_idxes,
+            annotations=labels,
             class_probas=class_probas.tolist(),
             progress=num_undo,
         ),

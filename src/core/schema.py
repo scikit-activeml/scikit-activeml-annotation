@@ -77,9 +77,9 @@ class SessionConfig:
 @dataclass
 class Batch:
     # TODO use correct datatypes
-    indices: list[int]  # TODO these might have to be renamved to embedding_indices.
-    annotations: list[int]
-    class_probas: np.ndarray  # shape len(indices) x num_of_classes
+    emb_indices: list[int]
+    annotations: list[str]
+    class_probas: list[list[float]]  # shape len(indices) x num_of_classes
     progress: int  # progress
 
     def to_json(self) -> str:
@@ -91,7 +91,7 @@ class Batch:
         return Batch(**data)
 
     def is_completed(self) -> bool:
-        return self.progress >= len(self.indices)
+        return self.progress >= len(self.emb_indices)
 
 
 @dataclass
