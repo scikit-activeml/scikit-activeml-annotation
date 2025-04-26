@@ -6,6 +6,7 @@ LABELS_CONTAINER = 'labels-container'
 
 UI_TRIGGER = 'ui-trigger'
 QUERY_TRIGGER = 'query-trigger'
+START_TIME_TRIGGER = 'start-time-trigger'
 ANNOT_PROGRESS = 'annot-progress'
 
 NUM_SAMPLES_TEXT = 'num_samples_text'

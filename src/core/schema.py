@@ -73,6 +73,7 @@ class SessionConfig:
 
 # endregion
 
+
 # region Batch State
 @dataclass
 class Batch:
@@ -81,6 +82,9 @@ class Batch:
     annotations: list[str]
     class_probas: list[list[float]]  # shape len(indices) x num_of_classes
     progress: int  # progress
+    # Meta data
+    start_times: list[str] = field(default_factory=list)
+    end_times: list[str] = field(default_factory=list)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
@@ -98,7 +102,9 @@ class Batch:
 class Annotation:
     embedding_idx: int
     file_name: str
-    label: int
+    label: str
+    start_time: str = ''
+    end_time: str = ''
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
@@ -107,4 +113,11 @@ class Annotation:
     def from_json(json_str: str):
         data = json.loads(json_str)
         return Annotation(**data)
+
+
+@dataclass
+class AutomatedAnnotation:
+    embedding_idx: int
+    file_name: str
+    label: int
 # endregion

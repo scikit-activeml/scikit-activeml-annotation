@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 import dash
 import dash_mantine_components as dmc
@@ -65,6 +66,7 @@ def layout(**kwargs):
                 dcc.Location(id=ANNOTATION_INIT, refresh=False),
                 dcc.Store(id=UI_TRIGGER),
                 dcc.Store(id=QUERY_TRIGGER),
+                dcc.Store(id=START_TIME_TRIGGER),
                 dcc.Store(id=ANNOT_PROGRESS),
 
                 create_label_settings_modal(),
@@ -344,14 +346,15 @@ def on_confirm(
         raise PreventUpdate
 
     trigger_id = callback_context.triggered_id
-    if trigger_id == "confirm-button":
-        annotation = value
-    elif trigger_id == "skip-button":
+    batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
+
+    if trigger_id == 'skip-button':
         annotation = MISSING_LABEL_MARKER
     else:
-        annotation = DISCARD_MARKER
+        now_str = datetime.now().time().isoformat(timespec="milliseconds")
+        batch.end_times[batch.progress] = now_str
+        annotation = value if trigger_id == 'confirm-button' else DISCARD_MARKER
 
-    batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     advance_batch(batch, annotation)
     # Override existing batch
     store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
@@ -370,8 +373,6 @@ def on_confirm(
         set_props(QUERY_TRIGGER, dict(data=True))
     else:
         set_props(UI_TRIGGER, dict(data=True))
-        # TODO this wont work always if the user went back or skipped?
-        # annot_data[AnnotProgress.PROGRESS.value] += 1
 
     return dict(
         store_data=store_data,
@@ -380,6 +381,7 @@ def on_confirm(
     )
 
 
+# TODO there should be a seperate store for the BATCH
 @callback(
     Input(UI_TRIGGER, 'data'),
     State('session-store', 'data'),
@@ -393,6 +395,7 @@ def on_confirm(
         is_computing_overlay=Output(COMPUTING_OVERLAY, 'visible', allow_duplicate=True),
         data_width=Output(DATA_DISPLAY_CONTAINER, 'w'),
         data_height=Output(DATA_DISPLAY_CONTAINER, 'h'),
+        annot_start_time_trigger=Output(START_TIME_TRIGGER, 'data'),
     ),
     prevent_initial_call=True,
 )
@@ -411,7 +414,7 @@ def on_ui_update(
 
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     idx = batch.progress
-    embedding_idx = batch.indices[idx]
+    embedding_idx = batch.emb_indices[idx]
 
     human_data_path = get_file_paths(
         activeml_cfg.dataset.id,
@@ -424,10 +427,11 @@ def on_ui_update(
     return dict(
         label_container=create_label_chips(activeml_cfg.dataset.classes, batch, show_probas, sort_by),
         show_container=rendered_data,
-        batch_progress=(idx / len(batch.indices)) * 100,
+        batch_progress=(idx / len(batch.emb_indices)) * 100,
         is_computing_overlay=False,
         data_width=w,
         data_height=h,
+        annot_start_time_trigger=True,
     )
 
 
@@ -594,3 +598,28 @@ clientside_callback(
 )
 
 
+@callback(
+    Input(START_TIME_TRIGGER, 'data'),
+    State('session-store', 'data'),
+    output=dict(
+        session_data=Output("session-store", 'data', allow_duplicate=True)
+    ),
+    prevent_initial_call=True
+)
+def on_annot_start_timestamp(
+    trigger,
+    session_data
+):
+    if trigger is None:
+        raise PreventUpdate
+
+    batch = Batch.from_json(session_data[StoreKey.BATCH_STATE.value])
+    # Problem that shit runs before ui rendering is complete.
+    idx = batch.progress
+    now_str = datetime.now().time().isoformat(timespec="milliseconds")
+    batch.start_times[idx] = now_str
+    session_data[StoreKey.BATCH_STATE.value] = batch.to_json()
+
+    return dict(
+        session_data=session_data
+    )

@@ -119,11 +119,14 @@ def request_query(
         # TODO clf could not have predict_proba
         class_probas = clf.predict_proba(query_samples)
 
+    lenght = len(query_indices)
     batch_state = Batch(
         emb_indices=query_indices,
         class_probas=class_probas.tolist(),
         progress=0,
-        annotations=[None] * len(query_indices)
+        annotations=[None] * lenght,
+        start_times=[None] * lenght,
+        end_times=[None] * lenght
     )
     return batch_state
 
@@ -160,7 +163,6 @@ def load_embeddings(
         dataset_id: str,
         embedding_id: str,
 ) -> np.ndarray:
-
     cache_key = f"{dataset_id}_{embedding_id}"
     cache_path = EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
 
@@ -181,15 +183,18 @@ def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
     annotations: list[Annotation] = _deserialize_annotations(json_file_path)
     file_paths = get_file_paths(dataset_id, embedding_id, batch.emb_indices)
 
-    # Create new Annotations
     new_annotations = [
         Annotation(
             embedding_idx=emb_idx,
             file_name=f_path,
-            label=annot_val
+            label=label,
+            start_time=start,
+            end_time=end
         )
-        for idx, f_path, annot_val in zip(batch.indices, file_paths, batch.annotations)
-        if annot_val != MISSING_LABEL_MARKER  # Do not store missing LABEL
+        for emb_idx, f_path, label, start, end in zip(
+            batch.emb_indices, file_paths, batch.annotations, batch.start_times, batch.end_times
+        )
+        if label != MISSING_LABEL_MARKER
     ]
 
     updated_annotations = annotations + new_annotations
@@ -432,6 +437,13 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
 
     write_back, reconstruct = annotations[:-num_undo], annotations[-num_undo:]
 
+    labels, emb_idxes, starts, ends = [], [], [], []
+    for annot in reconstruct:
+        labels.append(annot.label)
+        emb_idxes.append(annot.embedding_idx)
+        starts.append(annot.start_time)
+        ends.append(annot.end_time)
+
     _serialize_annotations(json_file_path, write_back)
 
     model_cfg = cfg.model
@@ -442,15 +454,13 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
         random_state = np.random.RandomState(cfg.random_seed)
         estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
-    embedding_indices = [annot.embedding_idx for annot in reconstruct]
-
     if estimator is not None:
         X = load_embeddings(cfg.dataset.id, cfg.embedding.id)
         y = _load_or_init_annotations(X, cfg.dataset)
         X_cand, y_cand, _ = _filter_outliers(X, y)
 
         estimator.fit(X_cand, y_cand)
-        class_probas = estimator.predict_proba(X[embedding_indices])
+        class_probas = estimator.predict_proba(X[emb_idxes])
     else:
         class_probas = np.empty(0)
 
@@ -461,6 +471,8 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
             annotations=labels,
             class_probas=class_probas.tolist(),
             progress=num_undo,
+            start_times=starts,
+            end_times=ends,
         ),
-        len(write_back)
+        len(write_back)  # TODo Human annotations + automatic annotations.
     )
