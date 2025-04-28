@@ -1,5 +1,5 @@
+from core.api import compose_config
 from core.schema import ActiveMlConfig
-from util.deserialize import compose_config
 from ui.storekey import StoreKey
 
 

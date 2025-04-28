@@ -37,3 +37,11 @@ AUTO_ANNOTATE_BTN = 'auto-annotate-btn'
 AUTO_ANNOTATE_MODAL = 'auto-annoate-modal'
 AUTO_ANNOTATE_CONFIRM_BTN = 'auto-annotate-confirm-btn'
 AUTO_ANNOTATE_THRESHOLD = 'auto-annotate-threshold'
+
+# Add Label
+ADD_CLASS_BTN = 'add-class-btn'
+ADD_CLASS_INSERTION_IDXES = 'add-class-insertion-idxes'
+ADD_CLASS_WAS_ADDED = 'add-class-was-added'
+
+# Search Input
+LABEL_SEARCH_INPUT = 'label-search-input'

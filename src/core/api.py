@@ -1,20 +1,22 @@
 import inspect
 import logging
+from bisect import bisect_left
 from pathlib import Path
-from typing import cast, Any, Sequence
+from typing import cast, Sequence
 from inspect import signature
 from functools import partial, lru_cache
 from typing import Callable
 
+import dash.exceptions
 import numpy as np
+from hydra import initialize_config_dir, compose
 from numpy.typing import NDArray
 from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
-from skactiveml.utils import MISSING_LABEL
 from skactiveml.pool import SubSamplingWrapper
 from skactiveml.classifier import SklearnClassifier
 from skactiveml.base import (
-    QueryStrategy,
     SkactivemlClassifier
 )
 
@@ -25,7 +27,10 @@ from embedding.base import EmbeddingBaseAdapter
 
 from util.deserialize import (
     parse_yaml_config_dir,
-    parse_yaml_file
+    parse_yaml_file,
+    overrides_to_list,
+    set_ids_from_overrides,
+    is_dataset_cfg_overridden
 )
 from paths import (
     DATA_CONFIG_PATH,
@@ -33,10 +38,12 @@ from paths import (
     QS_CONFIG_PATH,
     MODEL_CONFIG_PATH,
     EMBEDDING_CONFIG_PATH,
-    CACHE_PATH,
     ROOT_PATH,
-    EMBEDDINGS_CACHE_PATH
+    EMBEDDINGS_CACHE_PATH,
+    OVERRIDE_CONFIG_DATASET_PATH,
+    CONFIG_PATH
 )
+from util.utils import is_sorted
 
 
 # region API
@@ -65,6 +72,11 @@ def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
     return cast(QueryStrategyConfig, cfg)
 
 
+def get_dataset_cfg_from_path(path: Path) -> DatasetConfig:
+    cfg = parse_yaml_file(path)
+    return cast(DatasetConfig, cfg)
+
+
 def is_dataset_embedded(dataset_id, embedding_id) -> bool:
     key = f"{dataset_id}_{embedding_id}"
     path = EMBEDDINGS_CACHE_PATH / f"{key}.npz"
@@ -74,6 +86,23 @@ def is_dataset_embedded(dataset_id, embedding_id) -> bool:
 def dataset_path_exits(dataset_path: str) -> bool:
     path = ROOT_PATH / dataset_path
     return path.exists()
+
+
+@lru_cache(maxsize=1)
+def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> ActiveMlConfig:
+    overrides_hydra = overrides_to_list(overrides)
+
+    with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
+        cfg = compose('config', overrides=overrides_hydra)
+
+        set_ids_from_overrides(cfg, overrides)
+
+        # TODO workaround cause hydra searchpath does not work for me
+        if is_dataset_cfg_overridden(cfg.dataset.id):
+            path = OVERRIDE_CONFIG_DATASET_PATH / f'{cfg.dataset.id}.yaml'
+            cfg.dataset = get_dataset_cfg_from_path(path)
+
+        return cast(ActiveMlConfig, cfg)
 
 
 def request_query(
@@ -90,7 +119,15 @@ def request_query(
     if clf is not None:
         print("Fitting the classifier")
         # TODO can fitting the classifier fail?
+        # TODO filter out y that appear less then 2 times.
+        # Some classifiers need at least 2 samples per class to train properly
         clf.fit(X_cand, y_cand)
+
+        # TODO show how often class appeared
+        # Only update when refitting?
+        # unique_values, counts = np.unique(y_cand, return_counts=True)
+        # for val, count in zip(unique_values, counts):
+        #     logging.info(f'{val}: {count}')
 
     print("Querying the active ML model ...")
 
@@ -301,6 +338,37 @@ def save_partial_annotations(batch, dataset_id, embedding_id):
             batch.annotations[idx] = MISSING_LABEL_MARKER
     num_annotated = completed_batch(dataset_id, batch, embedding_id)
     return num_annotated
+
+
+def add_class(dataset_cfg, new_class_name: str) -> int:
+    if new_class_name == '':
+        logging.warning(f"Class name has to have at least lenght 1")
+        # TODO I dont want to have dash in the api.
+        raise dash.exceptions.PreventUpdate
+
+    classes = dataset_cfg.classes
+
+    if new_class_name in classes:
+        logging.warning(f"Cannot add new class because {new_class_name} already exists.")
+        raise dash.exceptions.PreventUpdate
+
+    # TODO classes can be numbers in which case there is a different order.
+    if is_sorted(classes):
+        insert_idx = bisect_left(classes, new_class_name)
+        classes.insert(insert_idx, new_class_name)
+    else:
+        classes.append(new_class_name)
+        insert_idx = len(classes) - 1
+
+    OVERRIDE_CONFIG_DATASET_PATH.mkdir(parents=True, exist_ok=True)
+    override_path = OVERRIDE_CONFIG_DATASET_PATH / f'{dataset_cfg.id}.yaml'
+    OmegaConf.save(config=dataset_cfg, f=override_path)
+
+    # Invalidate cache. Force new composing when called next time.
+    compose_config.cache_clear()
+
+    logging.info(f'insert idx: {insert_idx}')
+    return insert_idx
 # endregion
 
 
@@ -395,7 +463,6 @@ def _filter_out_annotated(X, y):
     return X_filtered, y_filtered, mapping
 
 
-# TODO what api do the pages need from the api?
 # TODO will this be used for estmiators aswell?
 def _build_activeml_classifier(
         model_cfg: ModelConfig,

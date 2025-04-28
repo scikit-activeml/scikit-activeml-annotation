@@ -20,11 +20,15 @@ QS_CONFIG_PATH = CONFIG_PATH / 'query_strategy'
 ANNOTATED_PATH = OUTPUT_PATH / 'annotated'
 CACHE_PATH = OUTPUT_PATH / 'cache'
 PROFILER_PATH = OUTPUT_PATH / 'profiler'
+OVERRIDE_CONFIG_PATH = OUTPUT_PATH / 'override_config'
 
 # output/cache
 BACKGROUND_CALLBACK_CACHE_PATH = CACHE_PATH / 'background_callback_cache'
 EMBEDDINGS_CACHE_PATH = CACHE_PATH / 'embeddings_cache'
 DATA_DISPLAY_CACHE_PATH = CACHE_PATH / 'data_display_cache'
+
+# output/override_config
+OVERRIDE_CONFIG_DATASET_PATH = OVERRIDE_CONFIG_PATH / 'dataset'
 
 # src
 UI_PATH = SRC_PATH / 'ui'

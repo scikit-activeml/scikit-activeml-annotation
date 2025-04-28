@@ -197,7 +197,7 @@ def create_data_display(data_type, human_data_path, dpr):
     )
 
 
-def create_label_chips(classes, batch, show_probas, sort_by):
+def create_label_chips(classes, batch, show_probas, sort_by, was_class_added, insertion_idxes):
     # Check if there is some annotation already for that sample in case the user used back btn.
     annotation = batch.annotations[batch.progress]
     was_annotated = annotation is not None
@@ -205,6 +205,12 @@ def create_label_chips(classes, batch, show_probas, sort_by):
     class_prob = None
     if batch.class_probas:
         class_prob = batch.class_probas[batch.progress]
+
+        if insertion_idxes is not None:
+            # Some classes have been added for which the classifier has not yet been fitted for.
+            # Set the class_prob to 0.0 in this case for these classes
+            class_prob = _pad_with_zeros(class_prob, insertion_idxes)
+
     elif show_probas:
         logging.info("Cannot show probas")
 
@@ -214,7 +220,11 @@ def create_label_chips(classes, batch, show_probas, sort_by):
     show_probas = has_probas and show_probas
 
     # Determine preselect
-    if was_annotated:
+    if was_class_added:
+        # preselect last added class
+        preselect = classes[insertion_idxes[-1]]
+        logging.info(f"preselect after adding label: {preselect}")
+    elif was_annotated:
         preselect = annotation
     elif has_probas:
         highest_prob_idx = np.argmax(sorted_probas)
@@ -263,9 +273,25 @@ def create_label_chips(classes, batch, show_probas, sort_by):
     )
 
 
-def _sort(classes, class_probas, sort_by):
-    # Sorting performance
+def _pad_with_zeros(class_probas, insertion_idxes):
+    """
+    Return a new list that has the same entries as class_probas,
+    but with a 0 inserted at each position in insertion_idxs.
+    """
+    new_length = len(class_probas) + len(insertion_idxes)
 
+    result = [0.0] * new_length
+
+    orig_i = 0
+    for i in range(new_length):
+        if i not in insertion_idxes:
+            result[i] = class_probas[orig_i]
+            orig_i += 1
+
+    return result
+
+
+def _sort(classes, class_probas, sort_by):
     if sort_by == SORT_BY_PROBA:
         if class_probas is None:
             logging.warning("Cannot sort by predicted class probabilities as this info is not available.")

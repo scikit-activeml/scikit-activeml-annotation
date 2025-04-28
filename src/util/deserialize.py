@@ -1,56 +1,12 @@
 from functools import lru_cache
-from typing import cast
 
-from typing import Dict
 from pathlib import Path
 
-from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
-from dataclasses import dataclass, field
-
-import hydra
-from hydra import initialize, compose
-from hydra.utils import instantiate, call
-from hydra.core.config_store import ConfigStore
-from hydra.initialize import initialize_config_dir
-
-from omegaconf import DictConfig, OmegaConf, MISSING
-
-from paths import CONFIG_PATH
-from core.schema import ActiveMlConfig
-
-
-@lru_cache(maxsize=1)
-def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> ActiveMlConfig:
-    with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
-        # TODO
-        # schema: DictConfig = OmegaConf.structured(ActiveMlConfig)
-        if overrides is not None:
-            overrides_hydra = _overrides_to_list(overrides)
-
-        cfg = compose('config', overrides=overrides_hydra)
-        _set_ids_from_overrides(cfg, overrides)
-
-        return cast(ActiveMlConfig, cfg)
-
-        # # Make sure cfg has at least the attributes that schema has.
-        # try:
-        #     cfg: ActiveMlConfig = OmegaConf.merge(cfg, schema)
-        #
-        #     # Allow additional fields
-        #     OmegaConf.set_struct(cfg, False)
-        #
-        #     """ cfg: DictConfig = OmegaConf.merge(cfg, schema)
-        #     OmegaConf.resolve(cfg)
-        #     cfg: ActiveMlConfig = OmegaConf.to_object(cfg)
-        #     print("Converted ActiveMlConfig")
-        #     print(OmegaConf.to_yaml(cfg)) """
-        #     return cfg
-        # except Exception as e:
-        #     print(f'Validation of Schema failed because: {e}')
-        #     exit(-1)
-######################
+from paths import (
+    OVERRIDE_CONFIG_DATASET_PATH,
+)
 
 
 @lru_cache(maxsize=5)
@@ -100,16 +56,14 @@ def parse_yaml_file(file_path: Path | str) -> DictConfig | None:
         print(f"Failed to parse YAML file {file_path}: {e}")
 
 
-def _overrides_to_list(overrides: tuple[tuple[str, str], ...]) -> list[str]:
-    out = []
-    for key, value in overrides:
-        if value is not None:
-            out.append(f'{key}={value}')
-
-    return out
+def overrides_to_list(overrides: tuple[tuple[str, str], ...]) -> list[str]:
+    # eg. [("dataset","mnist"), …] → ["dataset=mnist", …]
+    if overrides is None:
+        return []
+    return [f'{group}={name}' for group, name in overrides]
 
 
-def _set_ids_from_overrides(cfg: DictConfig, overrides: tuple[tuple[str, str], ...]):
+def set_ids_from_overrides(cfg: DictConfig, overrides: tuple[tuple[str, str], ...]):
     """
     Uses the provided override values to set the add 'id' field for each config category.
     To enable checking which option (config yaml file) was selected
@@ -128,3 +82,8 @@ def _set_ids_from_overrides(cfg: DictConfig, overrides: tuple[tuple[str, str], .
         OmegaConf.set_struct(cfg, False)
         OmegaConf.update(cfg, cfg_id, override_value, merge=True)
         OmegaConf.set_struct(cfg, True)
+
+
+def is_dataset_cfg_overridden(dataset_id) -> bool:
+    path = OVERRIDE_CONFIG_DATASET_PATH / f'{dataset_id}.yaml'
+    return path.exists()
