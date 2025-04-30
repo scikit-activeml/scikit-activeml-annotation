@@ -19,7 +19,6 @@ from dash.exceptions import PreventUpdate
 
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-
 from hydra.utils import instantiate
 
 from core.api import (
@@ -34,6 +33,7 @@ from ui.components.sampling_input import create_sampling_inputs
 
 from ui.storekey import StoreKey
 
+RADIO_SELECTION = 'radio-selection'
 
 register_page(__name__, path='/')
 
@@ -62,7 +62,7 @@ def layout(**kwargs):
                                 dcc.Loading(
                                     dmc.Container(
                                         # Current selection injected here
-                                        html.Div(id='radio-selection'),  # workaround so id exists at the start
+                                        html.Div(id=RADIO_SELECTION),  # workaround so id exists at the start
                                         id='selection_container',
                                         # TODO use Mantine styling for this.
                                         style={
@@ -115,7 +115,9 @@ def create_step_ui(step, session_data):
     elif step == 4:
         content = dmc.Stack(
             [
-                *create_sampling_inputs()
+                *create_sampling_inputs(),
+                # Dummy element to ensure this id exists in the layout at the last step
+                dmc.RadioGroup([], id=RADIO_SELECTION, display='none', readOnly=True)
             ]
         )
     elif step == 5:
@@ -130,7 +132,7 @@ def create_step_ui(step, session_data):
         scrollbars='y',
         styles=dict(
             viewport={
-                'max-height': '100%',
+                'maxHeight': '100%',
             }
         )
     )
@@ -174,7 +176,8 @@ def _create_dataset_radio_item(cfg, cfg_display):
 
     return dmc.Tooltip(
         radio_item,
-        label=f'Dataset does not exist at path: {cfg.data_path}'
+        label=f'Dataset does not exist at path: {cfg.data_path}',
+        openDelay=250,
     )
 
 
@@ -187,7 +190,7 @@ def _create_dataset_selection(preselect):
     # TODO repeated code.
     return \
         dmc.RadioGroup(
-            id='radio-selection',
+            id=RADIO_SELECTION,
             children=dmc.Stack(
                 [
                     _create_dataset_radio_item(cfg, cfg_display)
@@ -207,7 +210,7 @@ def _create_embedding_radio_group(session_data):
     preselect = session_data.get(StoreKey.EMBEDDING_SELECTION.value)
 
     return dmc.RadioGroup(
-        id='radio-selection',
+        id=RADIO_SELECTION,
         children=dmc.Stack(
             [
                 dmc.Group(
@@ -257,7 +260,7 @@ def _create_bool_icon(val: bool):
 def _create_radio_group(options, preselect):
     formatted_options = [(cfg.id, cfg.display_name) for cfg in options]
     return dmc.RadioGroup(
-        id='radio-selection',
+        id=RADIO_SELECTION,
         children=dmc.Stack([dmc.Radio(label=l, value=k, size='md') for k, l in formatted_options]),
         value=preselect,
         size="md",
@@ -292,7 +295,7 @@ def setup_page(
 
 @callback(
     Input('confirm_button', 'n_clicks'),
-    State('radio-selection', 'value'),
+    State(RADIO_SELECTION, 'value'),
     State('stepper', 'active'),
     State('session-store', 'data'),
     output=dict(
@@ -405,7 +408,7 @@ clientside_callback(
 # Alternative
 # @callback(
 #     Output(confirm_button, 'disabled'),
-#     Input('radio-selection', 'value'),
+#     Input(RADIO_SELECTION, 'value'),
 #     prevent_initial_call=True
 # )
 # def validate_confirm_button(radio_selection):

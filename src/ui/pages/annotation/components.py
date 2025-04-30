@@ -251,8 +251,8 @@ def create_label_chips(classes, batch, show_probas, sort_by, was_class_added, in
                 chip_group,
                 style={
                     'display': 'inline-flex',
-                    'flex-direction': 'row',
-                    'flex-wrap': 'wrap',
+                    'flexDirection': 'row',
+                    'flexWrap': 'wrap',
                     'gap': '10px'
                 }
             ),
@@ -262,7 +262,7 @@ def create_label_chips(classes, batch, show_probas, sort_by, was_class_added, in
         offsetScrollbars=True,
         styles=dict(
             viewport={
-                'max-height': '35vh'
+                'maxHeight': '35vh'
             },
             # border='green dashed 3px',
         ),
