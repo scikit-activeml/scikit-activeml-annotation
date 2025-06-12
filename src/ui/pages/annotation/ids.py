@@ -8,6 +8,14 @@ UI_TRIGGER = 'ui-trigger'
 QUERY_TRIGGER = 'query-trigger'
 START_TIME_TRIGGER = 'start-time-trigger'
 
+# Label controls
+LABEL_BACK_BUTTON = 'label-back-button'
+LABEL_DISCARD_BUTTON = 'label-discard-button'
+LABEL_SKIP_BUTTON = 'label-skip-button'
+LABEL_CONFIRM_BUTTON = 'label-confirm-button'
+
+SKIP_BATCH_BUTTON = "skip-batch-button"
+
 # Stats
 # Annotation Progress
 ANNOT_PROGRESS = 'annot-progress'
@@ -44,4 +52,4 @@ ADD_CLASS_INSERTION_IDXES = 'add-class-insertion-idxes'
 ADD_CLASS_WAS_ADDED = 'add-class-was-added'
 
 # Search Input
-LABEL_SEARCH_INPUT = 'label-search-input'
+LABEL_SEARCH_INPUT = 'label-search-input'  # info id is hardcoded in js code.

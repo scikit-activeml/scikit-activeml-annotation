@@ -2,5 +2,5 @@ display_name: "Support Vector Classifier"
 
 definition:
   _target_: sklearn.svm.SVC
-  gamma: 0.001
+  gamma: 'scale'
   probability: True

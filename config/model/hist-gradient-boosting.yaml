@@ -1,0 +1,7 @@
+display_name: "Histogram Gradient Boosting"
+
+definition:
+  _target_: sklearn.ensemble.HistGradientBoostingClassifier
+  max_iter: 100
+  learning_rate: 0.1
+  max_depth: None

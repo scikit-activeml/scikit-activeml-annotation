@@ -43,7 +43,55 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
             }
 
             return window.devicePixelRatio;
-        }
+        },
+
+        focusSearchbar: function(trigger) {
+            if (trigger === null) {
+                return window.dash_clientside.no_update;
+            }
+
+            targetId = 'label-search-input'
+            el = document.getElementById(targetId);
+            if (!el) {
+                console.warn("Search Input cannot be found with id:", targetId);
+                return;
+            }
+            el.focus();
+        },
+
+        blurSearchInput: function(trigger) {
+            if (trigger === null) {
+                return window.dash_clientside.no_update;
+            }
+
+            targetId = 'label-search-input'
+            el = document.getElementById(targetId);
+            if (!el) {
+                console.warn("Search Input cannot be found with id:", targetId);
+                return;
+            }
+            el.value='';
+        },
+
+        clickOnId: function(targetId) {
+            var el = document.getElementById(targetId);
+            if (!el) {
+                console.warn("No element found with id:", targetId);
+                return;
+            }
+            el.click();
+        },
+
+        focusId: function(targetId) {
+            var el = document.getElementById(targetId);
+            if (!el) {
+                console.warn("No element found with id:", targetId);
+                return;
+            }
+            el.focus();
+        },
+
+
     }
 });
 

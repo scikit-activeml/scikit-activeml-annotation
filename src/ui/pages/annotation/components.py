@@ -58,7 +58,7 @@ def create_sidebar():
                                     dmc.HoverCardTarget(
                                         dmc.Button(
                                             "Skip Batch",
-                                            id="skip-batch-button",
+                                            id=SKIP_BATCH_BUTTON,
                                             color='dark'
                                         ),
                                     ),
@@ -110,25 +110,25 @@ def create_confirm_buttons():
             [
                 dmc.Button(
                     'Back',
-                    id="back-button",
+                    id=LABEL_BACK_BUTTON,
                     color='dark'
                 ),
 
                 dmc.Button(
                     'Discard',
-                    id='discard-button',
+                    id=LABEL_DISCARD_BUTTON,
                     color='dark'
                 ),
 
                 dmc.Button(
                     'Skip',
-                    id="skip-button",
+                    id=LABEL_SKIP_BUTTON,
                     color='dark'
                 ),
 
                 dmc.Button(
                     'Confirm',
-                    id='confirm-button',
+                    id=LABEL_CONFIRM_BUTTON,
                     color='dark'
                 ),
 

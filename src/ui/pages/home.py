@@ -43,8 +43,9 @@ def layout(**kwargs):
     return (
         dmc.Center(
             [
-                dcc.Location(id='url_home', refresh=True),
-                dcc.Location(id='url_home_init', refresh=False),
+                dcc.Location(id='home_init', refresh=False),
+                dcc.Store(id='focus_trigger'),
+
                 dmc.Stack(
                     [
                         dmc.Stack(
@@ -126,15 +127,19 @@ def create_step_ui(step, session_data):
         raise RuntimeError("Step is not in {0,...,4}")
 
     return dmc.ScrollArea(
-        content,
+        dmc.Container(
+            content,
+            py=5,
+            pl=5
+        ),
         offsetScrollbars='y',
         type='auto',
         scrollbars='y',
         styles=dict(
             viewport={
                 'maxHeight': '100%',
-            }
-        )
+            },
+        ),
     )
 
 
@@ -270,11 +275,12 @@ def _create_radio_group(options, preselect):
 
 
 @callback(
-    Input('url_home_init', 'pathname'),
+    Input('home_init', 'pathname'),
     State('session-store', 'data'),
     output=dict(
         selection_content=Output('selection_container', 'children', allow_duplicate=True),
-        session_data=Output('session-store', 'data', allow_duplicate=True)
+        session_data=Output('session-store', 'data', allow_duplicate=True),
+        focus_id=Output('focus_trigger', 'data'),
     ),
     prevent_initial_call='initial_duplicate'
 )
@@ -282,14 +288,15 @@ def setup_page(
     _,
     session_data
 ):
-    print("Setup page")
+    print("Setup home")
 
     if session_data is None:
         session_data = {}
 
     return dict(
         selection_content=create_step_ui(0, session_data),
-        session_data=session_data
+        session_data=session_data,
+        focus_id='radio-selection',
     )
 
 
@@ -374,7 +381,7 @@ def handle_back(
     State('stepper', 'active'),
     State('session-store', 'data'),
     output=dict(
-        pathname=Output('url_home', 'pathname')
+        pathname=Output('url', 'pathname')
     ),
     prevent_initial_call=True
 )
@@ -403,6 +410,11 @@ clientside_callback(
     ClientsideFunction(namespace='clientside', function_name='validateConfirmButton'),
     Output('confirm_button', "disabled"),
     Input("radio-selection", "value"),
+)
+
+clientside_callback(
+    ClientsideFunction(namespace='clientside', function_name='focusId'),
+    Input("focus_trigger", "data"),
 )
 
 # Alternative

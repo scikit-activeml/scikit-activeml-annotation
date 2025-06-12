@@ -21,6 +21,7 @@ from paths import (
     ASSETS_PATH,
     BACKGROUND_CALLBACK_CACHE_PATH
 )
+from ui.hotkeys import setup_hotkeys
 
 cache = diskcache.Cache(BACKGROUND_CALLBACK_CACHE_PATH)
 background_callback_manager = DiskcacheManager(cache)
@@ -44,8 +45,11 @@ app.layout = (
     dmc.MantineProvider(
         dmc.AppShell(
             [
+                dcc.Location(id='url', refresh='callback-nav'),
                 dcc.Store('browser-data'),
                 dcc.Store('session-store', storage_type='session'),
+
+                *setup_hotkeys(),
 
                 create_navbar(),
                 dmc.AppShellMain(

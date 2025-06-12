@@ -23,6 +23,7 @@ import dash_loading_spinners as dls
 from hydra.utils import instantiate
 
 from ui.common import compose_from_state
+from ui.hotkeys import setup_hotkeys
 from ui.pages.annotation.auto_annotate_modal import create_auto_annotate_modal
 from ui.pages.annotation.data_display_modal import create_data_display_modal
 from ui.pages.annotation.label_setting_modal import create_label_settings_modal
@@ -62,7 +63,6 @@ def layout(**kwargs):
     return(
         dmc.Box(
             [
-                dcc.Location(id='url-annotation', refresh=True),
                 dcc.Location(id=ANNOTATION_INIT, refresh=False),
                 dcc.Store(id=UI_TRIGGER),
                 dcc.Store(id=QUERY_TRIGGER),
@@ -170,6 +170,8 @@ def layout(**kwargs):
                                                     id=LABEL_SEARCH_INPUT,
                                                     radius='sm',
                                                     w='150px',
+                                                    pointer=True,
+                                                    spellCheck=True,
                                                 ),
                                             ],
                                             mt=15,
@@ -307,6 +309,7 @@ def init(
     _,
     store_data,
 ):
+    print("Annotation init")
     batch_json = store_data.get(StoreKey.BATCH_STATE.value)
 
     if (
@@ -338,9 +341,9 @@ def init_annot_progress(store_data):
 
 
 @callback(
-    Input('confirm-button', 'n_clicks'),
-    Input('discard-button', 'n_clicks'),
-    Input('skip-button', 'n_clicks'),
+    Input(LABEL_CONFIRM_BUTTON, 'n_clicks'),
+    Input(LABEL_DISCARD_BUTTON, 'n_clicks'),
+    Input(LABEL_SKIP_BUTTON, 'n_clicks'),
     State('session-store', 'data'),
     State('label-radio', 'value'),
     State(ANNOT_PROGRESS, 'data'),
@@ -365,12 +368,12 @@ def on_confirm(
     trigger_id = callback_context.triggered_id
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
 
-    if trigger_id == 'skip-button':
+    if trigger_id == LABEL_SKIP_BUTTON:
         annotation = MISSING_LABEL_MARKER
     else:
         now_str = datetime.now().time().isoformat(timespec="milliseconds")
         batch.end_times[batch.progress] = now_str
-        annotation = value if trigger_id == 'confirm-button' else DISCARD_MARKER
+        annotation = value if trigger_id == LABEL_CONFIRM_BUTTON else DISCARD_MARKER
 
     advance_batch(batch, annotation)
     # Override existing batch
@@ -461,6 +464,14 @@ def on_ui_update(
     )
 
 
+# When UI is updated focus the searchBar so the user can type right away
+clientside_callback(
+    ClientsideFunction(namespace='clientside', function_name='focusSearchbar'),
+    Input(UI_TRIGGER, 'data'),
+    prevent_initial_call=True
+)
+
+
 # On Query start. Show loading overlay.
 clientside_callback(
     ClientsideFunction(namespace='clientside', function_name='triggerTrue'),
@@ -508,7 +519,7 @@ def on_query(
 
 
 @callback(
-    Input('skip-batch-button', 'n_clicks'),
+    Input(SKIP_BATCH_BUTTON, 'n_clicks'),
     State('session-store', 'data'),
     State(ANNOT_PROGRESS, 'data'),
     output=dict(
@@ -544,7 +555,7 @@ def on_skip_batch(
 
 
 @callback(
-    Input('back-button', 'n_clicks'),
+    Input(LABEL_BACK_BUTTON, 'n_clicks'),
     State('session-store', 'data'),
     State('batch-size-input', 'value'),
     State(ANNOT_PROGRESS, 'data'),
