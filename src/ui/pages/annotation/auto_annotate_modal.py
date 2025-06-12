@@ -1,8 +1,10 @@
-from dash import (
+from dash_extensions.enrich import (
     Input,
     Output,
     State,
-    callback, ClientsideFunction, clientside_callback,
+    callback,
+    ClientsideFunction,
+    clientside_callback,
 )
 
 from dash.exceptions import PreventUpdate

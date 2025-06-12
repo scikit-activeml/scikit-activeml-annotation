@@ -1,4 +1,4 @@
-from dash import (
+from dash_extensions.enrich import (
     html,
     dcc,
     register_page,

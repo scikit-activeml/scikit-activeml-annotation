@@ -1,6 +1,5 @@
-from dash import (
+from dash_extensions.enrich import (
     dcc,
-    Dash,
     callback,
     clientside_callback,
     ClientsideFunction,
@@ -10,7 +9,6 @@ from dash import (
     ALL,
     html,
     MATCH,
-    Patch,
     no_update,
     register_page,
     callback_context,
@@ -66,7 +64,7 @@ def layout(**kwargs):
                                         id='selection_container',
                                         # TODO use Mantine styling for this.
                                         style={
-                                            "min-width": "15vw",
+                                            "minWidth": "15vw",
                                             "whiteSpace": "normal", "wordWrap": "break-word",
                                             # 'border': '3px dotted red'
                                         }

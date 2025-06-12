@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dash import dcc
+from dash_extensions.enrich import dcc
 import dash_mantine_components as dmc
 from plotly import graph_objects as go
 

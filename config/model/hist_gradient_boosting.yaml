@@ -1,0 +1,7 @@
+display_name: "Histogram Gradient Boosting Classifier"
+
+definition:
+  _target_: sklearn.ensemble.HistGradientBoostingClassifier
+  class_weight: "balanced"
+  early_stopping: True
+  max_iter: 100

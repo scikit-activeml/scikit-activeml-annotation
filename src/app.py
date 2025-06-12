@@ -1,19 +1,24 @@
 import dash
-from dash import (
-    Dash,
+from dash import DiskcacheManager
+from dash.exceptions import PreventUpdate
+
+
+from dash_extensions.enrich import (
+    DashProxy,
     Input,
     Output,
     State,
     html,
     dcc,
     callback,
-    DiskcacheManager
 )
-import diskcache
-from dash.exceptions import PreventUpdate
+
+from dash_extensions import Keyboard
 
 import dash_mantine_components as dmc
 import dash_loading_spinners
+
+import diskcache
 
 from ui.components.navbar import create_navbar
 from paths import (
@@ -25,7 +30,7 @@ from paths import (
 cache = diskcache.Cache(BACKGROUND_CALLBACK_CACHE_PATH)
 background_callback_manager = DiskcacheManager(cache)
 
-app = Dash(
+app = DashProxy(
     __name__,
     use_pages=True,  # Use dash page feature
     pages_folder=str(PAGES_PATH),
@@ -46,6 +51,11 @@ app.layout = (
             [
                 dcc.Store('browser-data'),
                 dcc.Store('session-store', storage_type='session'),
+
+                # Keyboard(
+                #     captureKeys=['Enter'],
+                #     id='keyboard',
+                # ),
 
                 create_navbar(),
                 dmc.AppShellMain(

@@ -1,5 +1,5 @@
 
-from dash import (
+from dash_extensions.enrich import (
     Input,
     Output,
     State,
