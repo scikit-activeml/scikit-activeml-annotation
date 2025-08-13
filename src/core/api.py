@@ -1,19 +1,22 @@
 import inspect
+import logging
+from bisect import bisect_left
 from pathlib import Path
-from typing import cast
+from typing import cast, Sequence
 from inspect import signature
 from functools import partial, lru_cache
 from typing import Callable
 
+import dash.exceptions
 import numpy as np
+from hydra import initialize_config_dir, compose
 from numpy.typing import NDArray
 from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
-from skactiveml.utils import MISSING_LABEL
 from skactiveml.pool import SubSamplingWrapper
 from skactiveml.classifier import SklearnClassifier
 from skactiveml.base import (
-    QueryStrategy,
     SkactivemlClassifier
 )
 
@@ -24,7 +27,10 @@ from embedding.base import EmbeddingBaseAdapter
 
 from util.deserialize import (
     parse_yaml_config_dir,
-    parse_yaml_file
+    parse_yaml_file,
+    overrides_to_list,
+    set_ids_from_overrides,
+    is_dataset_cfg_overridden
 )
 from paths import (
     DATA_CONFIG_PATH,
@@ -32,10 +38,12 @@ from paths import (
     QS_CONFIG_PATH,
     MODEL_CONFIG_PATH,
     EMBEDDING_CONFIG_PATH,
-    CACHE_PATH,
     ROOT_PATH,
-    EMBEDDINGS_CACHE_PATH
+    EMBEDDINGS_CACHE_PATH,
+    OVERRIDE_CONFIG_DATASET_PATH,
+    CONFIG_PATH
 )
+from util.utils import is_sorted
 
 
 # region API
@@ -64,6 +72,11 @@ def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
     return cast(QueryStrategyConfig, cfg)
 
 
+def get_dataset_cfg_from_path(path: Path) -> DatasetConfig:
+    cfg = parse_yaml_file(path)
+    return cast(DatasetConfig, cfg)
+
+
 def is_dataset_embedded(dataset_id, embedding_id) -> bool:
     key = f"{dataset_id}_{embedding_id}"
     path = EMBEDDINGS_CACHE_PATH / f"{key}.npz"
@@ -73,6 +86,23 @@ def is_dataset_embedded(dataset_id, embedding_id) -> bool:
 def dataset_path_exits(dataset_path: str) -> bool:
     path = ROOT_PATH / dataset_path
     return path.exists()
+
+
+@lru_cache(maxsize=1)
+def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> ActiveMlConfig:
+    overrides_hydra = overrides_to_list(overrides)
+
+    with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
+        cfg = compose('config', overrides=overrides_hydra)
+
+        set_ids_from_overrides(cfg, overrides)
+
+        # TODO workaround cause hydra searchpath does not work for me
+        if is_dataset_cfg_overridden(cfg.dataset.id):
+            path = OVERRIDE_CONFIG_DATASET_PATH / f'{cfg.dataset.id}.yaml'
+            cfg.dataset = get_dataset_cfg_from_path(path)
+
+        return cast(ActiveMlConfig, cfg)
 
 
 def request_query(
@@ -89,7 +119,15 @@ def request_query(
     if clf is not None:
         print("Fitting the classifier")
         # TODO can fitting the classifier fail?
+        # TODO filter out y that appear less then 2 times.
+        # Some classifiers need at least 2 samples per class to train properly
         clf.fit(X_cand, y_cand)
+
+        # TODO show how often class appeared
+        # Only update when refitting?
+        # unique_values, counts = np.unique(y_cand, return_counts=True)
+        # for val, count in zip(unique_values, counts):
+        #     logging.info(f'{val}: {count}')
 
     print("Querying the active ML model ...")
 
@@ -119,11 +157,14 @@ def request_query(
         # TODO clf could not have predict_proba
         class_probas = clf.predict_proba(query_samples)
 
+    lenght = len(query_indices)
     batch_state = Batch(
-        indices=query_indices,
+        emb_indices=query_indices,
         class_probas=class_probas.tolist(),
         progress=0,
-        annotations=[None] * len(query_indices)
+        annotations=[None] * lenght,
+        start_times=[None] * lenght,
+        end_times=[None] * lenght
     )
     return batch_state
 
@@ -160,7 +201,6 @@ def load_embeddings(
         dataset_id: str,
         embedding_id: str,
 ) -> np.ndarray:
-
     cache_key = f"{dataset_id}_{embedding_id}"
     cache_path = EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
 
@@ -179,24 +219,26 @@ def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
 
     # Get existing annotations
     annotations: list[Annotation] = _deserialize_annotations(json_file_path)
-    file_paths = get_file_paths(dataset_id, embedding_id, batch.indices)
-    print(batch.annotations)
+    file_paths = get_file_paths(dataset_id, embedding_id, batch.emb_indices)
 
-    # Create new Annotations
     new_annotations = [
         Annotation(
-            embedding_idx=idx,  # TODO use better names
+            embedding_idx=emb_idx,
             file_name=f_path,
-            label=annot_val
+            label=label,
+            start_time=start,
+            end_time=end
         )
-        for idx, f_path, annot_val in zip(batch.indices, file_paths, batch.annotations)
-        if annot_val != MISSING_LABEL_MARKER  # Do not store missing LABEL
+        for emb_idx, f_path, label, start, end in zip(
+            batch.emb_indices, file_paths, batch.annotations, batch.start_times, batch.end_times
+        )
+        if label != MISSING_LABEL_MARKER
     ]
 
     updated_annotations = annotations + new_annotations
 
     # Override annotations
-    _serialize_annotations(json_file_path,  updated_annotations)
+    _serialize_annotations(json_file_path, updated_annotations)
 
     num_annotated = len(updated_annotations)
     return num_annotated
@@ -209,6 +251,124 @@ def get_num_annotated(dataset_id: str) -> int:
 
 def get_total_num_samples(dataset_id, embedding_id) -> int:
     return len(load_embeddings(dataset_id, embedding_id))
+
+
+def auto_annotate(
+    X: np.ndarray,
+    cfg: ActiveMlConfig,
+    threshold: float,
+    sort_by_proba: bool = True
+):
+    y = _load_or_init_annotations(X, cfg.dataset)
+
+    model_cfg = cfg.model
+    if model_cfg is None:
+        # TODO use estimator to have more accurate terminology
+        logging.warning("Cannot auto complete as there is not estimator selected!")
+        return
+
+    # TODO there is some repeated code here.
+    random_state = np.random.RandomState(cfg.random_seed)
+    estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+
+    X_cand, y_cand, _ = _filter_outliers(X, y)
+    # TODO clf or estimator?
+    clf = estimator
+    clf.fit(X_cand, y_cand)
+
+    X_missing, y_missing, mapping = _filter_out_annotated(X, y)
+    class_probas = clf.predict_proba(X=X_missing)  # shape (num_samples * num_labels)
+
+    top_idxes = np.argmax(class_probas, axis=1)
+    top_classes = clf.classes_[top_idxes]
+    # Select top proba from each row
+    top_probas = class_probas[np.arange(class_probas.shape[0]), top_idxes]
+
+    # Select samples that are above the threshold probability
+    is_threshold = (top_probas > threshold)
+    emb_indices = mapping[is_threshold]
+    selected_classes = top_classes[is_threshold]
+    selected_probas = top_probas[is_threshold]
+
+    # Get file paths for embedding indices
+    selected_file_paths = get_file_paths(
+        cfg.dataset.id,
+        cfg.embedding.id,
+        emd_indices=emb_indices
+    )
+
+    automated_annots = [
+        AutomatedAnnotation(
+            embedding_idx=int(emb_idx),
+            label=label,
+            file_name=f_path,
+            confidence=float(proba),
+        )
+        for emb_idx, label, proba, f_path
+        in zip(emb_indices, selected_classes, selected_probas, selected_file_paths)
+    ]
+
+    if sort_by_proba:
+        automated_annots.sort(key=lambda ann: ann.confidence, reverse=True)
+
+    json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
+    manual_annots = _deserialize_annotations(json_file_path)
+
+    json_store_path = ANNOTATED_PATH / f'{cfg.dataset.id}-automated.json'
+    _serialize_annotations_with_keys(
+        json_store_path,
+        (manual_annots, automated_annots),
+        ('manual', 'automated')
+    )
+
+    num_auto_annotated = len(automated_annots)
+    num_total_annotated = num_auto_annotated + len(manual_annots)
+    logging.info(f'{num_auto_annotated} samples have been automatically annoted @\n{json_store_path}')
+    logging.info(f'In total annotated: {num_total_annotated}')
+
+    # TODO Do we want to use automatically generated labels for further fitting?
+    # total_annots = len(total_annots)
+    # return total_annots
+
+
+def save_partial_annotations(batch, dataset_id, embedding_id):
+    for idx, val in enumerate(batch.annotations):
+        # Put samples that have not been to missing so they come up again.
+        if val is None:
+            batch.annotations[idx] = MISSING_LABEL_MARKER
+    num_annotated = completed_batch(dataset_id, batch, embedding_id)
+    return num_annotated
+
+
+def add_class(dataset_cfg, new_class_name: str) -> int:
+    if new_class_name == '':
+        logging.warning(f"Class name has to have at least lenght 1")
+        # TODO I dont want to have dash in the api.
+        raise dash.exceptions.PreventUpdate
+
+    classes = dataset_cfg.classes
+
+    if new_class_name in classes:
+        logging.warning(f"Cannot add new class because {new_class_name} already exists.")
+        raise dash.exceptions.PreventUpdate
+
+    # TODO classes can be numbers in which case there is a different order.
+    if is_sorted(classes):
+        insert_idx = bisect_left(classes, new_class_name)
+        classes.insert(insert_idx, new_class_name)
+    else:
+        classes.append(new_class_name)
+        insert_idx = len(classes) - 1
+
+    OVERRIDE_CONFIG_DATASET_PATH.mkdir(parents=True, exist_ok=True)
+    override_path = OVERRIDE_CONFIG_DATASET_PATH / f'{dataset_cfg.id}.yaml'
+    OmegaConf.save(config=dataset_cfg, f=override_path)
+
+    # Invalidate cache. Force new composing when called next time.
+    compose_config.cache_clear()
+
+    logging.info(f'insert idx: {insert_idx}')
+    return insert_idx
 # endregion
 
 
@@ -252,6 +412,20 @@ def _serialize_annotations(path: Path, annotations: list[Annotation]):
         json.dump([asdict(ann) for ann in annotations], f, indent=4)
 
 
+def _serialize_annotations_with_keys(
+    path: Path,
+    data: Sequence[list],
+    keys: Sequence[str]
+):
+    payload = {
+        key: [asdict(obj) for obj in group]
+        for key, group in zip(keys, data)
+    }
+
+    with path.open('w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=4)
+
+
 def _load_labels_as_np(y: np.ndarray, json_path: Path) -> np.ndarray:
     """Load labels from a JSON file and return as a numpy array."""
     with json_path.open('r') as f:
@@ -271,6 +445,7 @@ def _estimator_accepts_random(est_cls) -> bool:
     return "random_state" in sig.parameters
 
 
+# TODO bad name it should be filter_discard_samples
 def _filter_outliers(X, y):
     # keep = np.isfinite(y) | np.isnan(y)  # np.isfinite(np.nan) == False
     keep = (y != DISCARD_MARKER)
@@ -280,7 +455,14 @@ def _filter_outliers(X, y):
     return X_filtered, y_filtered, mapping
 
 
-# TODO what api do the pages need from the api?
+def _filter_out_annotated(X, y):
+    missing = (y == MISSING_LABEL_MARKER)
+    X_filtered = X[missing]
+    y_filtered = y[missing]
+    mapping = np.arange(len(X))[missing]
+    return X_filtered, y_filtered, mapping
+
+
 # TODO will this be used for estmiators aswell?
 def _build_activeml_classifier(
         model_cfg: ModelConfig,
@@ -433,6 +615,13 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
 
     write_back, reconstruct = annotations[:-num_undo], annotations[-num_undo:]
 
+    labels, emb_idxes, starts, ends = [], [], [], []
+    for annot in reconstruct:
+        labels.append(annot.label)
+        emb_idxes.append(annot.embedding_idx)
+        starts.append(annot.start_time)
+        ends.append(annot.end_time)
+
     _serialize_annotations(json_file_path, write_back)
 
     model_cfg = cfg.model
@@ -443,25 +632,25 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
         random_state = np.random.RandomState(cfg.random_seed)
         estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
-    embedding_indices = [annot.embedding_idx for annot in reconstruct]
-
     if estimator is not None:
         X = load_embeddings(cfg.dataset.id, cfg.embedding.id)
         y = _load_or_init_annotations(X, cfg.dataset)
         X_cand, y_cand, _ = _filter_outliers(X, y)
 
         estimator.fit(X_cand, y_cand)
-        class_probas = estimator.predict_proba(X[embedding_indices])
+        class_probas = estimator.predict_proba(X[emb_idxes])
     else:
         class_probas = np.empty(0)
 
     # Restored Batch
     return (
         Batch(
-            indices=embedding_indices,
-            annotations=[annot.label for annot in reconstruct],
+            emb_indices=emb_idxes,
+            annotations=labels,
             class_probas=class_probas.tolist(),
             progress=num_undo,
+            start_times=starts,
+            end_times=ends,
         ),
-        len(write_back)
+        len(write_back)  # TODo Human annotations + automatic annotations.
     )

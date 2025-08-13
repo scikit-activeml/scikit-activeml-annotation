@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 import dash
 import dash_mantine_components as dmc
@@ -21,12 +22,10 @@ import dash_loading_spinners as dls
 
 from hydra.utils import instantiate
 
-from skactiveml.utils import MISSING_LABEL
-
 from ui.common import compose_from_state
+from ui.pages.annotation.auto_annotate_modal import create_auto_annotate_modal
 from ui.pages.annotation.data_display_modal import create_data_display_modal
 from ui.pages.annotation.label_setting_modal import create_label_settings_modal
-from util.deserialize import compose_config
 from core.api import (
     request_query,
     completed_batch,
@@ -34,6 +33,8 @@ from core.api import (
     get_file_paths,
     get_total_num_samples,
     get_num_annotated,
+    save_partial_annotations,
+    add_class,
 )
 from core.api import undo_annots_and_restore_batch
 
@@ -65,10 +66,14 @@ def layout(**kwargs):
                 dcc.Location(id=ANNOTATION_INIT, refresh=False),
                 dcc.Store(id=UI_TRIGGER),
                 dcc.Store(id=QUERY_TRIGGER),
-                dcc.Store(id=ANNOT_PROGRESS),
+                dcc.Store(id=START_TIME_TRIGGER),
+                dcc.Store(id=ANNOT_PROGRESS, storage_type='session'),
+                dcc.Store(id=ADD_CLASS_INSERTION_IDXES, storage_type='session'),
+                dcc.Store(id=ADD_CLASS_WAS_ADDED, storage_type='session', data=False),
 
                 create_label_settings_modal(),
                 create_data_display_modal(),
+                create_auto_annotate_modal(),
 
                 dmc.Box(id='label-radio'),  # avoid id error
                 dmc.AppShell(
@@ -140,6 +145,16 @@ def layout(**kwargs):
                                             [
                                                 dmc.Tooltip(
                                                     dmc.ActionIcon(
+                                                        DashIconify(icon='tabler:plus',width=20),
+                                                        variant='filled',
+                                                        id=ADD_CLASS_BTN,
+                                                        color="dark"
+                                                    ),
+                                                    label="Add a new class by using current Search Input."
+                                                ),
+
+                                                dmc.Tooltip(
+                                                    dmc.ActionIcon(
                                                         DashIconify(icon="clarity:settings-line", width=20),
                                                         variant="filled",
                                                         id=LABEL_SETTING_BTN,
@@ -152,9 +167,9 @@ def layout(**kwargs):
 
                                                 dmc.TextInput(
                                                     placeholder='Select Label',
-                                                    id='label-search-text-input',
+                                                    id=LABEL_SEARCH_INPUT,
                                                     radius='sm',
-                                                    w='150px'
+                                                    w='150px',
                                                 ),
                                             ],
                                             mt=15,
@@ -196,6 +211,10 @@ def layout(**kwargs):
                                         dmc.Card(
                                             dmc.Stack(
                                                 [
+                                                    dmc.Center(
+                                                        dmc.Title("Stats", order=3)
+                                                    ),
+
                                                     dmc.Tooltip(
                                                         dmc.Group(
                                                             [
@@ -328,7 +347,7 @@ def init_annot_progress(store_data):
     output=dict(
         store_data=Output('session-store', 'data', allow_duplicate=True),
         annot_data=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True),
-        search_text=Output('label-search-text-input', 'value'),
+        search_text=Output(LABEL_SEARCH_INPUT, 'value', allow_duplicate=True),
     ),
     prevent_initial_call=True
 )
@@ -344,14 +363,15 @@ def on_confirm(
         raise PreventUpdate
 
     trigger_id = callback_context.triggered_id
-    if trigger_id == "confirm-button":
-        annotation = value
-    elif trigger_id == "skip-button":
+    batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
+
+    if trigger_id == 'skip-button':
         annotation = MISSING_LABEL_MARKER
     else:
-        annotation = DISCARD_MARKER
+        now_str = datetime.now().time().isoformat(timespec="milliseconds")
+        batch.end_times[batch.progress] = now_str
+        annotation = value if trigger_id == 'confirm-button' else DISCARD_MARKER
 
-    batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     advance_batch(batch, annotation)
     # Override existing batch
     store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
@@ -370,8 +390,6 @@ def on_confirm(
         set_props(QUERY_TRIGGER, dict(data=True))
     else:
         set_props(UI_TRIGGER, dict(data=True))
-        # TODO this wont work always if the user went back or skipped?
-        # annot_data[AnnotProgress.PROGRESS.value] += 1
 
     return dict(
         store_data=store_data,
@@ -380,10 +398,13 @@ def on_confirm(
     )
 
 
+# TODO there should be a seperate store for the BATCH
 @callback(
     Input(UI_TRIGGER, 'data'),
     State('session-store', 'data'),
     State('browser-data', 'data'),
+    State(ADD_CLASS_WAS_ADDED, 'data'),
+    State(ADD_CLASS_INSERTION_IDXES, 'data'),
     State(LABEL_SETTING_SHOW_PROBAS, 'checked'),
     State(LABEL_SETTING_SORTBY, 'value'),
     output=dict(
@@ -393,6 +414,8 @@ def on_confirm(
         is_computing_overlay=Output(COMPUTING_OVERLAY, 'visible', allow_duplicate=True),
         data_width=Output(DATA_DISPLAY_CONTAINER, 'w'),
         data_height=Output(DATA_DISPLAY_CONTAINER, 'h'),
+        annot_start_time_trigger=Output(START_TIME_TRIGGER, 'data'),
+        was_class_added=Output(ADD_CLASS_WAS_ADDED, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True,
 )
@@ -400,7 +423,11 @@ def on_ui_update(
     ui_trigger,
     store_data,
     browser_dpr,
-    show_probas,
+    # Adding classes
+    was_class_added,
+    insertion_idxes,
+    # Label settings
+    show_probas,  # TODO this is confusing
     sort_by
 ):
     if ui_trigger is None and browser_dpr is None:
@@ -411,7 +438,7 @@ def on_ui_update(
 
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     idx = batch.progress
-    embedding_idx = batch.indices[idx]
+    embedding_idx = batch.emb_indices[idx]
 
     human_data_path = get_file_paths(
         activeml_cfg.dataset.id,
@@ -422,12 +449,15 @@ def on_ui_update(
     rendered_data, w, h = create_data_display(data_type, human_data_path, browser_dpr)
 
     return dict(
-        label_container=create_label_chips(activeml_cfg.dataset.classes, batch, show_probas, sort_by),
+        label_container=create_label_chips(activeml_cfg.dataset.classes, batch, show_probas, sort_by,
+                                           was_class_added, insertion_idxes),
         show_container=rendered_data,
-        batch_progress=(idx / len(batch.indices)) * 100,
+        batch_progress=(idx / len(batch.emb_indices)) * 100,
         is_computing_overlay=False,
         data_width=w,
         data_height=h,
+        annot_start_time_trigger=True,
+        was_class_added=False
     )
 
 
@@ -446,7 +476,8 @@ clientside_callback(
     State('subsampling-input', 'value'),
     output=dict(
         store_data=Output('session-store', 'data', allow_duplicate=True),
-        ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True)
+        ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
+        insertion_idxes=Output(ADD_CLASS_INSERTION_IDXES, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True,
     # background=True, # INFO LRU Cache won't work with this
@@ -463,6 +494,7 @@ def on_query(
     print("on query")
     activeml_cfg = compose_from_state(store_data)
     X = load_embeddings(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
+    # TODO bad name. Sampling parameters
     session_cfg = SessionConfig(batch_size, subsampling)
 
     batch = request_query(activeml_cfg, session_cfg, X)
@@ -470,7 +502,8 @@ def on_query(
 
     return dict(
         store_data=store_data,
-        ui_trigger=True
+        ui_trigger=True,
+        insertion_idxes=None,
     )
 
 
@@ -497,16 +530,10 @@ def on_skip_batch(
     batch_json = session_data.pop(StoreKey.BATCH_STATE.value, None)
     dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
     embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
-
-    # Store annotations that have been made so far.
     batch = Batch.from_json(batch_json)
 
-    for idx, val in enumerate(batch.annotations):
-        # Put samples that have not been to missing so they come up again.
-        if val is None:
-            batch.annotations[idx] = MISSING_LABEL_MARKER
-
-    num_annotated = completed_batch(dataset_id, batch, embedding_id)
+    # TODO this should not be necessary
+    num_annotated = save_partial_annotations(batch, dataset_id, embedding_id)
     annot_progress[AnnotProgress.PROGRESS.value] = num_annotated
 
     return dict(
@@ -589,8 +616,80 @@ def on_annot_progress(
 clientside_callback(
     ClientsideFunction(namespace='clientside', function_name='scrollToChip'),
     Output("label-radio", 'value'),
-    Input("label-search-text-input", "value"),
+    Input(LABEL_SEARCH_INPUT, "value"),
     prevent_initial_call=True,
 )
 
 
+@callback(
+    Input(START_TIME_TRIGGER, 'data'),
+    State('session-store', 'data'),
+    output=dict(
+        session_data=Output("session-store", 'data', allow_duplicate=True)
+    ),
+    prevent_initial_call=True
+)
+def on_annot_start_timestamp(
+    trigger,
+    session_data
+):
+    if trigger is None:
+        raise PreventUpdate
+
+    batch = Batch.from_json(session_data[StoreKey.BATCH_STATE.value])
+    # Problem that shit runs before ui rendering is complete.
+    idx = batch.progress
+    now_str = datetime.now().time().isoformat(timespec="milliseconds")
+    batch.start_times[idx] = now_str
+    session_data[StoreKey.BATCH_STATE.value] = batch.to_json()
+
+    return dict(
+        session_data=session_data
+    )
+
+
+@callback(
+    Input(ADD_CLASS_BTN, 'n_clicks'),
+    State('session-store', 'data'),
+    State(LABEL_SEARCH_INPUT, 'value'),
+    State(ADD_CLASS_INSERTION_IDXES, 'data'),
+    output=dict(
+        # ui_trigger=Output(QUERY_TRIGGER, 'data', allow_duplicate=True),
+        ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
+        # search_value=Output(LABEL_SEARCH_INPUT, 'value', allow_duplicate=True),
+        insertion_idxes=Output(ADD_CLASS_INSERTION_IDXES, 'data'),
+        label_value=Output('label-radio', 'value', allow_duplicate=True),
+        was_class_added=Output(ADD_CLASS_WAS_ADDED, 'data', allow_duplicate=True)
+    ),
+    prevent_initial_call=True
+)
+def on_add_new_class(
+    click,
+    session_data,
+    new_class_name,
+    insertion_idxes
+):
+    if click is None or new_class_name is None:
+        raise PreventUpdate
+
+    activeml_cfg = compose_from_state(session_data)
+
+    insertion_idx = add_class(
+        dataset_cfg=activeml_cfg.dataset,
+        new_class_name=new_class_name
+    )
+
+    # Let UI know that there have been added some class for which no probas will exist
+    # before refitting with new classes
+    if insertion_idxes is None:
+        insertion_idxes = [insertion_idx]
+    else:
+        insertion_idxes.append(insertion_idx)
+
+    return dict(
+        ui_trigger=True,
+        # search_value='',
+        insertion_idxes=insertion_idxes,
+        label_value=new_class_name,
+        was_class_added=True,
+    )

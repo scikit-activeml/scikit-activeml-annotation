@@ -6,8 +6,12 @@ LABELS_CONTAINER = 'labels-container'
 
 UI_TRIGGER = 'ui-trigger'
 QUERY_TRIGGER = 'query-trigger'
-ANNOT_PROGRESS = 'annot-progress'
+START_TIME_TRIGGER = 'start-time-trigger'
 
+# Stats
+# Annotation Progress
+ANNOT_PROGRESS = 'annot-progress'
+# TODo bad name NUM_SAMPLES_ANNOTATED_TEXT
 NUM_SAMPLES_TEXT = 'num_samples_text'
 ANNOT_PROGRESS_TEXT = 'annot-progress-text'
 
@@ -21,10 +25,23 @@ CONFIRM_DATA_DISPLAY_BTN = 'confirm-data-display-btn'
 RESAMPLING_METHOD_RADIO = 'resampling-method-radio'
 RESAMPLING_FACTOR_INPUT = 'resampling-factor-input'
 
-
 # Label setting Modal
 LABEL_SETTING_BTN = 'label-setting-btn'
 LABEL_SETTING_MODAL = 'label-setting-modal'
 LABEL_SETTING_CONFIRM_BTN = 'label-setting-confirm-btn'
 LABEL_SETTING_SHOW_PROBAS = 'label-setting-show-probas'
 LABEL_SETTING_SORTBY = 'label-setting-sortby'
+
+# Auto Annotate Modal
+AUTO_ANNOTATE_BTN = 'auto-annotate-btn'
+AUTO_ANNOTATE_MODAL = 'auto-annoate-modal'
+AUTO_ANNOTATE_CONFIRM_BTN = 'auto-annotate-confirm-btn'
+AUTO_ANNOTATE_THRESHOLD = 'auto-annotate-threshold'
+
+# Add Label
+ADD_CLASS_BTN = 'add-class-btn'
+ADD_CLASS_INSERTION_IDXES = 'add-class-insertion-idxes'
+ADD_CLASS_WAS_ADDED = 'add-class-was-added'
+
+# Search Input
+LABEL_SEARCH_INPUT = 'label-search-input'

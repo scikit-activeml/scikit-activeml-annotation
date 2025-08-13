@@ -87,7 +87,7 @@ def hide_page_loading_spinner(
     _,
     children,
 ):
-    print("hide_page_loading_spinner")
+    # print("hide_page_loading_spinner")
     if children:
         return None
     raise PreventUpdate

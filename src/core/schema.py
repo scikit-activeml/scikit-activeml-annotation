@@ -73,14 +73,18 @@ class SessionConfig:
 
 # endregion
 
+
 # region Batch State
 @dataclass
 class Batch:
     # TODO use correct datatypes
-    indices: list[int]  # TODO these might have to be renamved to embedding_indices.
-    annotations: list[int]
-    class_probas: np.ndarray  # shape len(indices) x num_of_classes
+    emb_indices: list[int]
+    annotations: list[str]
+    class_probas: list[list[float]]  # shape len(indices) x num_of_classes
     progress: int  # progress
+    # Meta data
+    start_times: list[str] = field(default_factory=list)
+    end_times: list[str] = field(default_factory=list)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
@@ -91,14 +95,16 @@ class Batch:
         return Batch(**data)
 
     def is_completed(self) -> bool:
-        return self.progress >= len(self.indices)
+        return self.progress >= len(self.emb_indices)
 
 
 @dataclass
 class Annotation:
     embedding_idx: int
     file_name: str
-    label: int
+    label: str
+    start_time: str = ''
+    end_time: str = ''
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
@@ -107,4 +113,20 @@ class Annotation:
     def from_json(json_str: str):
         data = json.loads(json_str)
         return Annotation(**data)
+
+
+@dataclass
+class AutomatedAnnotation:
+    embedding_idx: int
+    file_name: str
+    label: int
+    confidence: float
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+
+    @staticmethod
+    def from_json(json_str: str):
+        data = json.loads(json_str)
+        return AutomatedAnnotation(**data)
 # endregion

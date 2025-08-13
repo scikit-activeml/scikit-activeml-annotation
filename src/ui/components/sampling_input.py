@@ -14,6 +14,7 @@ def create_sampling_inputs():
             required=True,
             persistence='batch-size-persistence',
             persistence_type='local',
+            thousandSeparator=' ',
         ),
 
         # Subsampling selection
@@ -23,6 +24,7 @@ def create_sampling_inputs():
             allowNegative=False,
             debounce=True,
             hideControls=True,
+            thousandSeparator=' ',
             persistence='subsampling-persistence',
             persistence_type='local',
         ),
