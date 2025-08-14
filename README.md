@@ -15,7 +15,7 @@ We recommend installing it from the official Pytorch website with cuda support f
 ## Start the App
 *Run the app (if starting from root of project):*
 ```sh 
-python src/run.py
+python -m skactiveml_annotation
 ```
 
 
