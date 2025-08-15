@@ -1,16 +1,17 @@
+# TODO: Rename these are not real components
+# It should be clear from the name if defines callbacks or no
 import logging
-# TODO: Fix import style
+
 import numpy as np
 
 import dash_mantine_components as dmc
-from omegaconf import OmegaConf
 
 from skactiveml_annotation.core.schema import DataType, MISSING_LABEL_MARKER
-from skactiveml_annotation.ui.components.sampling_input import create_sampling_inputs
-from skactiveml_annotation.ui.pages.annotation.data_display import *
+from skactiveml_annotation.ui.components import sampling_input
 
-from skactiveml_annotation.ui.pages.annotation.ids import *
-from skactiveml_annotation.ui.pages.annotation.label_setting_modal import SORT_BY_PROBA, SORT_BY_ALPHABET
+from . import ids
+from . import data_display
+from . import label_setting_modal
 
 def create_sidebar():
     return (
@@ -22,14 +23,14 @@ def create_sidebar():
                             dmc.Title("Settings", order=3),
                         ),
 
-                        *create_sampling_inputs(),
+                        *sampling_input.create_sampling_inputs(),
 
                         # Data display settings Button
                         dmc.Center(
                             dmc.Tooltip(
                                 dmc.Button(
                                     'Display Settings',
-                                    id=DATA_DISPLAY_BTN,
+                                    id=ids.DATA_DISPLAY_BTN,
                                     color='dark',
                                     mt=15
                                 ),
@@ -81,7 +82,7 @@ def create_sidebar():
                         dmc.Center(
                             dmc.Button(
                                 'Auto Annotate',
-                                id=AUTO_ANNOTATE_BTN,
+                                id=ids.AUTO_ANNOTATE_BTN,
                                 color='dark'
                             )
                         )
@@ -184,11 +185,11 @@ def create_progress_bar(progress=0):
 
 def create_data_display(data_type, human_data_path, dpr):
     if data_type.value == DataType.IMAGE.value:
-        rendered_data, w, h = create_image_display(human_data_path, dpr)
+        rendered_data, w, h = data_display.create_image_display(human_data_path, dpr)
     elif data_type.value == DataType.TEXT.value:
-        rendered_data = create_text_display(human_data_path)
+        rendered_data = data_display.create_text_display(human_data_path)
     else:
-        rendered_data = create_audio_display(human_data_path)
+        rendered_data = data_display.create_audio_display(human_data_path)
 
     return (
         rendered_data,
@@ -292,13 +293,13 @@ def _pad_with_zeros(class_probas, insertion_idxes):
 
 
 def _sort(classes, class_probas, sort_by):
-    if sort_by == SORT_BY_PROBA:
+    if sort_by == label_setting_modal.SORT_BY_PROBA:
         if class_probas is None:
             logging.warning("Cannot sort by predicted class probabilities as this info is not available.")
             return classes, class_probas
 
         sorted_indices = sorted(range(len(class_probas)), key=lambda i: class_probas[i], reverse=True)
-    elif sort_by == SORT_BY_ALPHABET:
+    elif sort_by == label_setting_modal.SORT_BY_ALPHABET:
         sorted_indices = sorted(range(len(classes)), key=lambda i: str.lower(classes[i]))
 
     else:

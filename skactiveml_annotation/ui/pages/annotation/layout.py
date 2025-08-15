@@ -1,10 +1,11 @@
 import logging
 from datetime import datetime
 
+import hydra
+
 import dash
-import dash_mantine_components as dmc
 from dash import (
-    html,
+    dcc,
     register_page,
     callback,
     Input,
@@ -14,37 +15,32 @@ from dash import (
     clientside_callback,
     ClientsideFunction,
     set_props,
-    ALL
 )
 from dash.exceptions import PreventUpdate
+
 from dash_iconify import DashIconify
+import dash_mantine_components as dmc
 import dash_loading_spinners as dls
 
-from hydra.utils import instantiate
+from skactiveml_annotation.ui import common
+from skactiveml_annotation.core import api
 
-# TODO: Change import style
-from skactiveml_annotation.ui.common import compose_from_state
-from skactiveml_annotation.ui.pages.annotation.auto_annotate_modal import create_auto_annotate_modal
-from skactiveml_annotation.ui.pages.annotation.data_display_modal import create_data_display_modal
-from skactiveml_annotation.ui.pages.annotation.label_setting_modal import create_label_settings_modal
-from skactiveml_annotation.core.api import (
-    request_query,
-    completed_batch,
-    load_embeddings,
-    get_file_paths,
-    get_total_num_samples,
-    get_num_annotated,
-    save_partial_annotations,
-    add_class,
+from skactiveml_annotation.core.schema import (
+    Batch,
+    DataType,
+    SessionConfig,
+    DISCARD_MARKER,
+    MISSING_LABEL_MARKER,
 )
-from skactiveml_annotation.core.api import undo_annots_and_restore_batch
-
-from skactiveml_annotation.core.schema import *
 from skactiveml_annotation.ui.storekey import StoreKey, AnnotProgress
 
-from skactiveml_annotation.ui.pages.annotation.ids import *
-from skactiveml_annotation.ui.pages.annotation.components import *
-from skactiveml_annotation.ui.pages.annotation.data_display import *
+from . import (
+    ids,
+    components,
+    auto_annotate_modal,
+    data_display_modal,
+    label_setting_modal,
+)
 
 register_page(
     __name__,
@@ -64,24 +60,24 @@ def layout(**kwargs):
         dmc.Box(
             [
                 dcc.Location(id='url-annotation', refresh=True),
-                dcc.Location(id=ANNOTATION_INIT, refresh=False),
-                dcc.Store(id=UI_TRIGGER),
-                dcc.Store(id=QUERY_TRIGGER),
-                dcc.Store(id=START_TIME_TRIGGER),
-                dcc.Store(id=ANNOT_PROGRESS, storage_type='session'),
-                dcc.Store(id=ADD_CLASS_INSERTION_IDXES, storage_type='session'),
-                dcc.Store(id=ADD_CLASS_WAS_ADDED, storage_type='session', data=False),
+                dcc.Location(id=ids.ANNOTATION_INIT, refresh=False),
+                dcc.Store(id=ids.UI_TRIGGER),
+                dcc.Store(id=ids.QUERY_TRIGGER),
+                dcc.Store(id=ids.START_TIME_TRIGGER),
+                dcc.Store(id=ids.ANNOT_PROGRESS, storage_type='session'),
+                dcc.Store(id=ids.ADD_CLASS_INSERTION_IDXES, storage_type='session'),
+                dcc.Store(id=ids.ADD_CLASS_WAS_ADDED, storage_type='session', data=False),
 
-                create_label_settings_modal(),
-                create_data_display_modal(),
-                create_auto_annotate_modal(),
+                label_setting_modal.create_label_settings_modal(),
+                data_display_modal.create_data_display_modal(),
+                auto_annotate_modal.create_auto_annotate_modal(),
 
                 dmc.Box(id='label-radio'),  # avoid id error
                 dmc.AppShell(
                     [
                         dmc.AppShellNavbar(
                             id="sidebar-container-annotation",
-                            children=create_sidebar(),
+                            children=components.create_sidebar(),
                             p="md",
                             # style={'border': '4px solid red'}
                         ),
@@ -92,7 +88,7 @@ def layout(**kwargs):
                                 dmc.Box(
                                     [
                                         dmc.LoadingOverlay(
-                                            id=COMPUTING_OVERLAY,
+                                            id=ids.COMPUTING_OVERLAY,
                                             zIndex=10,
                                             loaderProps=dict(
                                                 children=dmc.Stack(
@@ -130,7 +126,7 @@ def layout(**kwargs):
                                         dmc.Center(
                                             dcc.Loading(
                                                 dmc.Box(
-                                                    id=DATA_DISPLAY_CONTAINER,
+                                                    id=ids.DATA_DISPLAY_CONTAINER,
                                                     w='250px',
                                                     h='250px',
                                                     my=10,
@@ -148,7 +144,7 @@ def layout(**kwargs):
                                                     dmc.ActionIcon(
                                                         DashIconify(icon='tabler:plus',width=20),
                                                         variant='filled',
-                                                        id=ADD_CLASS_BTN,
+                                                        id=ids.ADD_CLASS_BTN,
                                                         color="dark"
                                                     ),
                                                     label="Add a new class by using current Search Input."
@@ -158,17 +154,17 @@ def layout(**kwargs):
                                                     dmc.ActionIcon(
                                                         DashIconify(icon="clarity:settings-line", width=20),
                                                         variant="filled",
-                                                        id=LABEL_SETTING_BTN,
+                                                        id=ids.LABEL_SETTING_BTN,
                                                         color='dark',
                                                     ),
                                                     label='Label settings',
                                                 ),
 
-                                                create_confirm_buttons(),
+                                                components.create_confirm_buttons(),
 
                                                 dmc.TextInput(
                                                     placeholder='Select Label',
-                                                    id=LABEL_SEARCH_INPUT,
+                                                    id=ids.LABEL_SEARCH_INPUT,
                                                     radius='sm',
                                                     w='150px',
                                                 ),
@@ -182,12 +178,12 @@ def layout(**kwargs):
                                 ),
 
                                 dmc.Stack(
-                                    id=LABELS_CONTAINER,
+                                    id=ids.LABELS_CONTAINER,
                                     # h='400px'
                                     align='center'
                                 ),
                                 # create_confirm_buttons(),
-                                create_progress_bar()
+                                components.create_progress_bar()
                             ],
 
 
@@ -222,7 +218,7 @@ def layout(**kwargs):
                                                                 dmc.Text("Annotated:", style={"fontSize": "1vw"}),
                                                                 dmc.Text(
                                                                     dmc.NumberFormatter(
-                                                                        id=ANNOT_PROGRESS_TEXT,
+                                                                        id=ids.ANNOT_PROGRESS_TEXT,
                                                                         thousandSeparator=' ',
                                                                     ),
                                                                     style={"fontSize": "1vw"}
@@ -239,7 +235,7 @@ def layout(**kwargs):
                                                                 dmc.Text("Total:", style={"fontSize": "1vw"}),
                                                                 dmc.Text(
                                                                     dmc.NumberFormatter(
-                                                                        id=NUM_SAMPLES_TEXT,
+                                                                        id=ids.NUM_SAMPLES_TEXT,
                                                                         thousandSeparator=' '
                                                                     ),
                                                                     style={"fontSize": "1vw"}
@@ -290,17 +286,17 @@ def layout(**kwargs):
 clientside_callback(
     ClientsideFunction(namespace='clientside', function_name='getDpr'),
     Output('browser-data', 'data'),
-    Input(ANNOTATION_INIT, 'pathname')
+    Input(ids.ANNOTATION_INIT, 'pathname')
 )
 
 
 @callback(
-    Input(ANNOTATION_INIT, 'pathname'),
+    Input(ids.ANNOTATION_INIT, 'pathname'),
     State('session-store', 'data'),
     output=dict(
-        annot_progress=Output(ANNOT_PROGRESS, 'data'),
-        ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
-        query_trigger=Output(QUERY_TRIGGER, 'data', allow_duplicate=True),
+        annot_progress=Output(ids.ANNOT_PROGRESS, 'data'),
+        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
+        query_trigger=Output(ids.QUERY_TRIGGER, 'data', allow_duplicate=True),
     ),
     prevent_initial_call='initial_duplicate'
 )
@@ -333,8 +329,8 @@ def init_annot_progress(store_data):
     embedding_id = store_data.get(StoreKey.EMBEDDING_SELECTION.value)
 
     return {
-        AnnotProgress.PROGRESS.value: get_num_annotated(dataset_id),
-        AnnotProgress.TOTAL_NUM.value: get_total_num_samples(dataset_id, embedding_id)
+        AnnotProgress.PROGRESS.value: api.get_num_annotated(dataset_id),
+        AnnotProgress.TOTAL_NUM.value: api.get_total_num_samples(dataset_id, embedding_id)
     }
 
 
@@ -344,11 +340,11 @@ def init_annot_progress(store_data):
     Input('skip-button', 'n_clicks'),
     State('session-store', 'data'),
     State('label-radio', 'value'),
-    State(ANNOT_PROGRESS, 'data'),
+    State(ids.ANNOT_PROGRESS, 'data'),
     output=dict(
         store_data=Output('session-store', 'data', allow_duplicate=True),
-        annot_data=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True),
-        search_text=Output(LABEL_SEARCH_INPUT, 'value', allow_duplicate=True),
+        annot_data=Output(ids.ANNOT_PROGRESS, 'data', allow_duplicate=True),
+        search_text=Output(ids.LABEL_SEARCH_INPUT, 'value', allow_duplicate=True),
     ),
     prevent_initial_call=True
 )
@@ -381,16 +377,16 @@ def on_confirm(
         dataset_id = store_data[StoreKey.DATASET_SELECTION.value]
         embedding_id = store_data[StoreKey.EMBEDDING_SELECTION.value]
 
-        num_annotated = completed_batch(dataset_id, batch, embedding_id)
+        num_annotated = api.completed_batch(dataset_id, batch, embedding_id)
         if num_annotated == annot_data[AnnotProgress.TOTAL_NUM.value]:
             print("ANNOTATION COMPLETE")
             raise PreventUpdate
 
         annot_data[AnnotProgress.PROGRESS.value] = num_annotated
 
-        set_props(QUERY_TRIGGER, dict(data=True))
+        set_props(ids.QUERY_TRIGGER, dict(data=True))
     else:
-        set_props(UI_TRIGGER, dict(data=True))
+        set_props(ids.UI_TRIGGER, dict(data=True))
 
     return dict(
         store_data=store_data,
@@ -401,22 +397,22 @@ def on_confirm(
 
 # TODO there should be a seperate store for the BATCH
 @callback(
-    Input(UI_TRIGGER, 'data'),
+    Input(ids.UI_TRIGGER, 'data'),
     State('session-store', 'data'),
     State('browser-data', 'data'),
-    State(ADD_CLASS_WAS_ADDED, 'data'),
-    State(ADD_CLASS_INSERTION_IDXES, 'data'),
-    State(LABEL_SETTING_SHOW_PROBAS, 'checked'),
-    State(LABEL_SETTING_SORTBY, 'value'),
+    State(ids.ADD_CLASS_WAS_ADDED, 'data'),
+    State(ids.ADD_CLASS_INSERTION_IDXES, 'data'),
+    State(ids.LABEL_SETTING_SHOW_PROBAS, 'checked'),
+    State(ids.LABEL_SETTING_SORTBY, 'value'),
     output=dict(
-        label_container=Output(LABELS_CONTAINER, 'children'),
-        show_container=Output(DATA_DISPLAY_CONTAINER, 'children'),
+        label_container=Output(ids.LABELS_CONTAINER, 'children'),
+        show_container=Output(ids.DATA_DISPLAY_CONTAINER, 'children'),
         batch_progress=Output('batch-progress-bar', 'value'),
-        is_computing_overlay=Output(COMPUTING_OVERLAY, 'visible', allow_duplicate=True),
-        data_width=Output(DATA_DISPLAY_CONTAINER, 'w'),
-        data_height=Output(DATA_DISPLAY_CONTAINER, 'h'),
-        annot_start_time_trigger=Output(START_TIME_TRIGGER, 'data'),
-        was_class_added=Output(ADD_CLASS_WAS_ADDED, 'data', allow_duplicate=True)
+        is_computing_overlay=Output(ids.COMPUTING_OVERLAY, 'visible', allow_duplicate=True),
+        data_width=Output(ids.DATA_DISPLAY_CONTAINER, 'w'),
+        data_height=Output(ids.DATA_DISPLAY_CONTAINER, 'h'),
+        annot_start_time_trigger=Output(ids.START_TIME_TRIGGER, 'data'),
+        was_class_added=Output(ids.ADD_CLASS_WAS_ADDED, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True,
 )
@@ -434,24 +430,23 @@ def on_ui_update(
     if ui_trigger is None and browser_dpr is None:
         raise PreventUpdate
 
-    activeml_cfg = compose_from_state(store_data)
-    print(activeml_cfg.dataset.data_type)
-    data_type: DataType = instantiate(activeml_cfg.dataset.data_type)
+    activeml_cfg = common.compose_from_state(store_data)
+    data_type: DataType = hydra.utils.instantiate(activeml_cfg.dataset.data_type)
 
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     idx = batch.progress
     embedding_idx = batch.emb_indices[idx]
 
-    human_data_path = get_file_paths(
+    human_data_path = api.get_file_paths(
         activeml_cfg.dataset.id,
         activeml_cfg.embedding.id,
         embedding_idx
     )
 
-    rendered_data, w, h = create_data_display(data_type, human_data_path, browser_dpr)
+    rendered_data, w, h = components.create_data_display(data_type, human_data_path, browser_dpr)
 
     return dict(
-        label_container=create_label_chips(activeml_cfg.dataset.classes, batch, show_probas, sort_by,
+        label_container=components.create_label_chips(activeml_cfg.dataset.classes, batch, show_probas, sort_by,
                                            was_class_added, insertion_idxes),
         show_container=rendered_data,
         batch_progress=(idx / len(batch.emb_indices)) * 100,
@@ -466,20 +461,20 @@ def on_ui_update(
 # On Query start. Show loading overlay.
 clientside_callback(
     ClientsideFunction(namespace='clientside', function_name='triggerTrue'),
-    Output(COMPUTING_OVERLAY, 'visible'),
-    Input(QUERY_TRIGGER, 'data')
+    Output(ids.COMPUTING_OVERLAY, 'visible'),
+    Input(ids.QUERY_TRIGGER, 'data')
 )
 
 
 @callback(
-    Input(QUERY_TRIGGER, 'data'),
+    Input(ids.QUERY_TRIGGER, 'data'),
     State('session-store', 'data'),
     State('batch-size-input', 'value'),
     State('subsampling-input', 'value'),
     output=dict(
         store_data=Output('session-store', 'data', allow_duplicate=True),
-        ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
-        insertion_idxes=Output(ADD_CLASS_INSERTION_IDXES, 'data', allow_duplicate=True)
+        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
+        insertion_idxes=Output(ids.ADD_CLASS_INSERTION_IDXES, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True,
     # background=True, # INFO LRU Cache won't work with this
@@ -494,12 +489,12 @@ def on_query(
         raise PreventUpdate
 
     print("on query")
-    activeml_cfg = compose_from_state(store_data)
-    X = load_embeddings(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
+    activeml_cfg = common.compose_from_state(store_data)
+    X = api.load_embeddings(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
     # TODO bad name. Sampling parameters
     session_cfg = SessionConfig(batch_size, subsampling)
 
-    batch = request_query(activeml_cfg, session_cfg, X)
+    batch = api.request_query(activeml_cfg, session_cfg, X)
     store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
 
     return dict(
@@ -512,11 +507,11 @@ def on_query(
 @callback(
     Input('skip-batch-button', 'n_clicks'),
     State('session-store', 'data'),
-    State(ANNOT_PROGRESS, 'data'),
+    State(ids.ANNOT_PROGRESS, 'data'),
     output=dict(
-        query_trigger=Output(QUERY_TRIGGER, 'data'),
+        query_trigger=Output(ids.QUERY_TRIGGER, 'data'),
         session_data=Output('session-store', 'data', allow_duplicate=True),
-        annot_progress=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True)
+        annot_progress=Output(ids.ANNOT_PROGRESS, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
@@ -535,7 +530,7 @@ def on_skip_batch(
     batch = Batch.from_json(batch_json)
 
     # TODO this should not be necessary
-    num_annotated = save_partial_annotations(batch, dataset_id, embedding_id)
+    num_annotated = api.save_partial_annotations(batch, dataset_id, embedding_id)
     annot_progress[AnnotProgress.PROGRESS.value] = num_annotated
 
     return dict(
@@ -549,11 +544,11 @@ def on_skip_batch(
     Input('back-button', 'n_clicks'),
     State('session-store', 'data'),
     State('batch-size-input', 'value'),
-    State(ANNOT_PROGRESS, 'data'),
+    State(ids.ANNOT_PROGRESS, 'data'),
     output=dict(
         session_data=Output('session-store', 'data'),
-        ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
-        annot_progress=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True)
+        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
+        annot_progress=Output(ids.ANNOT_PROGRESS, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
@@ -571,10 +566,10 @@ def on_back_clicked(
 
     if batch.progress == 0:
         print("Have to get last batch to be able to go back.")
-        activeml_cfg = compose_from_state(session_data)
+        activeml_cfg = common.compose_from_state(session_data)
 
         # TODO it could be there is not enough labeled samples or there is no labeled samples anymore!
-        batch, num_annotations = undo_annots_and_restore_batch(activeml_cfg, batch_size)
+        batch, num_annotations = api.undo_annots_and_restore_batch(activeml_cfg, batch_size)
         # Decrease amount of annotations
 
         if batch is None:
@@ -594,11 +589,11 @@ def on_back_clicked(
 
 
 @callback(
-    Input(UI_TRIGGER, 'data'),
-    State(ANNOT_PROGRESS, 'data'),
+    Input(ids.UI_TRIGGER, 'data'),
+    State(ids.ANNOT_PROGRESS, 'data'),
     output=dict(
-        annot_progress=Output(ANNOT_PROGRESS_TEXT, 'value'),
-        num_samples=Output(NUM_SAMPLES_TEXT, 'value'),
+        annot_progress=Output(ids.ANNOT_PROGRESS_TEXT, 'value'),
+        num_samples=Output(ids.NUM_SAMPLES_TEXT, 'value'),
     ),
     prevent_initial_call=True
 )
@@ -618,13 +613,13 @@ def on_annot_progress(
 clientside_callback(
     ClientsideFunction(namespace='clientside', function_name='scrollToChip'),
     Output("label-radio", 'value'),
-    Input(LABEL_SEARCH_INPUT, "value"),
+    Input(ids.LABEL_SEARCH_INPUT, "value"),
     prevent_initial_call=True,
 )
 
 
 @callback(
-    Input(START_TIME_TRIGGER, 'data'),
+    Input(ids.START_TIME_TRIGGER, 'data'),
     State('session-store', 'data'),
     output=dict(
         session_data=Output("session-store", 'data', allow_duplicate=True)
@@ -651,17 +646,17 @@ def on_annot_start_timestamp(
 
 
 @callback(
-    Input(ADD_CLASS_BTN, 'n_clicks'),
+    Input(ids.ADD_CLASS_BTN, 'n_clicks'),
     State('session-store', 'data'),
-    State(LABEL_SEARCH_INPUT, 'value'),
-    State(ADD_CLASS_INSERTION_IDXES, 'data'),
+    State(ids.LABEL_SEARCH_INPUT, 'value'),
+    State(ids.ADD_CLASS_INSERTION_IDXES, 'data'),
     output=dict(
         # ui_trigger=Output(QUERY_TRIGGER, 'data', allow_duplicate=True),
-        ui_trigger=Output(UI_TRIGGER, 'data', allow_duplicate=True),
+        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
         # search_value=Output(LABEL_SEARCH_INPUT, 'value', allow_duplicate=True),
-        insertion_idxes=Output(ADD_CLASS_INSERTION_IDXES, 'data'),
+        insertion_idxes=Output(ids.ADD_CLASS_INSERTION_IDXES, 'data'),
         label_value=Output('label-radio', 'value', allow_duplicate=True),
-        was_class_added=Output(ADD_CLASS_WAS_ADDED, 'data', allow_duplicate=True)
+        was_class_added=Output(ids.ADD_CLASS_WAS_ADDED, 'data', allow_duplicate=True)
     ),
     prevent_initial_call=True
 )
@@ -674,9 +669,9 @@ def on_add_new_class(
     if click is None or new_class_name is None:
         raise PreventUpdate
 
-    activeml_cfg = compose_from_state(session_data)
+    activeml_cfg = common.compose_from_state(session_data)
 
-    insertion_idx = add_class(
+    insertion_idx = api.add_class(
         dataset_cfg=activeml_cfg.dataset,
         new_class_name=new_class_name
     )

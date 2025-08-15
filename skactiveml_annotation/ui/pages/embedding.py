@@ -1,5 +1,4 @@
 from dash import (
-    html,
     dcc,
     register_page,
     callback,
@@ -8,15 +7,12 @@ from dash import (
     State,
     callback_context
 )
-
-# TODO: Change import style
-from skactiveml_annotation.core.api import *
-from skactiveml_annotation.ui.common import compose_from_state
-from skactiveml_annotation.util.deserialize import *
-
 from dash.exceptions import PreventUpdate
+
 import dash_mantine_components as dmc
 
+from skactiveml_annotation import ui
+from skactiveml_annotation.core import api
 from skactiveml_annotation.ui.storekey import StoreKey
 
 register_page(
@@ -156,8 +152,8 @@ def compute_embedding(
 
 
 def _compute_embedding(store_data, progress_func):
-    activeml_cfg = compose_from_state(store_data)
-    compute_embeddings(activeml_cfg, progress_func)
+    activeml_cfg = ui.common.compose_from_state(store_data)
+    api.compute_embeddings(activeml_cfg, progress_func)
 
 
 def create_selected_embedding_view(session_data):

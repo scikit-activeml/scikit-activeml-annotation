@@ -1,38 +1,23 @@
 from dash import (
     dcc,
-    Dash,
     callback,
     clientside_callback,
     ClientsideFunction,
     Input,
     Output,
     State,
-    ALL,
     html,
-    MATCH,
-    Patch,
-    no_update,
     register_page,
-    callback_context,
 )
 from dash.exceptions import PreventUpdate
 
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-from hydra.utils import instantiate
 
-# TODO: Change import style
-from skactiveml_annotation.core.api import (
-    get_dataset_config_options,
-    get_qs_config_options,
-    get_model_config_options,
-    get_embedding_config_options,
-    is_dataset_embedded,
-    dataset_path_exits,
-)
+import hydra
 
-from skactiveml_annotation.ui.components.sampling_input import create_sampling_inputs
-
+from skactiveml_annotation.core import api
+from skactiveml_annotation.ui.components import sampling_input
 from skactiveml_annotation.ui.storekey import StoreKey
 
 RADIO_SELECTION = 'radio-selection'
@@ -111,13 +96,13 @@ def create_step_ui(step, session_data):
     elif step == 1:
         content = _create_embedding_radio_group(session_data)
     elif step == 2:
-        content = _create_radio_group(get_qs_config_options(), session_data.get(StoreKey.QUERY_SELECTION.value))
+        content = _create_radio_group(api.get_qs_config_options(), session_data.get(StoreKey.QUERY_SELECTION.value))
     elif step == 3:
-        content = _create_radio_group(get_model_config_options(), session_data.get(StoreKey.MODEL_SELECTION.value))
+        content = _create_radio_group(api.get_model_config_options(), session_data.get(StoreKey.MODEL_SELECTION.value))
     elif step == 4:
         content = dmc.Stack(
             [
-                *create_sampling_inputs(),
+                *sampling_input.create_sampling_inputs(),
                 # Dummy element to ensure this id exists in the layout at the last step
                 dmc.RadioGroup([], id=RADIO_SELECTION, display='none', readOnly=True)
             ]
@@ -162,7 +147,7 @@ def create_stepper():
 
 
 def _create_dataset_radio_item(cfg, cfg_display):
-    dataset_exists = dataset_path_exits(cfg.data_path)
+    dataset_exists = api.dataset_path_exits(cfg.data_path)
 
     radio_item = (
         dmc.Radio(
@@ -185,8 +170,8 @@ def _create_dataset_radio_item(cfg, cfg_display):
 
 def _create_dataset_selection(preselect):
     print("_create data selection invoked")
-    dataset_options = get_dataset_config_options()
-    data = [(cfg, f'{cfg.display_name} - ({instantiate(cfg.data_type).value})')
+    dataset_options = api.get_dataset_config_options()
+    data = [(cfg, f'{cfg.display_name} - ({hydra.utils.instantiate(cfg.data_type).value})')
             for cfg in dataset_options]
 
     # TODO repeated code.
@@ -206,7 +191,7 @@ def _create_dataset_selection(preselect):
 
 
 def _create_embedding_radio_group(session_data):
-    options = get_embedding_config_options()
+    options = api.get_embedding_config_options()
     formatted_options = [(cfg.id, cfg.display_name) for cfg in options]
 
     preselect = session_data.get(StoreKey.EMBEDDING_SELECTION.value)
@@ -218,7 +203,7 @@ def _create_embedding_radio_group(session_data):
                 dmc.Group(
                     [
                         dmc.Radio(label=cfg_name, value=cfg_id, size='md'),
-                        _create_bool_icon(is_dataset_embedded(
+                        _create_bool_icon(api.is_dataset_embedded(
                             session_data[StoreKey.DATASET_SELECTION.value],
                             cfg_id
                         ))
@@ -391,7 +376,7 @@ def go_to_next_page(
     dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
     embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
 
-    if is_dataset_embedded(dataset_id, embedding_id):
+    if api.is_dataset_embedded(dataset_id, embedding_id):
         print("Home to annotation \n -------------------------- \n")
         pathname = f'/annotation/{dataset_id}'
     else:

@@ -9,12 +9,12 @@ from torchvision.datasets import (
     FashionMNIST
 )
 
-from paths import DATASETS_PATH
+import skactiveml_annotation.paths as sap
 
 
 def load_cifar100_images():
     name = 'cifar100'
-    base_path = DATASETS_PATH / f"{name}"
+    base_path = sap.DATASETS_PATH / f"{name}"
     _load_torchvision_images(
         name,
         base_path,
@@ -28,7 +28,7 @@ def load_cifar100_images():
 
 def load_cifar10_images():
     name = 'cifar10'
-    base_path = DATASETS_PATH / f"{name}"
+    base_path = sap.DATASETS_PATH / f"{name}"
     _load_torchvision_images(
         name,
         base_path,
@@ -42,7 +42,7 @@ def load_cifar10_images():
 
 def load_mnist_images():
     name = 'mnist'
-    base_path = DATASETS_PATH / f"{name}"
+    base_path = sap.DATASETS_PATH / f"{name}"
     _load_torchvision_images(
         name,
         base_path,
@@ -56,7 +56,7 @@ def load_mnist_images():
 
 def load_fashion_mnist():
     name = 'fashion-mnist'
-    base_path = DATASETS_PATH / f"{name}"
+    base_path = sap.DATASETS_PATH / f"{name}"
     _load_torchvision_images(
         name,
         base_path,
@@ -70,7 +70,7 @@ def load_fashion_mnist():
 
 def load_stl10_images():
     name = 'stl10'
-    base_path = DATASETS_PATH / f"{name}"
+    base_path = sap.DATASETS_PATH / f"{name}"
     _load_torchvision_images(
         name,
         base_path,

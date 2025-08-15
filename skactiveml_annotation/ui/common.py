@@ -3,7 +3,6 @@ from skactiveml_annotation.core.schema import ActiveMlConfig
 from skactiveml_annotation.ui.storekey import StoreKey
 
 def compose_from_state(store_data) -> ActiveMlConfig:
-    print(store_data)
     overrides = (
         ('dataset', store_data[StoreKey.DATASET_SELECTION.value]),
         ('query_strategy', store_data[StoreKey.QUERY_SELECTION.value]),

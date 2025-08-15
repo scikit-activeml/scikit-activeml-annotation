@@ -2,19 +2,20 @@ from dash import (
     Input,
     Output,
     State,
-    callback, ClientsideFunction, clientside_callback,
+    callback 
 )
 
 from dash.exceptions import PreventUpdate
 
 import dash_mantine_components as dmc
 
-# TODO: Change import style
-from skactiveml_annotation.core.api import auto_annotate, load_embeddings, save_partial_annotations
+from skactiveml_annotation.core import api
+from skactiveml_annotation.ui import common
+
 from skactiveml_annotation.core.schema import Batch
-from skactiveml_annotation.ui.common import compose_from_state
-from skactiveml_annotation.ui.pages.annotation.ids import *
-from skactiveml_annotation.ui.storekey import StoreKey, AnnotProgress
+from skactiveml_annotation.ui.storekey import StoreKey 
+
+from . import ids
 
 def create_auto_annotate_modal():
     return dmc.Modal(
@@ -22,7 +23,7 @@ def create_auto_annotate_modal():
             [
 
                 dmc.NumberInput(
-                    id=AUTO_ANNOTATE_THRESHOLD,
+                    id=ids.AUTO_ANNOTATE_THRESHOLD,
                     min=0,
                     max=1,
                     hideControls=True,
@@ -39,13 +40,13 @@ def create_auto_annotate_modal():
                 dmc.Center(
                     dmc.Button(
                         'Confirm',
-                        id=AUTO_ANNOTATE_CONFIRM_BTN,
+                        id=ids.AUTO_ANNOTATE_CONFIRM_BTN,
                         color='dark',
                     )
                 )
             ],
         ),
-        id=AUTO_ANNOTATE_MODAL,
+        id=ids.AUTO_ANNOTATE_MODAL,
         title='Auto Annotate with Threshold',
         centered=True,
         shadow='xl',
@@ -53,9 +54,9 @@ def create_auto_annotate_modal():
 
 
 @callback(
-    Input(AUTO_ANNOTATE_BTN, 'n_clicks'),
+    Input(ids.AUTO_ANNOTATE_BTN, 'n_clicks'),
     output=dict(
-        modal_open=Output(AUTO_ANNOTATE_MODAL, 'opened'),
+        modal_open=Output(ids.AUTO_ANNOTATE_MODAL, 'opened'),
     ),
     prevent_initial_call=True
 )
@@ -72,10 +73,10 @@ def open_modal(
 
 # TODO this should be a background callback
 @callback(
-    Input(AUTO_ANNOTATE_CONFIRM_BTN, 'n_clicks'),
+    Input(ids.AUTO_ANNOTATE_CONFIRM_BTN, 'n_clicks'),
     State('session-store', 'data'),
-    State(ANNOT_PROGRESS, 'data'),
-    State(AUTO_ANNOTATE_THRESHOLD, 'value'),
+    State(ids.ANNOT_PROGRESS, 'data'),
+    State(ids.AUTO_ANNOTATE_THRESHOLD, 'value'),
     # output=dict(
     #     # annot_progress=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True)
     #     # query_trigger=Output(QUERY_TRIGGER, 'data', allow_duplicate=True)
@@ -93,8 +94,8 @@ def on_auto_annotate(
 
     # TODO what happens with the current batch Write back all annoted before doing it?
 
-    activeml_cfg = compose_from_state(session_data)
-    X = load_embeddings(
+    activeml_cfg = common.compose_from_state(session_data)
+    X = api.load_embeddings(
         activeml_cfg.dataset.id,
         activeml_cfg.embedding.id
     )
@@ -109,7 +110,7 @@ def on_auto_annotate(
     # num_annotated = save_partial_annotations(batch, dataset_id, embedding_id)
     # annot_progress[AnnotProgress.PROGRESS.value] = num_annotated
 
-    auto_annotate(X, activeml_cfg, threshold)
+    api.auto_annotate(X, activeml_cfg, threshold)
 
     # return dict(
     #     # query_trigger=True

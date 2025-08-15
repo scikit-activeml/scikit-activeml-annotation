@@ -1,72 +1,70 @@
-import inspect
+import json
 import logging
-from bisect import bisect_left
-from pathlib import Path
-from typing import cast, Sequence
-from inspect import signature
+import inspect
+import bisect
+from dataclasses import asdict 
 from functools import partial, lru_cache
-from typing import Callable
+from pathlib import Path
+from typing import Callable, Sequence, cast
 
-# TODO:Reorder imports
 import dash.exceptions
-import numpy as np
-from hydra import initialize_config_dir, compose
-from hydra.utils import instantiate
+
+import hydra
 from omegaconf import OmegaConf
 
-from skactiveml.pool import SubSamplingWrapper
+import numpy as np
+
+import sklearn
+from skactiveml.base import SkactivemlClassifier
 from skactiveml.classifier import SklearnClassifier
-from skactiveml.base import (
-    SkactivemlClassifier
-)
+from skactiveml.pool import SubSamplingWrapper 
 
-from sklearn.base import ClassifierMixin
-
-# TODO: Change import style
-import skactiveml_annotation
-from skactiveml_annotation.core.schema import *
-from skactiveml_annotation.embedding.base import EmbeddingBaseAdapter
-
-from skactiveml_annotation.util.deserialize import (
-    parse_yaml_config_dir,
-    parse_yaml_file,
-    overrides_to_list,
-    set_ids_from_overrides,
-    is_dataset_cfg_overridden
-)
-
-import skactiveml_annotation.paths as sap
 from skactiveml_annotation import util
+import skactiveml_annotation.paths as sap
 
+from skactiveml_annotation.embedding.base import EmbeddingBaseAdapter
+from skactiveml_annotation.core.schema import (
+    ActiveMlConfig,
+    DatasetConfig,
+    QueryStrategyConfig,
+    ModelConfig, 
+    EmbeddingConfig,
+    SessionConfig,
+    Annotation,
+    AutomatedAnnotation,
+    Batch,
+    MISSING_LABEL_MARKER,
+    DISCARD_MARKER,
+)
 
+# TODO: remove region
 # region API
 def get_dataset_config_options() -> list[DatasetConfig]:
-    cfgs = parse_yaml_config_dir(sap.DATA_CONFIG_PATH)
+    cfgs = util.deserialize.parse_yaml_config_dir(sap.DATA_CONFIG_PATH)
     return cast(list[DatasetConfig], cfgs)
 
 
 def get_qs_config_options() -> list[QueryStrategyConfig]:
-    cfgs = parse_yaml_config_dir(sap.QS_CONFIG_PATH)
+    cfgs = util.deserialize.parse_yaml_config_dir(sap.QS_CONFIG_PATH)
     return cast(list[QueryStrategyConfig], cfgs)
 
 
 def get_model_config_options() -> list[ModelConfig]:
-    cfgs = parse_yaml_config_dir(sap.MODEL_CONFIG_PATH)
+    cfgs = util.deserialize.parse_yaml_config_dir(sap.MODEL_CONFIG_PATH)
     return cast(list[ModelConfig], cfgs)
 
 
 def get_embedding_config_options() -> list[EmbeddingConfig]:
-    cfgs = parse_yaml_config_dir(sap.EMBEDDING_CONFIG_PATH)
+    cfgs = util.deserialize.parse_yaml_config_dir(sap.EMBEDDING_CONFIG_PATH)
     return cast(list[EmbeddingConfig], cfgs)
 
-
 def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
-    cfg = parse_yaml_file(sap.QS_CONFIG_PATH / f'{query_id}.yaml')
+    cfg = util.deserialize.parse_yaml_file(sap.QS_CONFIG_PATH / f'{query_id}.yaml')
     return cast(QueryStrategyConfig, cfg)
 
 
 def get_dataset_cfg_from_path(path: Path) -> DatasetConfig:
-    cfg = parse_yaml_file(path)
+    cfg = util.deserialize.parse_yaml_file(path)
     return cast(DatasetConfig, cfg)
 
 
@@ -83,15 +81,15 @@ def dataset_path_exits(dataset_path: str) -> bool:
 
 @lru_cache(maxsize=1)
 def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> ActiveMlConfig:
-    overrides_hydra = overrides_to_list(overrides)
+    overrides_hydra = util.deserialize.overrides_to_list(overrides)
 
-    with initialize_config_dir(version_base=None, config_dir=str(sap.CONFIG_PATH)):
-        cfg = compose('config', overrides=overrides_hydra)
+    with hydra.initialize_config_dir(version_base=None, config_dir=str(sap.CONFIG_PATH)):
+        cfg = hydra.compose('config', overrides=overrides_hydra)
 
-        set_ids_from_overrides(cfg, overrides)
+        util.deserialize.set_ids_from_overrides(cfg, overrides)
 
         # TODO workaround cause hydra searchpath does not work for me
-        if is_dataset_cfg_overridden(cfg.dataset.id):
+        if util.deserialize.is_dataset_cfg_overridden(cfg.dataset.id):
             path = sap.OVERRIDE_CONFIG_DATASET_PATH / f'{cfg.dataset.id}.yaml'
             cfg.dataset = get_dataset_cfg_from_path(path)
 
@@ -175,7 +173,7 @@ def compute_embeddings(
     if not data_path.is_absolute():
         data_path = sap.ROOT_PATH / data_path
 
-    adapter: EmbeddingBaseAdapter = instantiate(embedding_cfg.definition)
+    adapter: EmbeddingBaseAdapter = hydra.utils.instantiate(embedding_cfg.definition)
 
     X, file_paths = adapter.compute_embeddings(data_path, progress_func)
 
@@ -269,7 +267,7 @@ def auto_annotate(
     clf = estimator
     clf.fit(X_cand, y_cand)
 
-    X_missing, y_missing, mapping = _filter_out_annotated(X, y)
+    X_missing, _, mapping = _filter_out_annotated(X, y)
     class_probas = clf.predict_proba(X=X_missing)  # shape (num_samples * num_labels)
 
     top_idxes = np.argmax(class_probas, axis=1)
@@ -346,8 +344,8 @@ def add_class(dataset_cfg, new_class_name: str) -> int:
         raise dash.exceptions.PreventUpdate
 
     # TODO classes can be numbers in which case there is a different order.
-    if is_sorted(classes):
-        insert_idx = bisect_left(classes, new_class_name)
+    if util.utils.is_sorted(classes):
+        insert_idx = bisect.bisect_left(classes, new_class_name)
         classes.insert(insert_idx, new_class_name)
     else:
         classes.append(new_class_name)
@@ -473,13 +471,13 @@ def _build_activeml_classifier(
     if _estimator_accepts_random(est_cls):
         kwargs['random_state'] = random_state
 
-    est = instantiate(model_cfg.definition, **kwargs)
+    est = hydra.utils.instantiate(model_cfg.definition, **kwargs)
 
     if isinstance(est, SkactivemlClassifier):
         # Classifier is already wrapped aka supports missing labels
         # TODO missing_label wont have correct value.
         return est
-    elif isinstance(est, ClassifierMixin):
+    elif isinstance(est, sklearn.base.ClassifierMixin):
         wrapped_est = SklearnClassifier(
             estimator=est,
             classes=classes,
@@ -493,7 +491,7 @@ def _build_activeml_classifier(
 
 # TODO can use from skactiveml.utils import call_func instead?
 def _filter_kwargs(func: Callable, **kwargs) -> Callable:
-    params = signature(func).parameters
+    params = inspect.signature(func).parameters
     param_names = params.keys()
 
     has_kwargs = any(p.kind == p.VAR_KEYWORD for p in params.values())
@@ -521,14 +519,14 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
         estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
     # max_candidates for subsampling.
-    qs = instantiate(
+    qs = hydra.utils.instantiate(
         cfg.query_strategy.definition,
         random_state=random_state,
         missing_label=MISSING_LABEL_MARKER,
     )
 
     if session_cfg.subsampling is not None:
-        qs: SubSamplingWrapper = SubSamplingWrapper(
+        qs = SubSamplingWrapper(
             qs,
             max_candidates=session_cfg.subsampling,
             random_state=random_state,

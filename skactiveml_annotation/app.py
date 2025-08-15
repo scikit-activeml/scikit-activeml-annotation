@@ -23,7 +23,7 @@ cache = diskcache.Cache(sap.BACKGROUND_CALLBACK_CACHE_PATH)
 background_callback_manager = DiskcacheManager(cache)
 
 app = Dash(
-    __name__,
+    __package__,
     use_pages=True,  # Use dash page feature
     pages_folder=str(sap.PAGES_PATH),
     external_stylesheets=[dmc.theme.DEFAULT_THEME] + dmc.styles.ALL,  # TODO only use what is needed.

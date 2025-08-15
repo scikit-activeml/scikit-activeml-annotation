@@ -3,10 +3,9 @@ from sklearn import datasets
 from PIL import Image
 import numpy as np
 
-from paths import DATASETS_PATH
+import skactiveml_annotation.paths as sap
 
-
-def save_digits_images(output_dir=str(DATASETS_PATH / 'digits_images')):
+def save_digits_images(output_dir=str(sap.DATASETS_PATH / 'digits_images')):
     # Load digits dataset
     digits = datasets.load_digits()
     images = digits.images
