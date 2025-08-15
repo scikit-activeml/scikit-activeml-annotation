@@ -22,11 +22,12 @@ import dash_loading_spinners as dls
 
 from hydra.utils import instantiate
 
-from ui.common import compose_from_state
-from ui.pages.annotation.auto_annotate_modal import create_auto_annotate_modal
-from ui.pages.annotation.data_display_modal import create_data_display_modal
-from ui.pages.annotation.label_setting_modal import create_label_settings_modal
-from core.api import (
+# TODO: Change import style
+from skactiveml_annotation.ui.common import compose_from_state
+from skactiveml_annotation.ui.pages.annotation.auto_annotate_modal import create_auto_annotate_modal
+from skactiveml_annotation.ui.pages.annotation.data_display_modal import create_data_display_modal
+from skactiveml_annotation.ui.pages.annotation.label_setting_modal import create_label_settings_modal
+from skactiveml_annotation.core.api import (
     request_query,
     completed_batch,
     load_embeddings,
@@ -36,14 +37,14 @@ from core.api import (
     save_partial_annotations,
     add_class,
 )
-from core.api import undo_annots_and_restore_batch
+from skactiveml_annotation.core.api import undo_annots_and_restore_batch
 
-from core.schema import *
-from ui.storekey import StoreKey, AnnotProgress
+from skactiveml_annotation.core.schema import *
+from skactiveml_annotation.ui.storekey import StoreKey, AnnotProgress
 
-from ui.pages.annotation.ids import *
-from ui.pages.annotation.components import *
-from ui.pages.annotation.data_display import *
+from skactiveml_annotation.ui.pages.annotation.ids import *
+from skactiveml_annotation.ui.pages.annotation.components import *
+from skactiveml_annotation.ui.pages.annotation.data_display import *
 
 register_page(
     __name__,
@@ -434,6 +435,7 @@ def on_ui_update(
         raise PreventUpdate
 
     activeml_cfg = compose_from_state(store_data)
+    print(activeml_cfg.dataset.data_type)
     data_type: DataType = instantiate(activeml_cfg.dataset.data_type)
 
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])

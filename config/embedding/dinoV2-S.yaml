@@ -1,7 +1,7 @@
 display_name: "DINOv2 small 384"
 
 data_type:
-  _target_: core.schema.DataType
+  _target_: skactiveml_annotation.core.schema.DataType
   _args_: [Image]
 
 definition:

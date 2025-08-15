@@ -21,7 +21,8 @@ import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 from hydra.utils import instantiate
 
-from core.api import (
+# TODO: Change import style
+from skactiveml_annotation.core.api import (
     get_dataset_config_options,
     get_qs_config_options,
     get_model_config_options,
@@ -29,9 +30,10 @@ from core.api import (
     is_dataset_embedded,
     dataset_path_exits,
 )
-from ui.components.sampling_input import create_sampling_inputs
 
-from ui.storekey import StoreKey
+from skactiveml_annotation.ui.components.sampling_input import create_sampling_inputs
+
+from skactiveml_annotation.ui.storekey import StoreKey
 
 RADIO_SELECTION = 'radio-selection'
 

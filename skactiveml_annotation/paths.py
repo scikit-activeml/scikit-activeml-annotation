@@ -8,7 +8,7 @@ ASSETS_PATH = ROOT_PATH / 'assets'
 CONFIG_PATH = ROOT_PATH / 'config'
 DATASETS_PATH = ROOT_PATH / 'datasets'
 OUTPUT_PATH = ROOT_PATH / 'output'
-SRC_PATH = ROOT_PATH / 'src'
+PGK_ROOT_PATH = ROOT_PATH / 'skactiveml_annotation'
 
 # config
 EMBEDDING_CONFIG_PATH = CONFIG_PATH / 'embedding'
@@ -30,8 +30,8 @@ DATA_DISPLAY_CACHE_PATH = CACHE_PATH / 'data_display_cache'
 # output/override_config
 OVERRIDE_CONFIG_DATASET_PATH = OVERRIDE_CONFIG_PATH / 'dataset'
 
-# src
-UI_PATH = SRC_PATH / 'ui'
+# skactiveml_annotation
+UI_PATH = PGK_ROOT_PATH / 'ui'
 
-# src/ui
+# skactiveml_annotation/ui
 PAGES_PATH = UI_PATH / 'pages'

@@ -7,10 +7,10 @@ from inspect import signature
 from functools import partial, lru_cache
 from typing import Callable
 
+# TODO:Reorder imports
 import dash.exceptions
 import numpy as np
 from hydra import initialize_config_dir, compose
-from numpy.typing import NDArray
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
@@ -22,53 +22,46 @@ from skactiveml.base import (
 
 from sklearn.base import ClassifierMixin
 
-from core.schema import *
-from embedding.base import EmbeddingBaseAdapter
+# TODO: Change import style
+import skactiveml_annotation
+from skactiveml_annotation.core.schema import *
+from skactiveml_annotation.embedding.base import EmbeddingBaseAdapter
 
-from util.deserialize import (
+from skactiveml_annotation.util.deserialize import (
     parse_yaml_config_dir,
     parse_yaml_file,
     overrides_to_list,
     set_ids_from_overrides,
     is_dataset_cfg_overridden
 )
-from paths import (
-    DATA_CONFIG_PATH,
-    ANNOTATED_PATH,
-    QS_CONFIG_PATH,
-    MODEL_CONFIG_PATH,
-    EMBEDDING_CONFIG_PATH,
-    ROOT_PATH,
-    EMBEDDINGS_CACHE_PATH,
-    OVERRIDE_CONFIG_DATASET_PATH,
-    CONFIG_PATH
-)
-from util.utils import is_sorted
+
+import skactiveml_annotation.paths as sap
+from skactiveml_annotation import util
 
 
 # region API
 def get_dataset_config_options() -> list[DatasetConfig]:
-    cfgs = parse_yaml_config_dir(DATA_CONFIG_PATH)
+    cfgs = parse_yaml_config_dir(sap.DATA_CONFIG_PATH)
     return cast(list[DatasetConfig], cfgs)
 
 
 def get_qs_config_options() -> list[QueryStrategyConfig]:
-    cfgs = parse_yaml_config_dir(QS_CONFIG_PATH)
+    cfgs = parse_yaml_config_dir(sap.QS_CONFIG_PATH)
     return cast(list[QueryStrategyConfig], cfgs)
 
 
 def get_model_config_options() -> list[ModelConfig]:
-    cfgs = parse_yaml_config_dir(MODEL_CONFIG_PATH)
+    cfgs = parse_yaml_config_dir(sap.MODEL_CONFIG_PATH)
     return cast(list[ModelConfig], cfgs)
 
 
 def get_embedding_config_options() -> list[EmbeddingConfig]:
-    cfgs = parse_yaml_config_dir(EMBEDDING_CONFIG_PATH)
+    cfgs = parse_yaml_config_dir(sap.EMBEDDING_CONFIG_PATH)
     return cast(list[EmbeddingConfig], cfgs)
 
 
 def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
-    cfg = parse_yaml_file(QS_CONFIG_PATH / f'{query_id}.yaml')
+    cfg = parse_yaml_file(sap.QS_CONFIG_PATH / f'{query_id}.yaml')
     return cast(QueryStrategyConfig, cfg)
 
 
@@ -79,12 +72,12 @@ def get_dataset_cfg_from_path(path: Path) -> DatasetConfig:
 
 def is_dataset_embedded(dataset_id, embedding_id) -> bool:
     key = f"{dataset_id}_{embedding_id}"
-    path = EMBEDDINGS_CACHE_PATH / f"{key}.npz"
+    path = sap.EMBEDDINGS_CACHE_PATH / f"{key}.npz"
     return path.exists()
 
 
 def dataset_path_exits(dataset_path: str) -> bool:
-    path = ROOT_PATH / dataset_path
+    path = sap.ROOT_PATH / dataset_path
     return path.exists()
 
 
@@ -92,14 +85,14 @@ def dataset_path_exits(dataset_path: str) -> bool:
 def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> ActiveMlConfig:
     overrides_hydra = overrides_to_list(overrides)
 
-    with initialize_config_dir(version_base=None, config_dir=str(CONFIG_PATH)):
+    with initialize_config_dir(version_base=None, config_dir=str(sap.CONFIG_PATH)):
         cfg = compose('config', overrides=overrides_hydra)
 
         set_ids_from_overrides(cfg, overrides)
 
         # TODO workaround cause hydra searchpath does not work for me
         if is_dataset_cfg_overridden(cfg.dataset.id):
-            path = OVERRIDE_CONFIG_DATASET_PATH / f'{cfg.dataset.id}.yaml'
+            path = sap.OVERRIDE_CONFIG_DATASET_PATH / f'{cfg.dataset.id}.yaml'
             cfg.dataset = get_dataset_cfg_from_path(path)
 
         return cast(ActiveMlConfig, cfg)
@@ -180,7 +173,7 @@ def compute_embeddings(
     data_path = dataset_cfg.data_path
     data_path = Path(data_path)
     if not data_path.is_absolute():
-        data_path = ROOT_PATH / data_path
+        data_path = sap.ROOT_PATH / data_path
 
     adapter: EmbeddingBaseAdapter = instantiate(embedding_cfg.definition)
 
@@ -190,7 +183,7 @@ def compute_embeddings(
 
     # Unique key
     cache_key = f"{dataset_id}_{embedding_cfg.id}"
-    cache_path = EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
+    cache_path = sap.EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
 
     # Store relative file_paths
     np.savez(cache_path, X=X, file_paths=file_paths_str)
@@ -202,7 +195,7 @@ def load_embeddings(
         embedding_id: str,
 ) -> np.ndarray:
     cache_key = f"{dataset_id}_{embedding_id}"
-    cache_path = EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
+    cache_path = sap.EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
 
     if not cache_path.exists():
         raise RuntimeError(f"Cannot get embedding at path: {cache_path}! \nEmbedding should exists already")
@@ -214,7 +207,7 @@ def load_embeddings(
 
 # TODO rename to update json_annotations
 def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
-    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
+    json_file_path = sap.ANNOTATED_PATH / f'{dataset_id}.json'
     print("completed batch")
 
     # Get existing annotations
@@ -245,7 +238,7 @@ def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
 
 
 def get_num_annotated(dataset_id: str) -> int:
-    json_file_path = ANNOTATED_PATH / f'{dataset_id}.json'
+    json_file_path = sap.ANNOTATED_PATH / f'{dataset_id}.json'
     return len(_deserialize_annotations(json_file_path))
 
 
@@ -311,10 +304,10 @@ def auto_annotate(
     if sort_by_proba:
         automated_annots.sort(key=lambda ann: ann.confidence, reverse=True)
 
-    json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
+    json_file_path = sap.ANNOTATED_PATH / f'{cfg.dataset.id}.json'
     manual_annots = _deserialize_annotations(json_file_path)
 
-    json_store_path = ANNOTATED_PATH / f'{cfg.dataset.id}-automated.json'
+    json_store_path = sap.ANNOTATED_PATH / f'{cfg.dataset.id}-automated.json'
     _serialize_annotations_with_keys(
         json_store_path,
         (manual_annots, automated_annots),
@@ -360,8 +353,8 @@ def add_class(dataset_cfg, new_class_name: str) -> int:
         classes.append(new_class_name)
         insert_idx = len(classes) - 1
 
-    OVERRIDE_CONFIG_DATASET_PATH.mkdir(parents=True, exist_ok=True)
-    override_path = OVERRIDE_CONFIG_DATASET_PATH / f'{dataset_cfg.id}.yaml'
+    sap.OVERRIDE_CONFIG_DATASET_PATH.mkdir(parents=True, exist_ok=True)
+    override_path = sap.OVERRIDE_CONFIG_DATASET_PATH / f'{dataset_cfg.id}.yaml'
     OmegaConf.save(config=dataset_cfg, f=override_path)
 
     # Invalidate cache. Force new composing when called next time.
@@ -378,7 +371,7 @@ def _load_or_init_annotations(
         dataset_cfg: DatasetConfig
 ) -> np.ndarray:
     """Load existing labels or initialize with missing labels."""
-    json_file_path = ANNOTATED_PATH / f'{dataset_cfg.id}.json'
+    json_file_path = sap.ANNOTATED_PATH / f'{dataset_cfg.id}.json'
     num_samples = len(X)
     # TODO Performance. Dont repeat this computation
     max_label_name_len = max(
@@ -567,7 +560,7 @@ def _normalize_and_validate_paths(
 
             p_str = str(p)
         else:
-            full_p = ROOT_PATH / p
+            full_p = sap.ROOT_PATH / p
             if not full_p.is_file():
                 raise RuntimeError(
                     f'Resolved path: {full_p} does not exist or is not a file.\n'
@@ -587,9 +580,9 @@ def get_file_paths(
         dataset_id: str,
         embedding_id: str,
         emd_indices: list[int]
-) -> NDArray[np.str_] | np.str_:
+) -> np.ndarray[np.str_] | np.str_:
     cache_key = f'{dataset_id}_{embedding_id}'
-    cache_path = EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
+    cache_path = sap.EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
 
     if not cache_path.exists():
         raise RuntimeError(f"Cannot get embedding at path: {cache_path}! \nEmbedding should exists already")
@@ -602,7 +595,7 @@ def get_file_paths(
 
 def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[Batch | None, int]:
     # Assumes annotations are stored in json in the same order they were made.
-    json_file_path = ANNOTATED_PATH / f'{cfg.dataset.id}.json'
+    json_file_path = sap.ANNOTATED_PATH / f'{cfg.dataset.id}.json'
     annotations = _deserialize_annotations(json_file_path)
 
     # Check there is enough annotations made to go back that far.

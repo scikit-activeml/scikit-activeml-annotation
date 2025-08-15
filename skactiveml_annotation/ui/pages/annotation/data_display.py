@@ -4,14 +4,15 @@ from dash import dcc
 import dash_mantine_components as dmc
 from plotly import graph_objects as go
 
+# TODO: Change import style
 from PIL import Image, ImageFilter, ImageEnhance
 from PIL.Image import Resampling
 
 import base64
 from io import BytesIO
-
-from ui import data_display_settings
-from ui.storekey import DataDisplayCfgKey
+ 
+from skactiveml_annotation.ui import data_display_settings
+from skactiveml_annotation.ui.storekey import DataDisplayCfgKey
 
 DEFAULT_RESIZE_FACTOR = 1
 DEFAULT_RESAMPLING_METHOD = Resampling.NEAREST

@@ -1,16 +1,16 @@
 import logging
+# TODO: Fix import style
 import numpy as np
 
 import dash_mantine_components as dmc
 from omegaconf import OmegaConf
 
-from core.schema import DataType, MISSING_LABEL_MARKER
-from ui.components.sampling_input import create_sampling_inputs
-from ui.pages.annotation.data_display import *
+from skactiveml_annotation.core.schema import DataType, MISSING_LABEL_MARKER
+from skactiveml_annotation.ui.components.sampling_input import create_sampling_inputs
+from skactiveml_annotation.ui.pages.annotation.data_display import *
 
-from ui.pages.annotation.ids import *
-from ui.pages.annotation.label_setting_modal import SORT_BY_PROBA, SORT_BY_ALPHABET
-
+from skactiveml_annotation.ui.pages.annotation.ids import *
+from skactiveml_annotation.ui.pages.annotation.label_setting_modal import SORT_BY_PROBA, SORT_BY_ALPHABET
 
 def create_sidebar():
     return (

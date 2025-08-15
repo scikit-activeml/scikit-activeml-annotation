@@ -1,20 +1,17 @@
 import os
-import argparse
-
-import util.logging
+from argparse import ArgumentParser
 
 from werkzeug.middleware.profiler import ProfilerMiddleware
 
-from app import app
-from paths import (
-    PROFILER_PATH
-)
+from skactiveml_annotation import util
+from skactiveml_annotation.app import app
+import skactiveml_annotation.paths as sap
 
 PORT = 8050
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the application with or without profiling.")
+    parser = ArgumentParser(description="Run the application with or without profiling.")
     parser.add_argument("--profile", action="store_true", help="Enable profiling mode")
     parser.add_argument("--prod", action="store_true", help="Start the app in production mode")
     args = parser.parse_args()
@@ -44,7 +41,7 @@ def run_profile_mode():
         app.server.wsgi_app,
         sort_by=("cumtime", "tottime"),
         restrictions=[20],
-        profile_dir=str(PROFILER_PATH)
+        profile_dir=str(sap.PROFILER_PATH)
     )
     print("Starting app in profiler mode")
     app.run(debug=True, host='localhost', dev_tools_hot_reload=False, port=PORT)

@@ -15,26 +15,23 @@ from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
 import dash_loading_spinners
 
-from ui.components.navbar import create_navbar
-from paths import (
-    PAGES_PATH,
-    ASSETS_PATH,
-    BACKGROUND_CALLBACK_CACHE_PATH
-)
 
-cache = diskcache.Cache(BACKGROUND_CALLBACK_CACHE_PATH)
+from skactiveml_annotation.ui.components import navbar
+import skactiveml_annotation.paths as sap
+
+cache = diskcache.Cache(sap.BACKGROUND_CALLBACK_CACHE_PATH)
 background_callback_manager = DiskcacheManager(cache)
 
 app = Dash(
     __name__,
     use_pages=True,  # Use dash page feature
-    pages_folder=str(PAGES_PATH),
+    pages_folder=str(sap.PAGES_PATH),
     external_stylesheets=[dmc.theme.DEFAULT_THEME] + dmc.styles.ALL,  # TODO only use what is needed.
     # Allows to register callbacks on components that will be created by other callbacks,
     # and are therefore not in the initial layout.
     suppress_callback_exceptions=True,
     prevent_initial_callbacks=True,
-    assets_folder=str(ASSETS_PATH),
+    assets_folder=str(sap.ASSETS_PATH),
     title="scikit-activeml-annotation",
     background_callback_manager=background_callback_manager,
     update_title=''
@@ -47,7 +44,7 @@ app.layout = (
                 dcc.Store('browser-data'),
                 dcc.Store('session-store', storage_type='session'),
 
-                create_navbar(),
+                navbar.create_navbar(),
                 dmc.AppShellMain(
                     [
                         # TODO only use spinnger on home screen. It does not seem to work for other screen.

@@ -9,14 +9,15 @@ from dash import (
     callback_context
 )
 
-from core.api import *
-from ui.common import compose_from_state
-from util.deserialize import *
+# TODO: Change import style
+from skactiveml_annotation.core.api import *
+from skactiveml_annotation.ui.common import compose_from_state
+from skactiveml_annotation.util.deserialize import *
 
 from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
 
-from ui.storekey import StoreKey
+from skactiveml_annotation.ui.storekey import StoreKey
 
 register_page(
     __name__,

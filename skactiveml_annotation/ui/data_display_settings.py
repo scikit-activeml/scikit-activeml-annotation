@@ -1,10 +1,9 @@
 
 import diskcache as dc
 
-from paths import DATA_DISPLAY_CACHE_PATH
+import skactiveml_annotation.paths as sap
 
-cache = dc.Cache(DATA_DISPLAY_CACHE_PATH)
-
+cache = dc.Cache(sap.DATA_DISPLAY_CACHE_PATH)
 
 def get_or_default(key, default) -> dict:
     if key in cache:

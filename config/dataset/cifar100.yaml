@@ -17,5 +17,5 @@ classes: [
 data_path: 'datasets/cifar100/cifar100_images'
 
 data_type:
-  _target_: core.schema.DataType
+  _target_: skactiveml_annotation.core.schema.DataType
   _args_: [Image]

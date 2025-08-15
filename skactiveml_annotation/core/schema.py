@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, asdict
 import numpy as np
 from omegaconf import MISSING
 
-from embedding.base import EmbeddingBaseAdapter
+from skactiveml_annotation.embedding.base import EmbeddingBaseAdapter
 
 MISSING_LABEL_MARKER = 'MISSING_LABEL'
 DISCARD_MARKER = 'DISCARDED'

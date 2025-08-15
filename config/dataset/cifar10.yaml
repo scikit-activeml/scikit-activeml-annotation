@@ -3,5 +3,5 @@ classes: ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse
 data_path: 'datasets/cifar10/cifar10_images'
 
 data_type:
-  _target_: core.schema.DataType
+  _target_: skactiveml_annotation.core.schema.DataType
   _args_: [Image]

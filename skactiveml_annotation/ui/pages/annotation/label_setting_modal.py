@@ -10,7 +10,8 @@ from dash.exceptions import PreventUpdate
 
 import dash_mantine_components as dmc
 
-from ui.pages.annotation.ids import *
+# TODO: change import style
+from skactiveml_annotation.ui.pages.annotation.ids import *
 
 SORT_BY_ALPHABET = '0'
 SORT_BY_PROBA = '1'

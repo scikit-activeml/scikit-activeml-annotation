@@ -9,12 +9,12 @@ from dash.exceptions import PreventUpdate
 
 import dash_mantine_components as dmc
 
-from core.api import auto_annotate, load_embeddings, save_partial_annotations
-from core.schema import Batch
-from ui.common import compose_from_state
-from ui.pages.annotation.ids import *
-from ui.storekey import StoreKey, AnnotProgress
-
+# TODO: Change import style
+from skactiveml_annotation.core.api import auto_annotate, load_embeddings, save_partial_annotations
+from skactiveml_annotation.core.schema import Batch
+from skactiveml_annotation.ui.common import compose_from_state
+from skactiveml_annotation.ui.pages.annotation.ids import *
+from skactiveml_annotation.ui.storekey import StoreKey, AnnotProgress
 
 def create_auto_annotate_modal():
     return dmc.Modal(

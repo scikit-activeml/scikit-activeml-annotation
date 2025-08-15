@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from paths import ROOT_PATH
+import skactiveml_annotation.paths as sap
 
 
 FilePath = str | Path
@@ -16,7 +16,7 @@ def relative_to_root(path: FilePath) -> Path:
     if isinstance(path, str):
         path = Path(path)
 
-    return path.relative_to(ROOT_PATH)
+    return path.relative_to(sap.ROOT_PATH)
 
 
 class EmbeddingBaseAdapter(ABC):

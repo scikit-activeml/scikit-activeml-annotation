@@ -8,14 +8,14 @@ from dash import (
 
 from dash.exceptions import PreventUpdate
 
-from ui import data_display_settings
-from ui.pages.annotation.ids import *
+# TODO: Change import style
+from skactiveml_annotation.ui import data_display_settings
+from skactiveml_annotation.ui.pages.annotation.ids import *
 import dash_mantine_components as dmc
 
 from PIL.Image import Resampling
 
-from ui.storekey import DataDisplayCfgKey
-
+from skactiveml_annotation.ui.storekey import DataDisplayCfgKey
 
 def create_data_display_modal():
     # TODO need to check which data type it is.

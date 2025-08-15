@@ -1,16 +1,13 @@
+from pathlib import Path
 from functools import lru_cache
 
-from pathlib import Path
+import omegaconf
+from omegaconf import OmegaConf
 
-from omegaconf import DictConfig, OmegaConf
-
-from paths import (
-    OVERRIDE_CONFIG_DATASET_PATH,
-)
-
+import skactiveml_annotation.paths as sap
 
 @lru_cache(maxsize=5)
-def parse_yaml_config_dir(dir_path: Path | str) -> list[DictConfig]:
+def parse_yaml_config_dir(dir_path: Path | str) -> list[omegaconf.DictConfig]:
     """
     Parses YAML config files in a directory and returns a dictionary mapping
     file names (without extension) to their DictConfig objects.
@@ -39,7 +36,7 @@ def parse_yaml_config_dir(dir_path: Path | str) -> list[DictConfig]:
     return configs
 
 
-def parse_yaml_file(file_path: Path | str) -> DictConfig | None:
+def parse_yaml_file(file_path: Path | str) -> omegaconf.DictConfig | None:
     if isinstance(file_path, str):
         file_path = Path(file_path)
 
@@ -63,7 +60,7 @@ def overrides_to_list(overrides: tuple[tuple[str, str], ...]) -> list[str]:
     return [f'{group}={name}' for group, name in overrides]
 
 
-def set_ids_from_overrides(cfg: DictConfig, overrides: tuple[tuple[str, str], ...]):
+def set_ids_from_overrides(cfg: omegaconf.DictConfig, overrides: tuple[tuple[str, str], ...]):
     """
     Uses the provided override values to set the add 'id' field for each config category.
     To enable checking which option (config yaml file) was selected
@@ -85,5 +82,5 @@ def set_ids_from_overrides(cfg: DictConfig, overrides: tuple[tuple[str, str], ..
 
 
 def is_dataset_cfg_overridden(dataset_id) -> bool:
-    path = OVERRIDE_CONFIG_DATASET_PATH / f'{dataset_id}.yaml'
+    path = sap.OVERRIDE_CONFIG_DATASET_PATH / f'{dataset_id}.yaml'
     return path.exists()
