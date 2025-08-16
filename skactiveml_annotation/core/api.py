@@ -6,32 +6,31 @@ import bisect
 from dataclasses import asdict 
 from functools import partial, lru_cache
 from pathlib import Path
-from typing import Callable, cast
+from typing import Callable
 
 import dash.exceptions
 
 import hydra
+import pydantic
 from omegaconf import OmegaConf
 
 import numpy as np
 import numpy.typing as npt
 
-from pydantic import ValidationError
 import sklearn
 from skactiveml.base import SkactivemlClassifier
 from skactiveml.classifier import SklearnClassifier
 from skactiveml.pool import SubSamplingWrapper 
 
 from skactiveml_annotation import util
+from skactiveml_annotation.util import deserialize
 import skactiveml_annotation.paths as sap
 
-from skactiveml_annotation.embedding.base import EmbeddingBaseAdapter
 from skactiveml_annotation.core.schema import (
     ActiveMlConfig,
     EmbeddingConfig,
     QueryStrategyConfig,
     ModelConfig, 
-    EmbeddingTarget,
     DatasetConfig,
     SessionConfig,
     Annotation,
@@ -44,61 +43,28 @@ from skactiveml_annotation.core.schema import (
 # TODO: remove region
 # region API
 def get_dataset_config_options() -> list[DatasetConfig]:
-    raw_cfgs = util.deserialize.parse_yaml_config_dir(sap.DATA_CONFIG_PATH)
-    try:
-        return [DatasetConfig.model_validate(cfg) for cfg in raw_cfgs]
-    except RuntimeError:
-        # TODO:: Error handling!
-        raise
+    return deserialize.parse_yaml_config_dir(sap.DATA_CONFIG_PATH, DatasetConfig)
 
 def get_qs_config_options() -> list[QueryStrategyConfig]:
-    raw_cfgs = util.deserialize.parse_yaml_config_dir(sap.QS_CONFIG_PATH)
-    try:
-        return [QueryStrategyConfig.model_validate(cfg) for cfg in raw_cfgs]
-    except RuntimeError:
-        raise
+    return deserialize.parse_yaml_config_dir(sap.QS_CONFIG_PATH, QueryStrategyConfig)
 
 def get_model_config_options() -> list[ModelConfig]:
-    raw_cfgs = util.deserialize.parse_yaml_config_dir(sap.MODEL_CONFIG_PATH)
-
-    try:
-        return [ModelConfig.model_validate(cfg) for cfg in raw_cfgs]
-    except RuntimeError:
-        raise
-
+    return deserialize.parse_yaml_config_dir(sap.MODEL_CONFIG_PATH, ModelConfig)
 
 def get_embedding_config_options() -> list[EmbeddingConfig]:
-    raw_cfgs = util.deserialize.parse_yaml_config_dir(sap.EMBEDDING_CONFIG_PATH)
-    try:
-        return [EmbeddingConfig.model_validate(cfg) for cfg in raw_cfgs]
-    except RuntimeError:
-        raise
+    return deserialize.parse_yaml_config_dir(sap.EMBEDDING_CONFIG_PATH, EmbeddingConfig)
 
 def get_query_cfg_from_id(query_id: str) -> QueryStrategyConfig:
     path = sap.QS_CONFIG_PATH / f'{query_id}.yaml'
-    cfg_raw = util.deserialize.parse_yaml_file(path)
-
-    # TODO: The work should be done inside the deserialize function
-    try:
-        return QueryStrategyConfig.model_validate(cfg_raw)
-    except ValidationError:
-        logging.error(f"Failed to parse config at {path} as {QueryStrategyConfig.__name__}")
-        raise
+    return deserialize.parse_yaml_file(path, QueryStrategyConfig)
 
 def get_dataset_cfg_from_path(path: Path) -> DatasetConfig:
-    cfg_raw = util.deserialize.parse_yaml_file(path)
-    try:
-        return DatasetConfig.model_validate(cfg_raw)
-    except ValidationError:
-        logging.error(f"Failed to parse config at {path} as {DatasetConfig.__name__}")
-        raise
-
+    return deserialize.parse_yaml_file(path, DatasetConfig)
 
 def is_dataset_embedded(dataset_id: str, embedding_id: str) -> bool:
     key = f"{dataset_id}_{embedding_id}"
     path = sap.EMBEDDINGS_CACHE_PATH / f"{key}.npz"
     return path.exists()
-
 
 def dataset_path_exits(dataset_path: str) -> bool:
     path = sap.ROOT_PATH / dataset_path
@@ -107,25 +73,23 @@ def dataset_path_exits(dataset_path: str) -> bool:
 
 @lru_cache(maxsize=1)
 def compose_config(overrides: tuple[tuple[str, str], ...]) -> ActiveMlConfig:
-    overrides_hydra = util.deserialize.overrides_to_list(overrides)
+    overrides_hydra = deserialize.overrides_to_list(overrides)
 
     with hydra.initialize_config_dir(version_base=None, config_dir=str(sap.CONFIG_PATH)):
         cfg = hydra.compose('config', overrides=overrides_hydra)
 
-        print(OmegaConf.to_container(cfg, resolve=True))
-
         # TODO: add a comment here what is happening?
-        util.deserialize.set_ids_from_overrides(cfg, overrides)
+        deserialize.set_ids_from_overrides(cfg, overrides)
 
         # TODO: Check if dataset was overriden if for instance additional labels
         # have been added swap out dataset config to access that data
-        if util.deserialize.is_dataset_cfg_overridden(cfg.dataset.id):
+        if deserialize.is_dataset_cfg_overridden(cfg.dataset.id):
             path = sap.OVERRIDE_CONFIG_DATASET_PATH / f'{cfg.dataset.id}.yaml'
             cfg.dataset = get_dataset_cfg_from_path(path)
 
         try:
             return ActiveMlConfig.model_validate(cfg)
-        except ValidationError as e:
+        except pydantic.ValidationError as e:
             logging.error(f"Could not parse hydra configuration as ActiveMlConfig with error: {e}")
             raise
 

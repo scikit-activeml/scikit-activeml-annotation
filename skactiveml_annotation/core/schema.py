@@ -7,13 +7,14 @@ import logging
 from typing import Any, Literal, TypeVar 
 
 import hydra
-from pydantic import BaseModel, Field
+
+import pydantic
+from pydantic import Field
 
 from sklearn.base import ClassifierMixin
 from skactiveml.base import SingleAnnotatorPoolQueryStrategy
 
 from skactiveml_annotation.embedding.base import EmbeddingBaseAdapter
-
 
 MISSING_LABEL_MARKER = 'MISSING_LABEL'
 DISCARD_MARKER = 'DISCARDED'
@@ -22,26 +23,12 @@ DataTypeLiteral = Literal["skactiveml_annotation.core.schema.DataType"]
 
 T = TypeVar("T")
 
-def _instantiate(cfg: BaseModel, expected_type: type[T], **kwargs: Any) -> T:
-    try:
-        cfg_dict = cfg.model_dump(by_alias=True)
-        x = hydra.utils.instantiate(cfg_dict, **kwargs)
-        # TODO: instantiate can fail
-    except RuntimeError as e:
-        raise
-
-    if not isinstance(x, expected_type):
-        logging.error("hydra instantiated wrong type!")
-        raise RuntimeError
-
-    return x
-
 class DataType(Enum):
     AUDIO = "Audio"
     TEXT = "Text"
     IMAGE = "Image"
 
-class DataTypeTarget(BaseModel):
+class DataTypeTarget(pydantic.BaseModel):
     # ... tells pydantic this field is needed
     target_: DataTypeLiteral = Field(..., alias="_target_")
     args_: list[str] = Field(..., alias="_args_")
@@ -53,7 +40,7 @@ class DataTypeTarget(BaseModel):
         return _instantiate(self, DataType, **kwargs)
 
 
-class QueryStrategyTarget(BaseModel):
+class QueryStrategyTarget(pydantic.BaseModel):
     target_: str = Field(..., alias="_target_")
 
     class Config:
@@ -62,7 +49,7 @@ class QueryStrategyTarget(BaseModel):
     def instantiate(self, **kwargs: Any):
         return _instantiate(self, SingleAnnotatorPoolQueryStrategy , **kwargs)
 
-class ModelTarget(BaseModel):
+class ModelTarget(pydantic.BaseModel):
     target_: str = Field(..., alias="_target_")
 
     class Config:
@@ -71,7 +58,7 @@ class ModelTarget(BaseModel):
     def instantiate(self, **kwargs: Any):
         return _instantiate(self, ClassifierMixin, **kwargs)
 
-class EmbeddingTarget(BaseModel):
+class EmbeddingTarget(pydantic.BaseModel):
     target_: str = Field(..., alias="_target_")
 
     class Config:
@@ -80,13 +67,13 @@ class EmbeddingTarget(BaseModel):
     def instantiate(self, **kwargs: Any):
         return _instantiate(self, EmbeddingBaseAdapter, **kwargs)
 
-class EmbeddingConfig(BaseModel):
+class EmbeddingConfig(pydantic.BaseModel):
     id: str
     display_name: str
     definition: EmbeddingTarget 
 
 
-class DatasetConfig(BaseModel):
+class DatasetConfig(pydantic.BaseModel):
     id: str
     display_name: str
     classes: list[str]
@@ -94,25 +81,53 @@ class DatasetConfig(BaseModel):
     data_type: DataTypeTarget
 
 
-class ModelConfig(BaseModel):
+class ModelConfig(pydantic.BaseModel):
     id: str
     display_name: str
     definition: ModelTarget
 
 
-class QueryStrategyConfig(BaseModel):
+class QueryStrategyConfig(pydantic.BaseModel):
     id: str
     display_name: str
     model_agnostic: bool
     definition: QueryStrategyTarget
 
 
-class ActiveMlConfig(BaseModel):
+class ActiveMlConfig(pydantic.BaseModel):
     random_seed: int
     model: ModelConfig | None = None
     dataset: DatasetConfig
     query_strategy: QueryStrategyConfig
     embedding: EmbeddingConfig
+
+
+def _instantiate(cfg: pydantic.BaseModel, expected_type: type[T], **kwargs: Any) -> T:
+    try:
+        cfg_dict = cfg.model_dump(by_alias=True)
+        x = hydra.utils.instantiate(cfg_dict, **kwargs)
+        # TODO: instantiate can fail
+    except Exception as e:
+        logging.error(
+            "\n".join([
+                f"Hydra failed to instantiate instance of: {expected_type.__name__}.",
+                f"Config: {cfg.model_dump(by_alias=True)}",
+                f"Exception: {e}",
+            ])
+        )
+        raise
+
+    if not isinstance(x, expected_type):
+        logging.error("\n".join([
+            "Hydra instantiated unexpected type:",
+            f"Expected type: {expected_type.__name__}",
+            f"Actual type:   {type(x).__name__}",
+        ]))
+        raise TypeError(
+            f"Expected instance of {expected_type.__name__}, got {type(x).__name__}"
+        )
+  
+    return x
 
 
 @dataclass
