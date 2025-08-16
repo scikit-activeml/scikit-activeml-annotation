@@ -431,7 +431,7 @@ def on_ui_update(
         raise PreventUpdate
 
     activeml_cfg = common.compose_from_state(store_data)
-    data_type: DataType = hydra.utils.instantiate(activeml_cfg.dataset.data_type)
+    data_type = activeml_cfg.dataset.data_type.instantiate()
 
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     idx = batch.progress

@@ -1,10 +1,8 @@
-import dash
-from dash import html
-
 import dash_mantine_components as dmc
 
+def create_navbar(**kwargs: object):
+    _ = kwargs
 
-def create_navbar(**kwargs):
     return dmc.AppShellHeader(
         [
             dmc.Flex(

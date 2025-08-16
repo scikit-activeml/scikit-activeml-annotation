@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import json
 import logging
 import inspect
@@ -5,7 +6,7 @@ import bisect
 from dataclasses import asdict 
 from functools import partial, lru_cache
 from pathlib import Path
-from typing import Callable, Sequence, cast
+from typing import Callable, cast
 
 import dash.exceptions
 
@@ -13,7 +14,9 @@ import hydra
 from omegaconf import OmegaConf
 
 import numpy as np
+import numpy.typing as npt
 
+from pydantic import ValidationError
 import sklearn
 from skactiveml.base import SkactivemlClassifier
 from skactiveml.classifier import SklearnClassifier
@@ -25,10 +28,11 @@ import skactiveml_annotation.paths as sap
 from skactiveml_annotation.embedding.base import EmbeddingBaseAdapter
 from skactiveml_annotation.core.schema import (
     ActiveMlConfig,
-    DatasetConfig,
+    EmbeddingConfig,
     QueryStrategyConfig,
     ModelConfig, 
-    EmbeddingConfig,
+    EmbeddingTarget,
+    DatasetConfig,
     SessionConfig,
     Annotation,
     AutomatedAnnotation,
@@ -40,35 +44,57 @@ from skactiveml_annotation.core.schema import (
 # TODO: remove region
 # region API
 def get_dataset_config_options() -> list[DatasetConfig]:
-    cfgs = util.deserialize.parse_yaml_config_dir(sap.DATA_CONFIG_PATH)
-    return cast(list[DatasetConfig], cfgs)
-
+    raw_cfgs = util.deserialize.parse_yaml_config_dir(sap.DATA_CONFIG_PATH)
+    try:
+        return [DatasetConfig.model_validate(cfg) for cfg in raw_cfgs]
+    except RuntimeError:
+        # TODO:: Error handling!
+        raise
 
 def get_qs_config_options() -> list[QueryStrategyConfig]:
-    cfgs = util.deserialize.parse_yaml_config_dir(sap.QS_CONFIG_PATH)
-    return cast(list[QueryStrategyConfig], cfgs)
-
+    raw_cfgs = util.deserialize.parse_yaml_config_dir(sap.QS_CONFIG_PATH)
+    try:
+        return [QueryStrategyConfig.model_validate(cfg) for cfg in raw_cfgs]
+    except RuntimeError:
+        raise
 
 def get_model_config_options() -> list[ModelConfig]:
-    cfgs = util.deserialize.parse_yaml_config_dir(sap.MODEL_CONFIG_PATH)
-    return cast(list[ModelConfig], cfgs)
+    raw_cfgs = util.deserialize.parse_yaml_config_dir(sap.MODEL_CONFIG_PATH)
+
+    try:
+        return [ModelConfig.model_validate(cfg) for cfg in raw_cfgs]
+    except RuntimeError:
+        raise
 
 
 def get_embedding_config_options() -> list[EmbeddingConfig]:
-    cfgs = util.deserialize.parse_yaml_config_dir(sap.EMBEDDING_CONFIG_PATH)
-    return cast(list[EmbeddingConfig], cfgs)
+    raw_cfgs = util.deserialize.parse_yaml_config_dir(sap.EMBEDDING_CONFIG_PATH)
+    try:
+        return [EmbeddingConfig.model_validate(cfg) for cfg in raw_cfgs]
+    except RuntimeError:
+        raise
 
-def get_query_cfg_from_id(query_id) -> QueryStrategyConfig:
-    cfg = util.deserialize.parse_yaml_file(sap.QS_CONFIG_PATH / f'{query_id}.yaml')
-    return cast(QueryStrategyConfig, cfg)
+def get_query_cfg_from_id(query_id: str) -> QueryStrategyConfig:
+    path = sap.QS_CONFIG_PATH / f'{query_id}.yaml'
+    cfg_raw = util.deserialize.parse_yaml_file(path)
 
+    # TODO: The work should be done inside the deserialize function
+    try:
+        return QueryStrategyConfig.model_validate(cfg_raw)
+    except ValidationError:
+        logging.error(f"Failed to parse config at {path} as {QueryStrategyConfig.__name__}")
+        raise
 
 def get_dataset_cfg_from_path(path: Path) -> DatasetConfig:
-    cfg = util.deserialize.parse_yaml_file(path)
-    return cast(DatasetConfig, cfg)
+    cfg_raw = util.deserialize.parse_yaml_file(path)
+    try:
+        return DatasetConfig.model_validate(cfg_raw)
+    except ValidationError:
+        logging.error(f"Failed to parse config at {path} as {DatasetConfig.__name__}")
+        raise
 
 
-def is_dataset_embedded(dataset_id, embedding_id) -> bool:
+def is_dataset_embedded(dataset_id: str, embedding_id: str) -> bool:
     key = f"{dataset_id}_{embedding_id}"
     path = sap.EMBEDDINGS_CACHE_PATH / f"{key}.npz"
     return path.exists()
@@ -80,20 +106,28 @@ def dataset_path_exits(dataset_path: str) -> bool:
 
 
 @lru_cache(maxsize=1)
-def compose_config(overrides: tuple[tuple[str, str], ...] | None = None) -> ActiveMlConfig:
+def compose_config(overrides: tuple[tuple[str, str], ...]) -> ActiveMlConfig:
     overrides_hydra = util.deserialize.overrides_to_list(overrides)
 
     with hydra.initialize_config_dir(version_base=None, config_dir=str(sap.CONFIG_PATH)):
         cfg = hydra.compose('config', overrides=overrides_hydra)
 
+        print(OmegaConf.to_container(cfg, resolve=True))
+
+        # TODO: add a comment here what is happening?
         util.deserialize.set_ids_from_overrides(cfg, overrides)
 
-        # TODO workaround cause hydra searchpath does not work for me
+        # TODO: Check if dataset was overriden if for instance additional labels
+        # have been added swap out dataset config to access that data
         if util.deserialize.is_dataset_cfg_overridden(cfg.dataset.id):
             path = sap.OVERRIDE_CONFIG_DATASET_PATH / f'{cfg.dataset.id}.yaml'
             cfg.dataset = get_dataset_cfg_from_path(path)
 
-        return cast(ActiveMlConfig, cfg)
+        try:
+            return ActiveMlConfig.model_validate(cfg)
+        except ValidationError as e:
+            logging.error(f"Could not parse hydra configuration as ActiveMlConfig with error: {e}")
+            raise
 
 
 def request_query(
@@ -173,7 +207,8 @@ def compute_embeddings(
     if not data_path.is_absolute():
         data_path = sap.ROOT_PATH / data_path
 
-    adapter: EmbeddingBaseAdapter = hydra.utils.instantiate(embedding_cfg.definition)
+    # TODO:: Check type and cast, it has to be an EmbeddingBadeAdapter here
+    adapter = embedding_cfg.definition.instantiate()
 
     X, file_paths = adapter.compute_embeddings(data_path, progress_func)
 
@@ -240,7 +275,7 @@ def get_num_annotated(dataset_id: str) -> int:
     return len(_deserialize_annotations(json_file_path))
 
 
-def get_total_num_samples(dataset_id, embedding_id) -> int:
+def get_total_num_samples(dataset_id: str, embedding_id: str) -> int:
     return len(load_embeddings(dataset_id, embedding_id))
 
 
@@ -405,7 +440,7 @@ def _serialize_annotations(path: Path, annotations: list[Annotation]):
 
 def _serialize_annotations_with_keys(
     path: Path,
-    data: Sequence[list],
+    data: Sequence[Sequence[Annotation]],
     keys: Sequence[str]
 ):
     payload = {
@@ -437,7 +472,7 @@ def _estimator_accepts_random(est_cls) -> bool:
 
 
 # TODO bad name it should be filter_discard_samples
-def _filter_outliers(X, y):
+def _filter_outliers(X: npt.NDArray[np.number], y: npt.NDArray[np.number]):
     # keep = np.isfinite(y) | np.isnan(y)  # np.isfinite(np.nan) == False
     keep = (y != DISCARD_MARKER)
     X_filtered = X[keep]
@@ -446,7 +481,7 @@ def _filter_outliers(X, y):
     return X_filtered, y_filtered, mapping
 
 
-def _filter_out_annotated(X, y):
+def _filter_out_annotated(X: npt.NDArray[np.number], y: npt.NDArray[np.number]):
     missing = (y == MISSING_LABEL_MARKER)
     X_filtered = X[missing]
     y_filtered = y[missing]
@@ -465,13 +500,13 @@ def _build_activeml_classifier(
     # classes = np.arange(n_classes)
 
     # TODO rename to Estimator?
-    est_cls = model_cfg.definition['_target_']
+    est_cls = model_cfg.definition.target_
 
     kwargs = {}
     if _estimator_accepts_random(est_cls):
         kwargs['random_state'] = random_state
 
-    est = hydra.utils.instantiate(model_cfg.definition, **kwargs)
+    est = model_cfg.definition.instantiate(**kwargs)
 
     if isinstance(est, SkactivemlClassifier):
         # Classifier is already wrapped aka supports missing labels
@@ -519,10 +554,9 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
         estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
     # max_candidates for subsampling.
-    qs = hydra.utils.instantiate(
-        cfg.query_strategy.definition,
-        random_state=random_state,
-        missing_label=MISSING_LABEL_MARKER,
+    qs = cfg.query_strategy.definition.instantiate(
+        random_state = random_state,
+        missing_label = MISSING_LABEL_MARKER
     )
 
     if session_cfg.subsampling is not None:

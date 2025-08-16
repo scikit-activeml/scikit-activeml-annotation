@@ -1,5 +1,7 @@
+import logging
 from pathlib import Path
 from functools import lru_cache
+from typing import Any
 
 import omegaconf
 from omegaconf import OmegaConf
@@ -7,7 +9,7 @@ from omegaconf import OmegaConf
 import skactiveml_annotation.paths as sap
 
 @lru_cache(maxsize=5)
-def parse_yaml_config_dir(dir_path: Path | str) -> list[omegaconf.DictConfig]:
+def parse_yaml_config_dir(dir_path: Path | str) -> list[object]:
     """
     Parses YAML config files in a directory and returns a dictionary mapping
     file names (without extension) to their DictConfig objects.
@@ -21,36 +23,29 @@ def parse_yaml_config_dir(dir_path: Path | str) -> list[omegaconf.DictConfig]:
     if isinstance(dir_path, str):
         dir_path = Path(dir_path)
 
-    configs = []
-    for path in dir_path.iterdir():
-        if path.is_file() and path.suffix.lower() == '.yaml':
-            try:
-                config = OmegaConf.load(path)
-                # Use file name as id
-                file_id = path.stem
-                OmegaConf.update(config, "id", file_id, merge=True)
-                configs.append(config)
-            except Exception as e:
-                print(f"Failed to parse YAML file {path}: {e}")
+    yaml_files_paths = (f for f in dir_path.iterdir() if f.is_file() and f.suffix.lower() == ".yaml")
+    logging.debug(yaml_files_paths)
+    return [parse_yaml_file(file_path) for file_path in yaml_files_paths]
 
-    return configs
-
-
-def parse_yaml_file(file_path: Path | str) -> omegaconf.DictConfig | None:
+def parse_yaml_file(file_path: Path | str) -> object:
     if isinstance(file_path, str):
         file_path = Path(file_path)
 
-    if not file_path.is_file() or file_path.suffix.lower() != ".yaml":
-        print(f"file_path: {file_path} is not a path to a yaml file!")
-        return None
-
+    if not file_path.is_file() or file_path.suffix != ".yaml":
+        logging.error(f"{file_path} is not a path to a YAML file.")
+        raise FileNotFoundError(f"{file_path} is not path to a yaml file.")
     try:
+        # Add another field id which is the filename stem so it can be used
+        # later when composing configuration to check which model etc was
+        # selected by the user
         file_id = file_path.stem
         cfg = OmegaConf.load(file_path)
         OmegaConf.update(cfg, "id", file_id, merge=True)
-        return OmegaConf.load(file_path)
+        # TODO: this is not an Object
+        return OmegaConf.to_container(cfg, resolve=True)
     except Exception as e:
-        print(f"Failed to parse YAML file {file_path}: {e}")
+        logging.error(f"Failed to parse YAML file {file_path}: {e}")
+        raise
 
 
 def overrides_to_list(overrides: tuple[tuple[str, str], ...]) -> list[str]:

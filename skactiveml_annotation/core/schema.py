@@ -1,80 +1,130 @@
+# pyright: reportAny=false
+# pyright: reportExplicitAny=false
 import json
 from enum import Enum
 from dataclasses import dataclass, field, asdict
+import logging
+from typing import Any, Literal, TypeVar 
 
-import numpy as np
-from omegaconf import MISSING
+import hydra
+from pydantic import BaseModel, Field
+
+from sklearn.base import ClassifierMixin
+from skactiveml.base import SingleAnnotatorPoolQueryStrategy
 
 from skactiveml_annotation.embedding.base import EmbeddingBaseAdapter
+
 
 MISSING_LABEL_MARKER = 'MISSING_LABEL'
 DISCARD_MARKER = 'DISCARDED'
 
+DataTypeLiteral = Literal["skactiveml_annotation.core.schema.DataType"] 
+
+T = TypeVar("T")
+
+def _instantiate(cfg: BaseModel, expected_type: type[T], **kwargs: Any) -> T:
+    try:
+        cfg_dict = cfg.model_dump(by_alias=True)
+        x = hydra.utils.instantiate(cfg_dict, **kwargs)
+        # TODO: instantiate can fail
+    except RuntimeError as e:
+        raise
+
+    if not isinstance(x, expected_type):
+        logging.error("hydra instantiated wrong type!")
+        raise RuntimeError
+
+    return x
 
 class DataType(Enum):
     AUDIO = "Audio"
     TEXT = "Text"
     IMAGE = "Image"
 
+class DataTypeTarget(BaseModel):
+    # ... tells pydantic this field is needed
+    target_: DataTypeLiteral = Field(..., alias="_target_")
+    args_: list[str] = Field(..., alias="_args_")
 
-# region Hydra Config Schema
-@dataclass
-class EmbeddingConfig:
+    class Config:
+        extra: str = "allow"
+
+    def instantiate(self, **kwargs: Any) -> DataType:
+        return _instantiate(self, DataType, **kwargs)
+
+
+class QueryStrategyTarget(BaseModel):
+    target_: str = Field(..., alias="_target_")
+
+    class Config:
+        extra: str = "allow"
+
+    def instantiate(self, **kwargs: Any):
+        return _instantiate(self, SingleAnnotatorPoolQueryStrategy , **kwargs)
+
+class ModelTarget(BaseModel):
+    target_: str = Field(..., alias="_target_")
+
+    class Config:
+        extra: str = "allow"
+
+    def instantiate(self, **kwargs: Any):
+        return _instantiate(self, ClassifierMixin, **kwargs)
+
+class EmbeddingTarget(BaseModel):
+    target_: str = Field(..., alias="_target_")
+
+    class Config:
+        extra: str = "allow"
+
+    def instantiate(self, **kwargs: Any):
+        return _instantiate(self, EmbeddingBaseAdapter, **kwargs)
+
+class EmbeddingConfig(BaseModel):
     id: str
-    display_name: str = MISSING
-    # TODO definition has wrong type here.
-    definition: EmbeddingBaseAdapter = MISSING
+    display_name: str
+    definition: EmbeddingTarget 
 
 
-@dataclass
-class DatasetConfig:
+class DatasetConfig(BaseModel):
     id: str
-    display_name: str = MISSING  # Name that will be displayed in ui for that dataset
-    classes: list[str] = MISSING  # All the possible data labels.
-    data_path: str = MISSING  # Path to data dir. Relative to project root
-    data_type: DataType = MISSING
+    display_name: str
+    classes: list[str]
+    data_path: str
+    data_type: DataTypeTarget
 
 
-@dataclass
-class ModelConfig:
+class ModelConfig(BaseModel):
     id: str
-    display_name: str = MISSING
-    definition: dict = MISSING
+    display_name: str
+    definition: ModelTarget
 
 
-@dataclass
-class QueryStrategyConfig:
+class QueryStrategyConfig(BaseModel):
     id: str
-    display_name: str = MISSING
-    # TODO This could be automated
-    model_agnostic: bool = MISSING
-    definition: str = MISSING
+    display_name: str
+    model_agnostic: bool
+    definition: QueryStrategyTarget
 
 
-@dataclass
-class ActiveMlConfig:
-    random_seed: int = MISSING
-    model: ModelConfig | None = field(default_factory=ModelConfig)
-    dataset: DatasetConfig = field(default_factory=DatasetConfig)
-    query_strategy: QueryStrategyConfig = field(default_factory=QueryStrategyConfig)
-    embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
-# endregion
+class ActiveMlConfig(BaseModel):
+    random_seed: int
+    model: ModelConfig | None = None
+    dataset: DatasetConfig
+    query_strategy: QueryStrategyConfig
+    embedding: EmbeddingConfig
 
 
-# region Session Config
 @dataclass
 class SessionConfig:
     batch_size: int = 10  # How many samples to label before retraining
-    subsampling: int | float | None = None
+    subsampling: str | int | float | None = None
 
     def __post_init__(self):
         if self.subsampling == '':
             self.subsampling = None
 
-# endregion
 
-
-# region Batch State
 @dataclass
 class Batch:
     # TODO use correct datatypes
@@ -129,4 +179,3 @@ class AutomatedAnnotation:
     def from_json(json_str: str):
         data = json.loads(json_str)
         return AutomatedAnnotation(**data)
-# endregion

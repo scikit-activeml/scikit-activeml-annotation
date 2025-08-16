@@ -171,7 +171,7 @@ def _create_dataset_radio_item(cfg, cfg_display):
 def _create_dataset_selection(preselect):
     print("_create data selection invoked")
     dataset_options = api.get_dataset_config_options()
-    data = [(cfg, f'{cfg.display_name} - ({hydra.utils.instantiate(cfg.data_type).value})')
+    data = [(cfg, f'{cfg.display_name} - ({cfg.data_type.instantiate().value})')
             for cfg in dataset_options]
 
     # TODO repeated code.
