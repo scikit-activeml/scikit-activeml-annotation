@@ -215,45 +215,49 @@ def create_label_chips(
 ):
     # Check if there is some annotation already for that sample in case the user used back btn.
     annotation = batch.annotations[batch.progress]
-    was_annotated = annotation is not None
+    was_annotated = annotation is not None # TODO: Using None if its not annotated acctually made sense
 
-    class_prob = None
-    if batch.class_probas:
-        class_prob = batch.class_probas[batch.progress]
+    class_probas = None
+    has_probas = False
+    if batch.class_probas is not None:
+        class_probas = batch.class_probas[batch.progress]
+        has_probas = True
 
+    # Check if probabilities have to be sorted
+    must_sort = (
+        class_probas is not None
+        and (show_probas or (not was_class_added and not was_annotated))
+    )
+
+    if must_sort:
         if insertion_idxes is not None:
             # Some classes have been added for which the classifier has not yet been fitted for.
             # Set the class_prob to 0.0 in this case for these classes
-            class_prob = _pad_with_zeros(class_prob, insertion_idxes)
+            class_probas = _pad_with_zeros(class_probas, insertion_idxes)
 
-        sorted_classes, sorted_probas = _sort(classes, class_prob, sort_by)
+        # Sorted classes and class_probas
+        classes, class_probas = _sort(classes, class_probas, sort_by)
 
-    elif show_probas:
-        logging.info("Cannot show probas")
-
-
-    has_probas = class_prob is not None
-    show_probas = has_probas and show_probas
-
-    # Determine preselect
     if was_class_added:
         # preselect last added class
         preselect = classes[insertion_idxes[-1]]
         logging.info(f"preselect after adding label: {preselect}")
     elif was_annotated:
+        # Was allready previously annoated. For intance when going back
         preselect = annotation
-    elif has_probas:
-        # TODO: some stuff in here does not belong to ui
-        highest_prob_idx = np.argmax(sorted_probas)
-        preselect = sorted_classes[int(highest_prob_idx)]
+    elif class_probas is not None:
+        highest_prob_idx = np.argmax(class_probas)
+        preselect = classes[int(highest_prob_idx)]
     else:
         preselect = MISSING_LABEL_MARKER
 
-    if show_probas:
+
+    if show_probas and class_probas is not None:
         chips = [_create_chip(label, probability) for label, probability in
-                 zip(sorted_classes, sorted_probas)]
+                 zip(classes, class_probas)]
     else:
-        chips = [_create_chip(label) for label in sorted_classes]
+        chips = [_create_chip(label) for label in classes]
+
 
     chip_group = dmc.ChipGroup(
         children=chips,
@@ -308,6 +312,7 @@ def _pad_with_zeros(class_probas, insertion_idxes):
     return result
 
 
+# TODO: It might be worth to convert to numpy array honestly
 def _sort(classes: list[str], class_probas: list[float], sort_by: SortBySetting):
     if sort_by == SortBySetting.proba:
         if class_probas is None:
