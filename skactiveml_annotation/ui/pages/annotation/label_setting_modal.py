@@ -61,6 +61,7 @@ def create_label_settings_modal():
                     deselectable=False,
                     persistence='label-setting-sortby-persistence',
                     persistence_type='local',
+                    value=SortBySetting.no_sort.value,
                     label='Sort by',
                     size='md',
                 ),
