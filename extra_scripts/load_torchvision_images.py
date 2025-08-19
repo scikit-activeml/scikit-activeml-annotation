@@ -1,13 +1,20 @@
+import sys
+import logging
 from pathlib import Path
 
-from torchvision.datasets import (
-    VisionDataset,
-    CIFAR100,
-    CIFAR10,
-    MNIST,
-    STL10,
-    FashionMNIST
-)
+try:
+    # Optional dependency
+    from torchvision.datasets import (  # pyright: ignore[reportMissingImports]
+        VisionDataset,
+        CIFAR100,
+        CIFAR10,
+        MNIST,
+        STL10,
+        FashionMNIST
+    )
+except ImportError as e:
+    logging.error(e)
+    sys.exit()
 
 import skactiveml_annotation.paths as sap
 

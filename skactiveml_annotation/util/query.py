@@ -12,4 +12,4 @@ def build_query(query: dict[str, str] | tuple[str, str]) -> str:
     if isinstance(query, tuple):
         key, value = query
         return f'?{key}={value}'
-    return NotImplementedError
+    raise NotImplementedError

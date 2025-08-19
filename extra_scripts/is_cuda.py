@@ -1,6 +1,13 @@
+import logging
+import sys
 
-import torch
 
+try:
+    # Optional depdendency
+    import torch  # pyright: ignore[reportMissingImports]
+except ImportError as e:
+    logging.error(e)
+    sys.exit(1)
 
 if __name__ == '__main__':
     print("PyTorch Version:", torch.__version__)

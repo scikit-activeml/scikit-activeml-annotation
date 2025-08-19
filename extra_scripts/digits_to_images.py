@@ -1,4 +1,5 @@
 import os
+from typing import Any
 from sklearn import datasets
 from PIL import Image
 import numpy as np
@@ -7,7 +8,7 @@ import skactiveml_annotation.paths as sap
 
 def save_digits_images(output_dir=str(sap.DATASETS_PATH / 'digits_images')):
     # Load digits dataset
-    digits = datasets.load_digits()
+    digits: Any = datasets.load_digits()
     images = digits.images
 
     # Create output directory if it doesn't exist

@@ -1,3 +1,6 @@
+from enum import Enum, StrEnum, auto
+import logging
+
 from dash import (
     Input,
     Output,
@@ -10,8 +13,15 @@ import dash_mantine_components as dmc
 
 from . import ids
 
-SORT_BY_ALPHABET = '0'
-SORT_BY_PROBA = '1'
+class SortBySetting(StrEnum):
+    no_sort = auto()
+    alphabet = auto()
+    proba = auto()
+
+    def _generate_next_value(self, name, _start, _count, _last_values) -> str:
+        logging.warning("Created name", name)
+        return name
+
 
 
 def create_label_settings_modal():
@@ -31,19 +41,24 @@ def create_label_settings_modal():
                         [
                             dmc.Radio(
                                 label='alphabet',
-                                value=SORT_BY_ALPHABET,
+                                value=SortBySetting.alphabet.value,
                                 size='md',
                             ),
                             dmc.Radio(
                                 label='predicted class proba',
-                                value=SORT_BY_PROBA,
+                                value=SortBySetting.proba.value,
                                 size='md',
                             ),
+                            dmc.Radio(
+                                label='No sorting (keep yaml config order)',
+                                value=SortBySetting.no_sort.value,
+                                size='md',
+                            )
                         ],
                         gap=5,
                     ),
                     id=ids.LABEL_SETTING_SORTBY,
-                    deselectable=True,
+                    deselectable=False,
                     persistence='label-setting-sortby-persistence',
                     persistence_type='local',
                     label='Sort by',

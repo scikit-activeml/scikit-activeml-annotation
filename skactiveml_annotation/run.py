@@ -1,7 +1,5 @@
-import os
+import logging
 from argparse import ArgumentParser
-
-from werkzeug.middleware.profiler import ProfilerMiddleware
 
 from skactiveml_annotation import util
 from skactiveml_annotation.app import app
@@ -26,6 +24,7 @@ def main():
 
 
 def run_debug_mode():
+    import os
     if os.environ.get("WERKZEUG_RUN_MAIN") == 'true':
         util.logging.setup_logging()
 
@@ -34,6 +33,13 @@ def run_debug_mode():
 
 def run_profile_mode():
     util.logging.setup_logging()
+
+    try:
+        from werkzeug.middleware.profiler import ProfilerMiddleware
+    except ImportError as e:
+        logging.error(f'Cannot run in profile mode because \'werkzeug\' is not installed: {e}')
+        import sys
+        sys.exit(1)
 
     # TODO Profiler should create a new dir with timestamp for the next log.
     app.server.config["PROFILE"] = True
@@ -48,10 +54,14 @@ def run_profile_mode():
 
 
 def run_prod_mode():
-    import webbrowser
-    from waitress import serve
-
     util.logging.setup_logging()
+    import webbrowser
+    try:
+        from waitress import serve  # pyright: ignore[reportMissingModuleSource]
+    except ImportError as e:
+        logging.error(e)
+        import sys
+        sys.exit(1)
 
     webbrowser.open(f"http://localhost:{PORT}/")
     serve(app.server, host='localhost', port=PORT)

@@ -116,6 +116,11 @@ def on_confirm_data_display_btn(
         raise PreventUpdate
 
     display_cfg = ui.data_display_settings.cache['image']
+    if not isinstance(display_cfg, dict):
+        # TODO: enhance error msg
+        raise ValueError("???")
+
+
     # Modify in memory
     display_cfg[DataDisplayCfgKey.RESCALE_FACTOR.value] = rescale_factor
     display_cfg[DataDisplayCfgKey.RESAMPLING_METHOD.value] = int(resampling_method)

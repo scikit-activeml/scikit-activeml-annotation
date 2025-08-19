@@ -3,11 +3,10 @@ import json
 import logging
 import inspect
 import bisect
-from dataclasses import asdict 
+from dataclasses import Field, asdict 
 from functools import partial, lru_cache
 from pathlib import Path
-from typing import Callable
-
+from typing import Any, Callable, ClassVar, cast, Protocol
 import dash.exceptions
 
 import hydra
@@ -40,8 +39,14 @@ from skactiveml_annotation.core.schema import (
     DISCARD_MARKER,
 )
 
-# TODO: remove region
-# region API
+from skactiveml_annotation.core.shared_types import DashProgressFunc
+
+QueryFunc = Callable[..., npt.NDArray[np.intp]]
+
+class DataClassInstance(Protocol):
+    __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
+
+
 def get_dataset_config_options() -> list[DatasetConfig]:
     return deserialize.parse_yaml_config_dir(sap.DATA_CONFIG_PATH, DatasetConfig)
 
@@ -105,20 +110,19 @@ def request_query(
     # Only fit and query on the samples not marked as outliers
     X_cand, y_cand, mapping = _filter_outliers(X, y)
 
-    if clf is not None:
-        print("Fitting the classifier")
-        # TODO can fitting the classifier fail?
-        # TODO filter out y that appear less then 2 times.
-        # Some classifiers need at least 2 samples per class to train properly
-        clf.fit(X_cand, y_cand)
+    print("Fitting the classifier")
+    # TODO can fitting the classifier fail?
+    # TODO filter out y that appear less then 2 times.
+    # Some classifiers need at least 2 samples per class to train properly
+    clf.fit(X_cand, y_cand)
 
-        # TODO show how often class appeared
-        # Only update when refitting?
-        # unique_values, counts = np.unique(y_cand, return_counts=True)
-        # for val, count in zip(unique_values, counts):
-        #     logging.info(f'{val}: {count}')
+    # TODO show how often class appeared
+    # Only update when refitting?
+    # unique_values, counts = np.unique(y_cand, return_counts=True)
+    # for val, count in zip(unique_values, counts):
+    #     logging.info(f'{val}: {count}')
 
-    print("Querying the active ML model ...")
+    logging.info("Querying the active ML model ...")
 
     try:
         query_indices_cand = query_func(X=X_cand, y=y_cand)
@@ -135,39 +139,45 @@ def request_query(
     # TODO sometimes query returns list of np.int64? It has be be serializeable in current implementation.
     if isinstance(query_indices, np.ndarray):
         query_indices = query_indices.tolist()
+    # TODO: Should it not alwayls return a numpy array with ints?
     if not isinstance(query_indices[0], int):
         query_indices = [int(x) for x in query_indices]
 
     query_samples = X[query_indices]
 
-    if clf is None:
-        class_probas = np.empty(0)
-    else:
-        # TODO clf could not have predict_proba
-        class_probas = clf.predict_proba(query_samples)
+    # TODO: clf could not have predict_proba
+
+    # From doc prodict Proba always returns 
+    # Probabilites P of : array-like of shape (n_samples, classes)
+    # get turned into list[list[float]] by to_list()
+    class_probas = cast(
+        np.ndarray[tuple[int, int], np.dtype[np.float32]],
+        # npt.NDArray[np.float64], 
+        clf.predict_proba(query_samples)
+    )
+    class_probas_list = cast(list[list[float]], class_probas.tolist())
 
     lenght = len(query_indices)
     batch_state = Batch(
         emb_indices=query_indices,
-        class_probas=class_probas.tolist(),
+        class_probas=class_probas_list,
         progress=0,
         annotations=[None] * lenght,
-        start_times=[None] * lenght,
-        end_times=[None] * lenght
+        start_times=[""] * lenght, # TODO: type?
+        end_times=[""] * lenght
     )
     return batch_state
 
 
 def compute_embeddings(
         activeml_cfg: ActiveMlConfig,
-        progress_func: callable
+        progress_func: DashProgressFunc
 ):
     embedding_cfg = activeml_cfg.embedding
     dataset_cfg = activeml_cfg.dataset
     dataset_id = dataset_cfg.id
 
-    data_path = dataset_cfg.data_path
-    data_path = Path(data_path)
+    data_path = Path(dataset_cfg.data_path)
     if not data_path.is_absolute():
         data_path = sap.ROOT_PATH / data_path
 
@@ -211,16 +221,19 @@ def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
     annotations: list[Annotation] = _deserialize_annotations(json_file_path)
     file_paths = get_file_paths(dataset_id, embedding_id, batch.emb_indices)
 
+    # TODO: All samples should be annotated here since the batch is completed
+    annotation_values = cast(list[str], batch.annotations)
+
     new_annotations = [
         Annotation(
             embedding_idx=emb_idx,
-            file_name=f_path,
+            file_path=f_path,
             label=label,
             start_time=start,
             end_time=end
         )
         for emb_idx, f_path, label, start, end in zip(
-            batch.emb_indices, file_paths, batch.annotations, batch.start_times, batch.end_times
+            batch.emb_indices, file_paths, annotation_values, batch.start_times, batch.end_times
         )
         if label != MISSING_LABEL_MARKER
     ]
@@ -244,7 +257,7 @@ def get_total_num_samples(dataset_id: str, embedding_id: str) -> int:
 
 
 def auto_annotate(
-    X: np.ndarray,
+    X: np.ndarray, # TODO: type?
     cfg: ActiveMlConfig,
     threshold: float,
     sort_by_proba: bool = True
@@ -270,6 +283,8 @@ def auto_annotate(
     class_probas = clf.predict_proba(X=X_missing)  # shape (num_samples * num_labels)
 
     top_idxes = np.argmax(class_probas, axis=1)
+
+    assert clf.classes_ is not None
     top_classes = clf.classes_[top_idxes]
     # Select top proba from each row
     top_probas = class_probas[np.arange(class_probas.shape[0]), top_idxes]
@@ -291,7 +306,7 @@ def auto_annotate(
         AutomatedAnnotation(
             embedding_idx=int(emb_idx),
             label=label,
-            file_name=f_path,
+            file_path=f_path,
             confidence=float(proba),
         )
         for emb_idx, label, proba, f_path
@@ -359,7 +374,6 @@ def add_class(dataset_cfg, new_class_name: str) -> int:
 
     logging.info(f'insert idx: {insert_idx}')
     return insert_idx
-# endregion
 
 
 # TODO put this stuff into utils package?
@@ -404,7 +418,7 @@ def _serialize_annotations(path: Path, annotations: list[Annotation]):
 
 def _serialize_annotations_with_keys(
     path: Path,
-    data: Sequence[Sequence[Annotation]],
+    data: Sequence[Sequence[DataClassInstance]],
     keys: Sequence[str]
 ):
     payload = {
@@ -466,6 +480,7 @@ def _build_activeml_classifier(
     # TODO rename to Estimator?
     est_cls = model_cfg.definition.target_
 
+    # TODO: just pass key value pair here
     kwargs = {}
     if _estimator_accepts_random(est_cls):
         kwargs['random_state'] = random_state
@@ -481,7 +496,7 @@ def _build_activeml_classifier(
             estimator=est,
             classes=classes,
             random_state=random_state,
-            missing_label=MISSING_LABEL_MARKER,
+            missing_label=MISSING_LABEL_MARKER,  # pyright: ignore[reportArgumentType]
         )
         return wrapped_est
     else:
@@ -489,7 +504,7 @@ def _build_activeml_classifier(
 
 
 # TODO can use from skactiveml.utils import call_func instead?
-def _filter_kwargs(func: Callable, **kwargs) -> Callable:
+def _filter_kwargs(func: QueryFunc, **kwargs) -> QueryFunc:
     params = inspect.signature(func).parameters
     param_names = params.keys()
 
@@ -507,15 +522,11 @@ def _filter_kwargs(func: Callable, **kwargs) -> Callable:
 
 
 # TODO always load dataset over and over again.
-def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Callable, SklearnClassifier | None]:
+def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[QueryFunc, SkactivemlClassifier]:
     random_state = np.random.RandomState(cfg.random_seed)
 
     model_cfg = cfg.model
-    if model_cfg is None:
-        # TODO use estimator to have more accurate terminology
-        estimator = None
-    else:
-        estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+    estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
     # max_candidates for subsampling.
     qs = cfg.query_strategy.definition.instantiate(
@@ -528,16 +539,19 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Calla
             qs,
             max_candidates=session_cfg.subsampling,
             random_state=random_state,
-            missing_label=MISSING_LABEL_MARKER,
+            # from doc missing_label: scalar | str | np.nan | None,
+            missing_label=MISSING_LABEL_MARKER,  # pyright: ignore[reportArgumentType]
         )
 
-    query_func: Callable = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,
+    # Dont fit classifier here to prevent fitting twice
+    # TODO:: Does each one have fit_clf flag?
+    query_func = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,
                                           discriminator=estimator)
     return query_func, estimator
 
 
 def _normalize_and_validate_paths(
-        file_paths: list[str | Path],
+        file_paths: list[Path],
         X: np.ndarray
 ) -> list[str]:
     if len(file_paths) != len(X):
@@ -547,8 +561,6 @@ def _normalize_and_validate_paths(
     has_absolute = False
 
     for p in file_paths:
-        if isinstance(p, str):
-            p = Path(p)
         if p.is_absolute():
             has_absolute = True
             if not p.is_file():
@@ -572,21 +584,35 @@ def _normalize_and_validate_paths(
     return file_paths_str
 
 
+def get_one_file_path(
+    dataset_id: str,
+    embedding_id: str,
+    emb_idx: int
+) -> str:
+    return get_file_paths(dataset_id, embedding_id, emb_idx)[0]
+
+
+# TODO: this should convert to Path allready
+# it should maybe just return a list[str]?
+# My ui should not deal with numpy stuff
 def get_file_paths(
-        dataset_id: str,
-        embedding_id: str,
-        emd_indices: list[int]
-) -> np.ndarray[np.str_] | np.str_:
+    dataset_id: str,
+    embedding_id: str,
+    emd_indices: np.ndarray[tuple[int], np.dtype[np.intp]] | list[int] | int
+) -> list[str]:
     cache_key = f'{dataset_id}_{embedding_id}'
     cache_path = sap.EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
+
+    if isinstance(emd_indices, int):
+        emd_indices = [emd_indices]
 
     if not cache_path.exists():
         raise RuntimeError(f"Cannot get embedding at path: {cache_path}! \nEmbedding should exists already")
 
     with np.load(str(cache_path), mmap_mode='r') as data:
         file_paths = data['file_paths']
-        test = file_paths[emd_indices]
-        return test
+        # tolist() returns np.array if given a list
+        return file_paths[emd_indices].tolist()
 
 
 def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[Batch | None, int]:
@@ -614,22 +640,15 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
     _serialize_annotations(json_file_path, write_back)
 
     model_cfg = cfg.model
-    if model_cfg is None:
-        # TODO use estimator to have more accurate terminology
-        estimator = None
-    else:
-        random_state = np.random.RandomState(cfg.random_seed)
-        estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+    random_state = np.random.RandomState(cfg.random_seed)
+    estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
-    if estimator is not None:
-        X = load_embeddings(cfg.dataset.id, cfg.embedding.id)
-        y = _load_or_init_annotations(X, cfg.dataset)
-        X_cand, y_cand, _ = _filter_outliers(X, y)
+    X = load_embeddings(cfg.dataset.id, cfg.embedding.id)
+    y = _load_or_init_annotations(X, cfg.dataset)
+    X_cand, y_cand, _ = _filter_outliers(X, y)
 
-        estimator.fit(X_cand, y_cand)
-        class_probas = estimator.predict_proba(X[emb_idxes])
-    else:
-        class_probas = np.empty(0)
+    estimator.fit(X_cand, y_cand)
+    class_probas = estimator.predict_proba(X[emb_idxes])
 
     # Restored Batch
     return (

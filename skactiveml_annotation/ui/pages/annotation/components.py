@@ -1,17 +1,22 @@
 # TODO: Rename these are not real components
 # It should be clear from the name if defines callbacks or no
 import logging
+from pathlib import Path
 
 import numpy as np
 
 import dash_mantine_components as dmc
 
-from skactiveml_annotation.core.schema import DataType, MISSING_LABEL_MARKER
+from skactiveml_annotation.core.schema import (
+    Batch, 
+    DataType, 
+    MISSING_LABEL_MARKER
+)
 from skactiveml_annotation.ui.components import sampling_input
 
 from . import ids
 from . import data_display
-from . import label_setting_modal
+from .label_setting_modal import SortBySetting
 
 def create_sidebar():
     return (
@@ -183,13 +188,13 @@ def create_progress_bar(progress=0):
     )
 
 
-def create_data_display(data_type, human_data_path, dpr):
-    if data_type.value == DataType.IMAGE.value:
+def create_data_display(data_type, human_data_path: Path, dpr):
+    if data_type == DataType.IMAGE:
         rendered_data, w, h = data_display.create_image_display(human_data_path, dpr)
-    elif data_type.value == DataType.TEXT.value:
-        rendered_data = data_display.create_text_display(human_data_path)
+    elif data_type == DataType.TEXT:
+        rendered_data, w, h = data_display.create_text_display(human_data_path)
     else:
-        rendered_data = data_display.create_audio_display(human_data_path)
+        rendered_data, w, h = data_display.create_audio_display(human_data_path)
 
     return (
         rendered_data,
@@ -198,7 +203,16 @@ def create_data_display(data_type, human_data_path, dpr):
     )
 
 
-def create_label_chips(classes, batch, show_probas, sort_by, was_class_added, insertion_idxes):
+# TODO: missing type annotation
+def create_label_chips(
+    classes: list[str], 
+    # TODO: The batch does not always contain probas as some classifers dont have this method
+    batch: Batch,  
+    show_probas: bool, 
+    sort_by: SortBySetting,
+    was_class_added: bool, 
+    insertion_idxes: list[int]
+):
     # Check if there is some annotation already for that sample in case the user used back btn.
     annotation = batch.annotations[batch.progress]
     was_annotated = annotation is not None
@@ -212,10 +226,11 @@ def create_label_chips(classes, batch, show_probas, sort_by, was_class_added, in
             # Set the class_prob to 0.0 in this case for these classes
             class_prob = _pad_with_zeros(class_prob, insertion_idxes)
 
+        sorted_classes, sorted_probas = _sort(classes, class_prob, sort_by)
+
     elif show_probas:
         logging.info("Cannot show probas")
 
-    sorted_classes, sorted_probas = _sort(classes, class_prob, sort_by)
 
     has_probas = class_prob is not None
     show_probas = has_probas and show_probas
@@ -228,6 +243,7 @@ def create_label_chips(classes, batch, show_probas, sort_by, was_class_added, in
     elif was_annotated:
         preselect = annotation
     elif has_probas:
+        # TODO: some stuff in here does not belong to ui
         highest_prob_idx = np.argmax(sorted_probas)
         preselect = sorted_classes[int(highest_prob_idx)]
     else:
@@ -260,7 +276,7 @@ def create_label_chips(classes, batch, show_probas, sort_by, was_class_added, in
         ),
         id='my-scroll-area',
         type='auto',
-        offsetScrollbars=True,
+        offsetScrollbars='y',
         styles=dict(
             viewport={
                 'maxHeight': '35vh'
@@ -292,17 +308,17 @@ def _pad_with_zeros(class_probas, insertion_idxes):
     return result
 
 
-def _sort(classes, class_probas, sort_by):
-    if sort_by == label_setting_modal.SORT_BY_PROBA:
+def _sort(classes: list[str], class_probas: list[float], sort_by: SortBySetting):
+    if sort_by == SortBySetting.proba:
         if class_probas is None:
             logging.warning("Cannot sort by predicted class probabilities as this info is not available.")
             return classes, class_probas
 
         sorted_indices = sorted(range(len(class_probas)), key=lambda i: class_probas[i], reverse=True)
-    elif sort_by == label_setting_modal.SORT_BY_ALPHABET:
+    elif sort_by == SortBySetting.alphabet:
         sorted_indices = sorted(range(len(classes)), key=lambda i: str.lower(classes[i]))
 
-    else:
+    elif sort_by == SortBySetting.no_sort:
         return classes, class_probas
 
     return (

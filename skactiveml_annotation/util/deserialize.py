@@ -61,8 +61,6 @@ def parse_yaml_file(file_path: Path | str, clazz: type[T]) -> T:
 # TODO: overrides should never be None here
 def overrides_to_list(overrides: tuple[tuple[str, str], ...]) -> list[str]:
     # eg. [("dataset","mnist"), …] → ["dataset=mnist", …]
-    if overrides is None:
-        return []
     return [f'{group}={name}' for group, name in overrides]
 
 
@@ -87,6 +85,6 @@ def set_ids_from_overrides(cfg: omegaconf.DictConfig, overrides: tuple[tuple[str
         OmegaConf.set_struct(cfg, True)
 
 
-def is_dataset_cfg_overridden(dataset_id) -> bool:
+def is_dataset_cfg_overridden(dataset_id: str) -> bool:
     path = sap.OVERRIDE_CONFIG_DATASET_PATH / f'{dataset_id}.yaml'
     return path.exists()

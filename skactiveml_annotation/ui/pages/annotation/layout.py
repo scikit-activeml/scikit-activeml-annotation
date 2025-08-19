@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime
-
-import hydra
+from pathlib import Path
 
 import dash
 from dash import (
@@ -27,7 +26,6 @@ from skactiveml_annotation.core import api
 
 from skactiveml_annotation.core.schema import (
     Batch,
-    DataType,
     SessionConfig,
     DISCARD_MARKER,
     MISSING_LABEL_MARKER,
@@ -41,6 +39,7 @@ from . import (
     data_display_modal,
     label_setting_modal,
 )
+from .label_setting_modal import SortBySetting
 
 register_page(
     __name__,
@@ -56,6 +55,7 @@ def advance_batch(batch: Batch, annotation):
 
 
 def layout(**kwargs):
+    _ = kwargs
     return(
         dmc.Box(
             [
@@ -81,8 +81,6 @@ def layout(**kwargs):
                             p="md",
                             # style={'border': '4px solid red'}
                         ),
-
-
                         dmc.Flex(
                             [
                                 dmc.Box(
@@ -90,37 +88,40 @@ def layout(**kwargs):
                                         dmc.LoadingOverlay(
                                             id=ids.COMPUTING_OVERLAY,
                                             zIndex=10,
-                                            loaderProps=dict(
-                                                children=dmc.Stack(
+                                            loaderProps={
+                                                'children': dmc.Stack(
                                                     [
                                                         dmc.Group(
                                                             [
                                                                 dmc.Title("Computing next batch", order=2),
+                                                                # Show 3 dots duruing query
                                                                 dmc.Loader(
                                                                     size='xl',
                                                                     type='dots',
-                                                                    color='var(--mantine-color-dark-7)',
+                                                                    # Type annotation incorrect valid css is supported
+                                                                    color='var(--mantine-color-dark-7)',  # pyright: ignore[reportArgumentType]
                                                                 ),
                                                             ],
                                                             justify='center',
                                                             wrap='wrap',
-                                                            mb='5vh'
+                                                            mb='5vh'  # pyright: ignore[reportArgumentType]
                                                         ),
                                                     ],
                                                     align='center',
                                                     # style=dict(border='red dashed 3px')
                                                 )
-                                            ),
-                                            overlayProps=dict(
-                                                radius='lg',
-                                                center=True,
-                                                blur=7
-                                            ),
-                                            transitionProps=dict(
-                                                transition='fade',
-                                                duration=150,
-                                                # exitDuration=500,
-                                            ),
+                                            },
+                                            overlayProps={
+                                                'radius':'lg',
+                                                'center': True,
+                                                'blur': 7,
+                                            },
+                                            transitionProps={
+                                                'transition':'fade',
+                                                'duration': 150,
+                                                'mounted': True,
+                                                # 'exitDuration': 500,
+                                            },
                                         ),
 
                                         dmc.Center(
@@ -173,7 +174,7 @@ def layout(**kwargs):
                                             justify='center'
                                         ),
                                     ],
-                                    p='10px',
+                                    p=10,
                                     pos="relative",
                                 ),
 
@@ -196,7 +197,7 @@ def layout(**kwargs):
                             align='center',
                             direction='column',
                             wrap='nowrap',
-                            gap='10px',
+                            gap=10,
                             py=0,
                             px=150,
                         ),
@@ -260,12 +261,12 @@ def layout(**kwargs):
                             # style={'border': '4px solid red'}
                         ),
                     ],
-                    navbar={
+                    navbar={  # pyright: ignore[reportArgumentType]
                         "width": '13vw',
                         "breakpoint": "sm",
                         "collapsed": {"mobile": True},
                     },
-                    aside={
+                    aside={  # pyright: ignore[reportArgumentType]
                         "width": '13vw',
                         "breakpoint": "sm",
                         "collapsed": {"mobile": True},
@@ -424,8 +425,8 @@ def on_ui_update(
     was_class_added,
     insertion_idxes,
     # Label settings
-    show_probas,  # TODO this is confusing
-    sort_by
+    show_probas: bool,  # TODO this is confusing
+    sort_by: str,
 ):
     if ui_trigger is None and browser_dpr is None:
         raise PreventUpdate
@@ -437,13 +438,17 @@ def on_ui_update(
     idx = batch.progress
     embedding_idx = batch.emb_indices[idx]
 
-    human_data_path = api.get_file_paths(
-        activeml_cfg.dataset.id,
-        activeml_cfg.embedding.id,
-        embedding_idx
+    human_data_path = Path(
+        api.get_one_file_path(
+            activeml_cfg.dataset.id,
+            activeml_cfg.embedding.id,
+            embedding_idx
+        ) 
     )
 
     rendered_data, w, h = components.create_data_display(data_type, human_data_path, browser_dpr)
+
+    sort_by = SortBySetting[sort_by] 
 
     return dict(
         label_container=components.create_label_chips(activeml_cfg.dataset.classes, batch, show_probas, sort_by,
@@ -664,7 +669,7 @@ def on_add_new_class(
     click,
     session_data,
     new_class_name,
-    insertion_idxes
+    insertion_idxes: list[int]
 ):
     if click is None or new_class_name is None:
         raise PreventUpdate

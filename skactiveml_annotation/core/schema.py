@@ -1,10 +1,8 @@
-# pyright: reportAny=false
-# pyright: reportExplicitAny=false
 import json
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 import logging
-from typing import Any, Literal, TypeVar 
+from typing import Any, Callable, Literal, TypeVar 
 
 import hydra
 
@@ -33,6 +31,7 @@ class DataTypeTarget(pydantic.BaseModel):
     target_: DataTypeLiteral = Field(..., alias="_target_")
     args_: list[str] = Field(..., alias="_args_")
 
+    # Tell pydantic to allow extra keys
     class Config:
         extra: str = "allow"
 
@@ -46,8 +45,8 @@ class QueryStrategyTarget(pydantic.BaseModel):
     class Config:
         extra: str = "allow"
 
-    def instantiate(self, **kwargs: Any):
-        return _instantiate(self, SingleAnnotatorPoolQueryStrategy , **kwargs)
+    def instantiate(self, **kwargs: Any) -> SingleAnnotatorPoolQueryStrategy:
+        return _instantiate(self, SingleAnnotatorPoolQueryStrategy, **kwargs)
 
 class ModelTarget(pydantic.BaseModel):
     target_: str = Field(..., alias="_target_")
@@ -55,7 +54,7 @@ class ModelTarget(pydantic.BaseModel):
     class Config:
         extra: str = "allow"
 
-    def instantiate(self, **kwargs: Any):
+    def instantiate(self, **kwargs: Any) -> ClassifierMixin:
         return _instantiate(self, ClassifierMixin, **kwargs)
 
 class EmbeddingTarget(pydantic.BaseModel):
@@ -64,7 +63,7 @@ class EmbeddingTarget(pydantic.BaseModel):
     class Config:
         extra: str = "allow"
 
-    def instantiate(self, **kwargs: Any):
+    def instantiate(self, **kwargs: Any) -> EmbeddingBaseAdapter:
         return _instantiate(self, EmbeddingBaseAdapter, **kwargs)
 
 class EmbeddingConfig(pydantic.BaseModel):
@@ -96,7 +95,7 @@ class QueryStrategyConfig(pydantic.BaseModel):
 
 class ActiveMlConfig(pydantic.BaseModel):
     random_seed: int
-    model: ModelConfig | None = None
+    model: ModelConfig
     dataset: DatasetConfig
     query_strategy: QueryStrategyConfig
     embedding: EmbeddingConfig
@@ -133,9 +132,10 @@ def _instantiate(cfg: pydantic.BaseModel, expected_type: type[T], **kwargs: Any)
 @dataclass
 class SessionConfig:
     batch_size: int = 10  # How many samples to label before retraining
-    subsampling: str | int | float | None = None
+    subsampling: int | float | None = None
 
     def __post_init__(self):
+        # Workarround Dash initialized it to emtpy str?
         if self.subsampling == '':
             self.subsampling = None
 
@@ -144,8 +144,8 @@ class SessionConfig:
 class Batch:
     # TODO use correct datatypes
     emb_indices: list[int]
-    annotations: list[str]
-    class_probas: list[list[float]]  # shape len(indices) x num_of_classes
+    annotations: list[str | None]
+    class_probas: list[list[float]] | None # shape len(indices) x num_of_classes
     progress: int  # progress
     # Meta data
     start_times: list[str] = field(default_factory=list)
@@ -163,10 +163,11 @@ class Batch:
         return self.progress >= len(self.emb_indices)
 
 
+# TODO use pydanic for this
 @dataclass
 class Annotation:
     embedding_idx: int
-    file_name: str
+    file_path: str
     label: str
     start_time: str = ''
     end_time: str = ''
@@ -183,7 +184,7 @@ class Annotation:
 @dataclass
 class AutomatedAnnotation:
     embedding_idx: int
-    file_name: str
+    file_path: str
     label: int
     confidence: float
 

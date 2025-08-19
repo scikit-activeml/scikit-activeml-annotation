@@ -1,7 +1,9 @@
-
 from PIL import Image
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+
+from skactiveml_annotation.core.shared_types import DashProgressFunc
 
 from .base import (
     EmbeddingBaseAdapter,
@@ -13,7 +15,7 @@ class SimpleFlattenAdapter(EmbeddingBaseAdapter):
     def __init__(self):
         pass
 
-    def compute_embeddings(self, data_path: Path, progress_func=None) -> tuple[np.ndarray, list[Path]]:
+    def compute_embeddings(self, data_path: Path, progress_func: DashProgressFunc) -> tuple[np.ndarray, list[Path]]:
         """
         Load images one by one from the directory, flatten them,
         and return the stacked feature matrix.

@@ -29,6 +29,10 @@ def create_image_display(path_to_img: Path, dpr):
         }
     )
 
+    if not isinstance(display_cfg, dict):
+        # TODO: enhance this error msg
+        raise ValueError("Could not parse")
+
     factor = display_cfg[DataDisplayCfgKey.RESCALE_FACTOR.value]
     w = int(image.width * factor)
     h = int(image.height * factor)
@@ -77,17 +81,17 @@ def create_image_display(path_to_img: Path, dpr):
         dcc.Graph(
            figure=fig,
             responsive=False,
-            style=dict(
-                # border='blue solid 2px',
-                # imageRendering='pixelated'
-            ),
-            config=dict(
+            style={
+                # 'border':'blue solid 2px',
+                # imageRendering:'pixelated'
+            },
+            config={
                 # autosizeable=False,
-                scrollZoom=True,
-                doubleClick='reset',
-                displaylogo=False,
-                modeBarButtonsToRemove=['toImage'],
-            ),
+                'scrollZoom':True,
+                'doubleClick':'reset',
+                'displaylogo':False,
+                'modeBarButtonsToRemove':['toImage'],
+            },
         ),
         w,
         h
@@ -114,7 +118,7 @@ def pil_image_to_base64(img: pil_image.Image, fmt: str = "PNG") -> str:
     return f"data:{mime};base64,{b64_str}"
 
 
-def create_text_display(text):
+def create_text_display(text) -> tuple[dmc.Container, int, int]:
     return (
         dmc.Container(
             dmc.Stack(
@@ -124,10 +128,13 @@ def create_text_display(text):
                     # Add additional Markdown options if necessary
                 ),
             ),
-        )
+        ),
+        # TODO:
+        10,
+        10,
     )
 
 
-def create_audio_display(audio):
+def create_audio_display(audio) -> tuple[object, int, int]:
     print(audio)
     raise NotImplementedError

@@ -4,24 +4,19 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 import skactiveml_annotation.paths as sap
+from skactiveml_annotation.core.shared_types import DashProgressFunc
 
 
-FilePath = str | Path
-
-
-def relative_to_root(path: FilePath) -> Path:
+def relative_to_root(path: Path) -> Path:
     """
     Convert an absolute path to a path that is relative to the project root.
     """
-    if isinstance(path, str):
-        path = Path(path)
-
     return path.relative_to(sap.ROOT_PATH)
 
 
 class EmbeddingBaseAdapter(ABC):
     @abstractmethod
-    def compute_embeddings(self, data_path: Path, set_progress: callable = None) -> tuple[np.ndarray, list[FilePath]]:
+    def compute_embeddings(self, data_path: Path, progress_func: DashProgressFunc) -> tuple[np.ndarray, list[Path]]:
         """
         Compute and return the feature matrix and corresponding file paths for the given directory of data.
 

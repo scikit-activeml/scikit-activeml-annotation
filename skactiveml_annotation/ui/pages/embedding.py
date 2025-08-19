@@ -14,6 +14,7 @@ import dash_mantine_components as dmc
 from skactiveml_annotation import ui
 from skactiveml_annotation.core import api
 from skactiveml_annotation.ui.storekey import StoreKey
+from skactiveml_annotation.core.shared_types import DashProgressFunc
 
 register_page(
     __name__,
@@ -135,9 +136,9 @@ def on_cancel(
     prevent_initial_call=True,
 )
 def compute_embedding(
-        progress_func,
-        n_clicks,
-        store_data,
+    n_clicks: int | None,
+    progress_func: DashProgressFunc,
+    store_data,
 ):
     if n_clicks is None:
         raise PreventUpdate

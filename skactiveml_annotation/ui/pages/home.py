@@ -14,9 +14,8 @@ from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 
-import hydra
-
 from skactiveml_annotation.core import api
+from skactiveml_annotation.core.schema import DatasetConfig
 from skactiveml_annotation.ui.components import sampling_input
 from skactiveml_annotation.ui.storekey import StoreKey
 
@@ -25,8 +24,8 @@ RADIO_SELECTION = 'radio-selection'
 register_page(__name__, path='/')
 
 
-# region Layout
-def layout(**kwargs):
+def layout(**kwargs: object):
+    _ = kwargs
     return (
         dmc.Center(
             [
@@ -79,14 +78,14 @@ def layout(**kwargs):
                     # style={'border': '2px solid gold'}
                 )
             ],
-            mt='1%',
+            mt=1,
             style={'height': '100%'}
         )
     )
 
 
 # Helper function to build UI for different steps
-def create_step_ui(step, session_data):
+def create_step_ui(step: int, session_data):
     if step == 0:
         if session_data is None:
             preselect = None
@@ -146,7 +145,7 @@ def create_stepper():
     )
 
 
-def _create_dataset_radio_item(cfg, cfg_display):
+def _create_dataset_radio_item(cfg: DatasetConfig, cfg_display: str):
     dataset_exists = api.dataset_path_exits(cfg.data_path)
 
     radio_item = (

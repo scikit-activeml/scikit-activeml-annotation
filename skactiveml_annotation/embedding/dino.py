@@ -1,20 +1,28 @@
+import logging
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
-import torch
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
+from PIL import Image
+
+try:
+    import torch # pyright: ignore[reportMissingImports]
+    from torch.utils.data import DataLoader # pyright: ignore[reportMissingImports]
+    import torchvision.transforms as transforms # pyright: ignore[reportMissingImports]
+except ImportError as e:
+    logging.error(e)
+    raise
+
+from skactiveml_annotation.core.shared_types import DashProgressFunc
 
 from .base import (
     relative_to_root,
     EmbeddingBaseAdapter
 )
 
-from PIL import Image
-
 
 class ImageDataset(torch.utils.data.Dataset):
-    def __init__(self, data_path: Path, transform: callable):
+    def __init__(self, data_path: Path, transform: Callable):
         self.transform = transform
         self.image_paths = [path for path in data_path.iterdir() if path.is_file()]
 
@@ -63,9 +71,10 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
         self.model.eval()
 
     def compute_embeddings(
-            self, data_path: Path,
-            progress_func=None
-    ) -> tuple[np.ndarray, list[str]]:
+        self, 
+        data_path: Path,
+        progress_func: DashProgressFunc
+    ) -> tuple[np.ndarray, list[Path]]:
         """
         Load images from the directory in batches, process them through the model,
         and return the concatenated feature matrix and corresponding file names.
