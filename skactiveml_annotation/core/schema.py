@@ -144,12 +144,18 @@ class SessionConfig:
 class Batch:
     # TODO use correct datatypes
     emb_indices: list[int]
-    annotations: list[str | None]
     class_probas: list[list[float]] | None # shape len(indices) x num_of_classes
     progress: int  # progress
+
+    annotations: list[str | None]
     # Meta data
+    # TODO why use field?
     start_times: list[str] = field(default_factory=list)
     end_times: list[str] = field(default_factory=list)
+
+    first_view_times: list[str] = field(default_factory=list)
+    total_view_durations: list[str] = field(default_factory=list)
+    last_edit_times: list[str] = field(default_factory=list)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
@@ -169,8 +175,10 @@ class Annotation:
     embedding_idx: int
     file_path: str
     label: str
-    start_time: str = ''
-    end_time: str = ''
+
+    first_view_time: str = ''
+    total_view_duration: str = ''
+    last_edit_time: str = ''
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))

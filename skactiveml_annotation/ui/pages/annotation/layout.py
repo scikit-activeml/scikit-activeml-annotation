@@ -1,6 +1,8 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+
+import isodate
 
 import dash
 from dash import (
@@ -366,9 +368,28 @@ def on_confirm(
     if trigger_id == 'skip-button':
         annotation = MISSING_LABEL_MARKER
     else:
-        now_str = datetime.now().time().isoformat(timespec="milliseconds")
-        batch.end_times[batch.progress] = now_str
         annotation = value if trigger_id == 'confirm-button' else DISCARD_MARKER
+
+        
+    # TODO compute view duration and add to existing view duration
+    idx = batch.progress
+    end_time = datetime.now()
+
+    # Override last_edit_time
+    # TODO only store last edit when there was a change?
+    batch.last_edit_times[idx] = end_time.isoformat()
+    start_time = datetime.fromisoformat(batch.start_times[idx])
+    delta_time = end_time - start_time 
+
+    total_view_time_str = batch.total_view_durations[idx]
+    if total_view_time_str != "":
+        total_view_time = isodate.parse_duration(total_view_time_str)
+        total_view_time += delta_time
+    else:
+        total_view_time = delta_time
+
+    # Write back accumlated time
+    batch.total_view_durations[idx] = isodate.duration_isoformat(total_view_time)
 
     advance_batch(batch, annotation)
     # Override existing batch
@@ -566,15 +587,37 @@ def on_back_clicked(
     if clicks is None:
         raise PreventUpdate
 
+    # TODO methods here should be slim in the layout
     print("on back click callback")
     batch = Batch.from_json(session_data[StoreKey.BATCH_STATE.value])
 
+    # TODO modify meta data for the sample that was currently viewed
+    # Modify meta data for current batch
+    idx = batch.progress
+    end_time = datetime.now()
+
+    # Override last_edit_time
+    # TODO only store last edit when there was a change?
+    batch.last_edit_times[idx] = end_time.isoformat()
+    start_time = datetime.fromisoformat(batch.start_times[idx])
+    delta_time = end_time - start_time 
+
+    total_view_time_str = batch.total_view_durations[idx]
+    if total_view_time_str != "":
+        total_view_time = isodate.parse_duration(total_view_time_str)
+        total_view_time += delta_time
+    else:
+        total_view_time = delta_time
+
     if batch.progress == 0:
+        # TODO Serialize because meta data has changed
+        dataset_id = session_data.get(StoreKey.DATASET_SELECTION.value)
+
         print("Have to get last batch to be able to go back.")
         activeml_cfg = common.compose_from_state(session_data)
 
         # TODO it could be there is not enough labeled samples or there is no labeled samples anymore!
-        batch, num_annotations = api.undo_annots_and_restore_batch(activeml_cfg, batch_size)
+        batch, num_annotations = api.undo_annots_and_restore_batch(activeml_cfg, batch_size, batch)
         # Decrease amount of annotations
 
         if batch is None:
@@ -641,7 +684,12 @@ def on_annot_start_timestamp(
     batch = Batch.from_json(session_data[StoreKey.BATCH_STATE.value])
     # Problem that shit runs before ui rendering is complete.
     idx = batch.progress
-    now_str = datetime.now().time().isoformat(timespec="milliseconds")
+    now_str = datetime.now().isoformat()
+
+    if batch.first_view_times[idx] == "":
+        batch.first_view_times[idx] = now_str
+
+    # TODO only need to store one start time for current sample
     batch.start_times[idx] = now_str
     session_data[StoreKey.BATCH_STATE.value] = batch.to_json()
 

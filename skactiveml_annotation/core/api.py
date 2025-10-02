@@ -1,4 +1,6 @@
-from collections.abc import Sequence
+from collections import OrderedDict
+from collections.abc import Iterable, Sequence
+from itertools import islice
 import json
 import logging
 import inspect
@@ -157,16 +159,37 @@ def request_query(
     )
     class_probas_list = cast(list[list[float]], class_probas.tolist())
 
+    # Possibly restore annotations that have been previously skipped
+    # TODO what are all the places you are getting annotaitons
     lenght = len(query_indices)
-    batch_state = Batch(
+    file_paths = get_file_paths(cfg.dataset.id, cfg.embedding.id, query_indices)
+    
+    annotations_data = _deserialize_annotations(cfg.dataset.id)
+    # file_paths are the keys
+    annotations = []
+    for file_path in file_paths:
+        annot = annotations_data.get(file_path, None)
+        annotations.append(annot)
+
+    return Batch(
         emb_indices=query_indices,
         class_probas=class_probas_list,
         progress=0,
-        annotations=[None] * lenght,
+        annotations=annotations,
+        # TODO this will be removed
         start_times=[""] * lenght, # TODO: type?
-        end_times=[""] * lenght
+
+        first_view_times = [''] * lenght,
+        total_view_durations = [''] * lenght,
+        last_edit_times = [""] * lenght
     )
-    return batch_state
+
+
+def annotations_to_batch(annotations: Iterable[Annotation]) -> Batch:
+    raise NotImplemented
+    
+def batch_to_annotations() -> list[Annotation]:
+    raise NotImplemented
 
 
 def compute_embeddings(
@@ -214,42 +237,56 @@ def load_embeddings(
 
 # TODO rename to update json_annotations
 def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
+    # TODO  this is only needed because of serialize
     json_file_path = sap.ANNOTATED_PATH / f'{dataset_id}.json'
     print("completed batch")
+    print(batch)
 
     # Get existing annotations
-    annotations: list[Annotation] = _deserialize_annotations(json_file_path)
+    annotations = _deserialize_annotations(dataset_id)
     file_paths = get_file_paths(dataset_id, embedding_id, batch.emb_indices)
 
     # TODO: All samples should be annotated here since the batch is completed
     annotation_values = cast(list[str], batch.annotations)
 
-    new_annotations = [
-        Annotation(
-            embedding_idx=emb_idx,
-            file_path=f_path,
-            label=label,
-            start_time=start,
-            end_time=end
-        )
-        for emb_idx, f_path, label, start, end in zip(
-            batch.emb_indices, file_paths, annotation_values, batch.start_times, batch.end_times
-        )
-        if label != MISSING_LABEL_MARKER
-    ]
+    # From batch build Dict of Annotations
+    # TODO write helper for this
+    new_annotations = OrderedDict(
+        [
+            (
+                f_path, 
+                Annotation(
+                    embedding_idx=emb_idx,
+                    file_path=f_path,
+                    label=label,
+                    first_view_time=first_view_time,
+                    total_view_duration=total_view_duration,
+                    last_edit_time=last_edit_time
+                )
+            )
+            for emb_idx, f_path, label, first_view_time, total_view_duration, last_edit_time in zip(
+                batch.emb_indices, file_paths, annotation_values, batch.first_view_times, batch.total_view_durations, batch.last_edit_times,
+            )
+        ]
+    )
 
-    updated_annotations = annotations + new_annotations
+    annotations.update(new_annotations)
 
-    # Override annotations
-    _serialize_annotations(json_file_path, updated_annotations)
+    # for key, new_ann in new_annotations.items():
+    #     # Insert or override each annotation and move it to end
+    #     annotations[key] = new_ann
+    #     annotations.move_to_end(key)
 
-    num_annotated = len(updated_annotations)
+    _append_history(dataset_id, file_paths)
+    _serialize_annotations(json_file_path, annotations)
+
+    # TODO is that right?
+    num_annotated = len(annotations)
     return num_annotated
 
 
 def get_num_annotated(dataset_id: str) -> int:
-    json_file_path = sap.ANNOTATED_PATH / f'{dataset_id}.json'
-    return len(_deserialize_annotations(json_file_path))
+    return len(_deserialize_annotations(dataset_id))
 
 
 def get_total_num_samples(dataset_id: str, embedding_id: str) -> int:
@@ -316,8 +353,7 @@ def auto_annotate(
     if sort_by_proba:
         automated_annots.sort(key=lambda ann: ann.confidence, reverse=True)
 
-    json_file_path = sap.ANNOTATED_PATH / f'{cfg.dataset.id}.json'
-    manual_annots = _deserialize_annotations(json_file_path)
+    manual_annots = _deserialize_annotations(cfg.dataset.id)
 
     json_store_path = sap.ANNOTATED_PATH / f'{cfg.dataset.id}-automated.json'
     _serialize_annotations_with_keys(
@@ -382,7 +418,6 @@ def _load_or_init_annotations(
         dataset_cfg: DatasetConfig
 ) -> np.ndarray:
     """Load existing labels or initialize with missing labels."""
-    json_file_path = sap.ANNOTATED_PATH / f'{dataset_cfg.id}.json'
     num_samples = len(X)
     # TODO Performance. Dont repeat this computation
     max_label_name_len = max(
@@ -394,26 +429,40 @@ def _load_or_init_annotations(
     # But then there is a disconnect.
     y = np.full(num_samples, MISSING_LABEL_MARKER, dtype=f'U{max_label_name_len}')
 
-    if json_file_path.exists():
-        y = _load_labels_as_np(y, json_file_path)
+    # if json_file_path.exists():
+    _load_labels_as_np(y, dataset_cfg.id)
 
     return y
 
 
-def _deserialize_annotations(json_path: Path) -> list[Annotation]:
+def _deserialize_annotations(dataset_id: str) -> OrderedDict[str, Annotation]: 
+    json_path = sap.ANNOTATED_PATH / f'{dataset_id}.json'
+
     if not json_path.exists():
-        return []
+        return OrderedDict()
 
     with json_path.open('r') as f:
         annotations_data: dict = json.load(f)
 
-    annotations = [Annotation(**ann) for ann in annotations_data]
-    return annotations
+    return OrderedDict(
+        [(key, Annotation(**ann_data)) for key, ann_data in annotations_data.items()]
+    )
+    # annotations = [Annotation(**ann) for ann in annotations_data]
+    # return annotations
 
 
-def _serialize_annotations(path: Path, annotations: list[Annotation]):
+def _serialize_annotations(path: Path, annotations: OrderedDict[str, Annotation]):
     with path.open("w") as f:
-        json.dump([asdict(ann) for ann in annotations], f, indent=4)
+        json.dump(
+            OrderedDict(
+                [(key, asdict(ann)) for key, ann in annotations.items()]
+            ),
+            f,
+            indent=4
+        )
+
+def update_annotations(dataset_id: str, annotations: OrderedDict[str, Annotation]):
+    pass
 
 
 def _serialize_annotations_with_keys(
@@ -421,6 +470,7 @@ def _serialize_annotations_with_keys(
     data: Sequence[Sequence[DataClassInstance]],
     keys: Sequence[str]
 ):
+    # TODO change serialization
     payload = {
         key: [asdict(obj) for obj in group]
         for key, group in zip(keys, data)
@@ -430,18 +480,13 @@ def _serialize_annotations_with_keys(
         json.dump(payload, f, indent=4)
 
 
-def _load_labels_as_np(y: np.ndarray, json_path: Path) -> np.ndarray:
+def _load_labels_as_np(y: np.ndarray, dataset_id: str):
     """Load labels from a JSON file and return as a numpy array."""
-    with json_path.open('r') as f:
-        annotations = json.load(f)
+    annotations = _deserialize_annotations(dataset_id)
 
-        # TODO check if there is still some missing labels.
-        # Else there is nothing more to label.
-        for ann in annotations:
-            idx = ann['embedding_idx']
-            y[idx] = ann['label']
-
-    return y
+    for ann in annotations.values():
+        idx = ann.embedding_idx
+        y[idx] = ann.label
 
 
 def _estimator_accepts_random(est_cls) -> bool:
@@ -615,12 +660,57 @@ def get_file_paths(
         return file_paths[emd_indices].tolist()
 
 
+def _pop_history(dataset_id: str, num: int) -> list[str]:
+    history_file_path = sap.HISTORY_PATH / f'{dataset_id}.json'
+
+    if not history_file_path.exists():
+        raise NotImplemented
+
+    with history_file_path.open('r+') as f:
+        # TODO should be a list of string
+        history: list[str] = json.load(f)
+
+        write_back, reconstruct = history[:-num], history[-num:]
+        
+        f.seek(0)
+        json.dump(write_back, f, indent=4)
+        f.truncate()
+
+    # Override history file
+    return reconstruct
+
+def _append_history(dataset_id: str, file_paths: Iterable[str]):
+    history_file_path = sap.HISTORY_PATH / f"{dataset_id}.json"
+
+    if not history_file_path.exists():
+        with history_file_path.open("w") as f:
+            json.dump(file_paths, f, indent=4)
+    else:
+        with history_file_path.open("r+") as f:
+            try:
+                history: list[str] = json.load(f)
+            except json.JSONDecodeError:
+                logging.error("History file is corrupted or not valid JSON: %s", history_file_path)
+                return
+
+            # Append new file paths
+            history.extend(file_paths)
+
+            # Write updated history
+            f.seek(0)
+            json.dump(history, f, indent=4)
+            f.truncate()
+
 def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[Batch | None, int]:
     # Assumes annotations are stored in json in the same order they were made.
-    json_file_path = sap.ANNOTATED_PATH / f'{cfg.dataset.id}.json'
-    annotations = _deserialize_annotations(json_file_path)
+    
+    file_paths = _pop_history(cfg.dataset.id, num_undo)
+    annotations_data = _deserialize_annotations(cfg.dataset.id)
+
+    annotations = [annotations_data[f_path] for f_path in file_paths]
 
     # Check there is enough annotations made to go back that far.
+    # TODO this is not right anymore
     num_annotations = len(annotations)
     if num_undo > num_annotations:
         if num_annotations == 0:
@@ -628,16 +718,25 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
 
         num_undo = num_annotations
 
-    write_back, reconstruct = annotations[:-num_undo], annotations[-num_undo:]
+    # get last num_undo annotations from ordered dict
 
-    labels, emb_idxes, starts, ends = [], [], [], []
-    for annot in reconstruct:
+    # Iterator over the last annotations
+    labels, emb_idxes, first_view_times, total_view_durations, last_edit_times = [], [], [], [], []
+
+    start = max(0, len(annotations) - num_undo)
+    for annot in islice(annotations, start, None):
         labels.append(annot.label)
         emb_idxes.append(annot.embedding_idx)
-        starts.append(annot.start_time)
-        ends.append(annot.end_time)
+        first_view_times.append(annot.first_view_time)
+        total_view_durations.append(annot.total_view_duration)
+        last_edit_times.append(annot.last_edit_time)
 
-    _serialize_annotations(json_file_path, write_back)
+    # write_back, reconstruct = annotations[:-num_undo], annotations[-num_undo:]
+
+    # Get last annotation
+
+    # TODO serialization no longer needed right?
+    # _serialize_annotations(json_file_path, write_back)
 
     model_cfg = cfg.model
     random_state = np.random.RandomState(cfg.random_seed)
@@ -657,8 +756,14 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
             annotations=labels,
             class_probas=class_probas.tolist(),
             progress=num_undo,
-            start_times=starts,
-            end_times=ends,
+
+            start_times=[""] * len(first_view_times), # TODO temporary
+
+            first_view_times=first_view_times, 
+            total_view_durations=total_view_durations, 
+            last_edit_times=last_edit_times
         ),
-        len(write_back)  # TODo Human annotations + automatic annotations.
+        # TODO
+        10
+        # len(write_back)  # TODo Human annotations + automatic annotations.
     )
