@@ -79,7 +79,7 @@ def create_image_display(path_to_img: Path, dpr):
 
     return (
         dcc.Graph(
-           figure=fig,
+            figure=fig,
             responsive=False,
             style={
                 # 'border':'blue solid 2px',

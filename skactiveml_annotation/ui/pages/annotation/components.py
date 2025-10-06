@@ -8,6 +8,7 @@ import numpy as np
 import dash_mantine_components as dmc
 
 from skactiveml_annotation.core.schema import (
+    Annotation,
     Batch, 
     DataType, 
     MISSING_LABEL_MARKER
@@ -207,6 +208,7 @@ def create_data_display(data_type, human_data_path: Path, dpr):
 def create_label_chips(
     classes: list[str], 
     # TODO: The batch does not always contain probas as some classifers dont have this method
+    annotation: Annotation | None,
     batch: Batch,  
     show_probas: bool, 
     sort_by: SortBySetting,
@@ -214,14 +216,11 @@ def create_label_chips(
     insertion_idxes: list[int]
 ):
     # Check if there is some annotation already for that sample in case the user used back btn.
-    annotation = batch.annotations[batch.progress]
     was_annotated = annotation is not None # TODO: Using None if its not annotated acctually made sense
 
     class_probas = None
-    has_probas = False
     if batch.class_probas is not None:
         class_probas = batch.class_probas[batch.progress]
-        has_probas = True
 
     # Check if probabilities have to be sorted
     must_sort = (
@@ -244,7 +243,7 @@ def create_label_chips(
         logging.info(f"preselect after adding label: {preselect}")
     elif was_annotated:
         # Was allready previously annoated. For intance when going back
-        preselect = annotation
+        preselect = annotation.label
     elif class_probas is not None:
         highest_prob_idx = np.argmax(class_probas)
         preselect = classes[int(highest_prob_idx)]

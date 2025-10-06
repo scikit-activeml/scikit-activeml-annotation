@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import json
 from enum import Enum
 from dataclasses import dataclass, field, asdict
@@ -140,53 +141,88 @@ class SessionConfig:
             self.subsampling = None
 
 
-@dataclass
 class Batch:
-    # TODO use correct datatypes
-    emb_indices: list[int]
-    class_probas: list[list[float]] | None # shape len(indices) x num_of_classes
-    progress: int  # progress
+    def __init__(
+        self, 
+        emb_indices: list[int], 
+        class_probas: list[list[float]] | None = None, 
+        progress: int = 0
+    ):
+        if not (0 <= progress <= len(emb_indices)):
+            raise ValueError("Initial progress out of range")
 
-    annotations: list[str | None]
-    # Meta data
-    # TODO why use field?
-    start_times: list[str] = field(default_factory=list)
-    end_times: list[str] = field(default_factory=list)
+        self.emb_indices = emb_indices
+        self.class_probas = class_probas
 
-    first_view_times: list[str] = field(default_factory=list)
-    total_view_durations: list[str] = field(default_factory=list)
-    last_edit_times: list[str] = field(default_factory=list)
+        self._progress = progress
+        self._min_progress = progress
+        self._max_progress = progress
 
-    def to_json(self) -> str:
-        return json.dumps(asdict(self))
+    @property
+    def progress(self) -> int:
+        return self._progress
 
-    @staticmethod
-    def from_json(json_str: str):
-        data = json.loads(json_str)
-        return Batch(**data)
+    # TODO maybe its cleaner if this returns a boolean is completed?
+    def advance(self, step: int):
+        self._progress += step
+
+        if self.is_completed():
+            return
+
+        self._min_progress = min(self._min_progress, self._progress)
+        self._max_progress = max(self._max_progress, self._progress)
+
+    def get_num_annotated(self) -> int:
+        return self._max_progress - self._min_progress + 1
 
     def is_completed(self) -> bool:
-        return self.progress >= len(self.emb_indices)
+        return self.progress < 0 or self.progress >= len(self.emb_indices)
+
+    # -- Serialization & Deserialization --
+    def to_json(self) -> str:
+        data = {
+            "emb_indices": self.emb_indices,
+            "class_probas": self.class_probas,
+            "_progress": self._progress,
+            "_min_progress": self._min_progress,
+            "_max_progress": self._max_progress
+        }
+        return json.dumps(data)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Batch":
+        data = json.loads(json_str)
+        batch = cls(
+            emb_indices=data["emb_indices"],
+            class_probas=data.get("class_probas", None),
+            progress=data["_progress"]
+        )
+        batch._min_progress = data["_min_progress"]
+        batch._max_progress = data["_max_progress"]
+        return batch
 
 
 # TODO use pydanic for this
-@dataclass
-class Annotation:
+class Annotation(pydantic.BaseModel):
     embedding_idx: int
-    file_path: str
+    # TODO remove file_path here since its allready the key of the dict?
+    # file_path: str
     label: str
 
     first_view_time: str = ''
     total_view_duration: str = ''
     last_edit_time: str = ''
 
-    def to_json(self) -> str:
-        return json.dumps(asdict(self))
+    # def to_json(self) -> str:
+    #     return json.dumps(asdict(self))
+    #
+    # @staticmethod
+    # def from_json(json_str: str):
+    #     data = json.loads(json_str)
+    #     return Annotation(**data)
 
-    @staticmethod
-    def from_json(json_str: str):
-        data = json.loads(json_str)
-        return Annotation(**data)
+class AnnotationList(pydantic.BaseModel):
+    annotations: list[Annotation | None]
 
 
 @dataclass

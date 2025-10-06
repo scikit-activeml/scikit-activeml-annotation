@@ -29,6 +29,7 @@ import skactiveml_annotation.paths as sap
 
 from skactiveml_annotation.core.schema import (
     ActiveMlConfig,
+    AnnotationList,
     EmbeddingConfig,
     QueryStrategyConfig,
     ModelConfig, 
@@ -102,10 +103,10 @@ def compose_config(overrides: tuple[tuple[str, str], ...]) -> ActiveMlConfig:
 
 
 def request_query(
-        cfg: ActiveMlConfig,
-        session_cfg: SessionConfig,
-        X: np.ndarray,
-) -> Batch:
+    cfg: ActiveMlConfig,
+    session_cfg: SessionConfig,
+    X: np.ndarray,
+) -> tuple[Batch, AnnotationList]:
     y = _load_or_init_annotations(X, cfg.dataset)
     query_func, clf = _setup_query(cfg, session_cfg)
 
@@ -161,36 +162,24 @@ def request_query(
 
     # Possibly restore annotations that have been previously skipped
     # TODO what are all the places you are getting annotaitons
-    lenght = len(query_indices)
+    # TODO write helper for this? Restore annotations or something
     file_paths = get_file_paths(cfg.dataset.id, cfg.embedding.id, query_indices)
-    
     annotations_data = _deserialize_annotations(cfg.dataset.id)
     # file_paths are the keys
-    annotations = []
-    for file_path in file_paths:
-        annot = annotations_data.get(file_path, None)
-        annotations.append(annot)
-
-    return Batch(
-        emb_indices=query_indices,
-        class_probas=class_probas_list,
-        progress=0,
-        annotations=annotations,
-        # TODO this will be removed
-        start_times=[""] * lenght, # TODO: type?
-
-        first_view_times = [''] * lenght,
-        total_view_durations = [''] * lenght,
-        last_edit_times = [""] * lenght
+    annotations_list = AnnotationList(
+        annotations = [
+            annotations_data.get(f_path, None) for f_path in file_paths
+        ]
     )
 
-
-def annotations_to_batch(annotations: Iterable[Annotation]) -> Batch:
-    raise NotImplemented
-    
-def batch_to_annotations() -> list[Annotation]:
-    raise NotImplemented
-
+    return (
+        Batch(
+            emb_indices=query_indices,
+            class_probas=class_probas_list,
+            progress=0,
+        ),
+        annotations_list
+    )
 
 def compute_embeddings(
         activeml_cfg: ActiveMlConfig,
@@ -236,54 +225,41 @@ def load_embeddings(
 
 
 # TODO rename to update json_annotations
-def completed_batch(dataset_id: str, batch: Batch, embedding_id: str) -> int:
+def completed_batch(
+    dataset_id: str, 
+    embedding_id: str, 
+    new_annotations: list[Annotation],
+    batch: Batch # TODO really only the emd_indices are needed
+) -> int:
+    """
+    test
+    """
     # TODO  this is only needed because of serialize
-    json_file_path = sap.ANNOTATED_PATH / f'{dataset_id}.json'
     print("completed batch")
     print(batch)
 
-    # Get existing annotations
-    annotations = _deserialize_annotations(dataset_id)
     file_paths = get_file_paths(dataset_id, embedding_id, batch.emb_indices)
 
-    # TODO: All samples should be annotated here since the batch is completed
-    annotation_values = cast(list[str], batch.annotations)
-
-    # From batch build Dict of Annotations
-    # TODO write helper for this
-    new_annotations = OrderedDict(
-        [
-            (
-                f_path, 
-                Annotation(
-                    embedding_idx=emb_idx,
-                    file_path=f_path,
-                    label=label,
-                    first_view_time=first_view_time,
-                    total_view_duration=total_view_duration,
-                    last_edit_time=last_edit_time
-                )
-            )
-            for emb_idx, f_path, label, first_view_time, total_view_duration, last_edit_time in zip(
-                batch.emb_indices, file_paths, annotation_values, batch.first_view_times, batch.total_view_durations, batch.last_edit_times,
-            )
-        ]
+    annotations = update_annotations(
+        dataset_id, 
+        file_paths,
+        new_annotations
     )
 
-    annotations.update(new_annotations)
-
-    # for key, new_ann in new_annotations.items():
-    #     # Insert or override each annotation and move it to end
-    #     annotations[key] = new_ann
-    #     annotations.move_to_end(key)
-
-    _append_history(dataset_id, file_paths)
-    _serialize_annotations(json_file_path, annotations)
-
+    num_annotated = batch.get_num_annotated() 
     # TODO is that right?
-    num_annotated = len(annotations)
-    return num_annotated
+    _append_history(dataset_id, file_paths[:num_annotated])
 
+    # TODO count only the annotations that have not been skipped
+    return get_num_annotated_ram(annotations)
+
+def get_num_annotated_ram(annotations: Iterable[Annotation | None]):
+    # Samples are counted as annotated if they have a label or are discareded
+    cnt = 0
+    for annot in annotations:
+        if annot is not None and annot.label != MISSING_LABEL_MARKER:
+            cnt += 1
+    return cnt
 
 def get_num_annotated(dataset_id: str) -> int:
     return len(_deserialize_annotations(dataset_id))
@@ -355,9 +331,8 @@ def auto_annotate(
 
     manual_annots = _deserialize_annotations(cfg.dataset.id)
 
-    json_store_path = sap.ANNOTATED_PATH / f'{cfg.dataset.id}-automated.json'
     _serialize_annotations_with_keys(
-        json_store_path,
+        cfg.dataset.id,
         (manual_annots, automated_annots),
         ('manual', 'automated')
     )
@@ -435,48 +410,79 @@ def _load_or_init_annotations(
     return y
 
 
-def _deserialize_annotations(dataset_id: str) -> OrderedDict[str, Annotation]: 
-    json_path = sap.ANNOTATED_PATH / f'{dataset_id}.json'
+def _deserialize_annotations(dataset_id: str) -> OrderedDict[str, Annotation]:
+    json_path = sap.ANNOTATED_PATH / f"{dataset_id}.json"
 
-    if not json_path.exists():
+    # If the file doesn't exist or is empty → return an empty OrderedDict
+    if not json_path.exists() or json_path.stat().st_size == 0:
         return OrderedDict()
 
-    with json_path.open('r') as f:
-        annotations_data: dict = json.load(f)
+    content = json_path.read_text().strip()
+    if not content:
+        return OrderedDict()
+
+    annotations_data: dict = json.loads(content)
 
     return OrderedDict(
-        [(key, Annotation(**ann_data)) for key, ann_data in annotations_data.items()]
+        (key, Annotation.model_validate(ann_data)) 
+        for key, ann_data in annotations_data.items()
     )
-    # annotations = [Annotation(**ann) for ann in annotations_data]
-    # return annotations
 
+def _serialize_annotations(dataset_id: str, annotations: OrderedDict[str, Annotation]):
+    json_path = sap.ANNOTATED_PATH / f"{dataset_id}.json"
 
-def _serialize_annotations(path: Path, annotations: OrderedDict[str, Annotation]):
-    with path.open("w") as f:
+    with json_path.open("w") as f:
         json.dump(
             OrderedDict(
-                [(key, asdict(ann)) for key, ann in annotations.items()]
+                [(key, ann.model_dump()) for key, ann in annotations.items()]
             ),
             f,
             indent=4
         )
 
-def update_annotations(dataset_id: str, annotations: OrderedDict[str, Annotation]):
-    pass
+def update_annotations(
+    dataset_id: str,
+    file_paths: list[str],
+    new_annotations: Sequence[Annotation | None]
+) -> list[Annotation]:
+    annotations = _deserialize_annotations(dataset_id)
+    # Get file_paths as they are the keys
 
+    new_annotations_dict = OrderedDict(
+        (f_path, annot) for f_path, annot in zip(file_paths, new_annotations)
+        if annot is not None
+    )
+
+    # new_annotations_dict = {
+    #     f_path: annot
+    #     for f_path, annot in zip(file_paths, new_annotations) if annot is not None
+    # }
+
+    # TODO its always moved to end now, which should not always be the case
+    if True:
+        for key, item in new_annotations_dict.items():
+            annotations[key] = item
+            annotations.move_to_end(key, last=True)
+    else:
+        annotations.update(new_annotations_dict)
+
+    _serialize_annotations(dataset_id, annotations)
+
+    return list(annotations.values()) 
 
 def _serialize_annotations_with_keys(
-    path: Path,
+    dataset_id: str,
     data: Sequence[Sequence[DataClassInstance]],
     keys: Sequence[str]
 ):
+    json_store_path = sap.ANNOTATED_PATH / f'{dataset_id}-automated.json'
     # TODO change serialization
     payload = {
         key: [asdict(obj) for obj in group]
         for key, group in zip(keys, data)
     }
 
-    with path.open('w', encoding='utf-8') as f:
+    with json_store_path.open('w', encoding='utf-8') as f:
         json.dump(payload, f, indent=4)
 
 
@@ -701,12 +707,11 @@ def _append_history(dataset_id: str, file_paths: Iterable[str]):
             json.dump(history, f, indent=4)
             f.truncate()
 
-def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[Batch | None, int]:
+def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[Batch, AnnotationList, int]:
     # Assumes annotations are stored in json in the same order they were made.
     
     file_paths = _pop_history(cfg.dataset.id, num_undo)
     annotations_data = _deserialize_annotations(cfg.dataset.id)
-
     annotations = [annotations_data[f_path] for f_path in file_paths]
 
     # Check there is enough annotations made to go back that far.
@@ -714,22 +719,18 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
     num_annotations = len(annotations)
     if num_undo > num_annotations:
         if num_annotations == 0:
-            return None, 0
+            raise RuntimeError("Cannot go back further")
 
         num_undo = num_annotations
 
     # get last num_undo annotations from ordered dict
 
     # Iterator over the last annotations
-    labels, emb_idxes, first_view_times, total_view_durations, last_edit_times = [], [], [], [], []
-
+    # TODO simplifiy
+    emb_idxes = []
     start = max(0, len(annotations) - num_undo)
     for annot in islice(annotations, start, None):
-        labels.append(annot.label)
         emb_idxes.append(annot.embedding_idx)
-        first_view_times.append(annot.first_view_time)
-        total_view_durations.append(annot.total_view_duration)
-        last_edit_times.append(annot.last_edit_time)
 
     # write_back, reconstruct = annotations[:-num_undo], annotations[-num_undo:]
 
@@ -749,21 +750,18 @@ def undo_annots_and_restore_batch(cfg: ActiveMlConfig, num_undo: int) -> tuple[B
     estimator.fit(X_cand, y_cand)
     class_probas = estimator.predict_proba(X[emb_idxes])
 
+    #  TODO workarround typing 
+    annotations = cast(list[Annotation | None], annotations)
+
     # Restored Batch
     return (
         Batch(
             emb_indices=emb_idxes,
-            annotations=labels,
             class_probas=class_probas.tolist(),
-            progress=num_undo,
-
-            start_times=[""] * len(first_view_times), # TODO temporary
-
-            first_view_times=first_view_times, 
-            total_view_durations=total_view_durations, 
-            last_edit_times=last_edit_times
+            progress=num_undo - 1,
         ),
-        # TODO
-        10
-        # len(write_back)  # TODo Human annotations + automatic annotations.
+        AnnotationList(annotations=annotations),
+        # INFO: Annotations are only decreased when previously labaled or 
+        # discared samples are now skipped
+        get_num_annotated_ram(annotations_data.values())
     )
