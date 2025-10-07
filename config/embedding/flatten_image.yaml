@@ -5,5 +5,5 @@ data_type:
   _args_: [Image]
 
 definition:
-  _target_: embedding.basic_flatten.SimpleFlattenAdapter
+  _target_: skactiveml_annotation.embedding.basic_flatten.SimpleFlattenAdapter
 

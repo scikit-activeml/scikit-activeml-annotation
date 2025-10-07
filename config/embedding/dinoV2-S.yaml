@@ -5,6 +5,6 @@ data_type:
   _args_: [Image]
 
 definition:
-  _target_: embedding.dino.TorchVisionAdapter
+  _target_: skactiveml_annotation.embedding.dino.TorchVisionAdapter
   model_variant: "dinov2_vits14"
   batch_size: 8 # TODO remove batch_size from here and let the user set it the the UI.

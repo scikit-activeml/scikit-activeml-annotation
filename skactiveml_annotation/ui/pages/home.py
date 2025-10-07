@@ -190,6 +190,7 @@ def _create_dataset_selection(preselect):
 
 
 def _create_embedding_radio_group(session_data):
+    # TODO only display embeddings that are valid for the selected dataset
     options = api.get_embedding_config_options()
     formatted_options = [(cfg.id, cfg.display_name) for cfg in options]
 

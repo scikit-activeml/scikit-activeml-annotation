@@ -16,6 +16,11 @@ except ImportError as e:
     logging.error(e)
     sys.exit()
 
+
+# Use paths logic from package
+package_root = Path(__file__).resolve().parent.parent
+sys.path.append(str(package_root))
+
 import skactiveml_annotation.paths as sap
 
 

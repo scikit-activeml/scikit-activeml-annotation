@@ -5,6 +5,6 @@ data_type:
   _args_: [Image]
 
 definition:
-  _target_: embedding.dino.TorchVisionAdapter
+  _target_: skactiveml_annotation.embedding.dino.TorchVisionAdapter
   model_variant: "dinov2_vitb14"
   batch_size: 8

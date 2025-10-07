@@ -21,7 +21,7 @@ import numpy.typing as npt
 import sklearn
 from skactiveml.base import SkactivemlClassifier
 from skactiveml.classifier import SklearnClassifier
-from skactiveml.pool import SubSamplingWrapper 
+from skactiveml.pool import SubSamplingWrapper
 
 from skactiveml_annotation import util
 from skactiveml_annotation.util import deserialize
@@ -32,7 +32,7 @@ from skactiveml_annotation.core.schema import (
     AnnotationList,
     EmbeddingConfig,
     QueryStrategyConfig,
-    ModelConfig, 
+    ModelConfig,
     DatasetConfig,
     SessionConfig,
     Annotation,
@@ -182,8 +182,8 @@ def request_query(
     )
 
 def compute_embeddings(
-        activeml_cfg: ActiveMlConfig,
-        progress_func: DashProgressFunc
+    activeml_cfg: ActiveMlConfig,
+    progress_func: DashProgressFunc
 ):
     embedding_cfg = activeml_cfg.embedding
     dataset_cfg = activeml_cfg.dataset
@@ -194,8 +194,9 @@ def compute_embeddings(
         data_path = sap.ROOT_PATH / data_path
 
     # TODO:: Check type and cast, it has to be an EmbeddingBadeAdapter here
-    adapter = embedding_cfg.definition.instantiate()
 
+    adapter = embedding_cfg.definition.instantiate()
+ 
     X, file_paths = adapter.compute_embeddings(data_path, progress_func)
 
     file_paths_str = _normalize_and_validate_paths(file_paths, X)
@@ -203,6 +204,8 @@ def compute_embeddings(
     # Unique key
     cache_key = f"{dataset_id}_{embedding_cfg.id}"
     cache_path = sap.EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"  # Use .npz to store multiple arrays
+
+    logging.info(f"Embedding has been computed and saved at {cache_path}")
 
     # Store relative file_paths
     np.savez(cache_path, X=X, file_paths=file_paths_str)

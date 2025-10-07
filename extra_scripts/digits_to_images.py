@@ -1,8 +1,15 @@
 import os
+import sys
+from pathlib import Path
 from typing import Any
+
 from sklearn import datasets
 from PIL import Image
 import numpy as np
+
+# Use paths logPathrom package
+package_root = Path(__file__).resolve().parent.parent
+sys.path.append(str(package_root))
 
 import skactiveml_annotation.paths as sap
 
