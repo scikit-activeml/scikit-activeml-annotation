@@ -130,7 +130,7 @@ def layout(**kwargs):
                                                     w='250px',
                                                     h='250px',
                                                     my=10,
-                                                    # style=dict(border='4px dotted red')
+                                                    style=dict(border='4px dotted red')
                                                 ),
                                                 delay_hide=150,
                                                 delay_show=150,
@@ -485,6 +485,7 @@ def on_ui_update(
         ) 
     )
 
+    print("\nAre we getting here?\n")
     rendered_data, w, h = components.create_data_display(data_type, human_data_path, browser_dpr)
 
     sort_by = SortBySetting[sort_by] 

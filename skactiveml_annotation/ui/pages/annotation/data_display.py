@@ -2,7 +2,8 @@ import base64
 from pathlib import Path
 from io import BytesIO
 
-from dash import dcc
+import dash
+from dash import dcc, html
 import dash_mantine_components as dmc
 
 from plotly import graph_objects as go
@@ -118,20 +119,60 @@ def pil_image_to_base64(img: pil_image.Image, fmt: str = "PNG") -> str:
     return f"data:{mime};base64,{b64_str}"
 
 
-def create_text_display(text) -> tuple[dmc.Container, int, int]:
+def create_text_display(path: Path):
+    if not path.exists():
+        raise ValueError(f"Cannot load text data from path: {path}")
+
+    text_data = path.read_text(encoding="utf-8")
+    
+    print("How oftne \n in text:", text_data.count("\n")) 
+
+    print("the text data is:", text_data)
+    
+    # TODO limit max line lenght also add a scroolArea. 
+    # Display the text nicly
+
     return (
         dmc.Container(
-            dmc.Stack(
-                dcc.Markdown(
-                    text,  # Provide your text data here
-                    className="markdown-content",
-                    # Add additional Markdown options if necessary
-                ),
+            dcc.Markdown(
+                text_data,
             ),
+            # dcc.Markdown(
+            #     text_data,  # Provide your text data here
+            #     className="markdown-content",
+            #     # Add additional Markdown options if necessary
+            #     style={
+            #         "width": "600px",
+            #         # "whiteSpace": "normal",
+            #         # "wordWrap": "break-word",
+            #         # "overflowWrap": "break-word",
+            #         "display": "block",
+            #     }
+            # ),
+
+            style={
+                "border": "2px solid green",  # Debug border
+            },
         ),
+            # dmc.Stack(
+            #     dcc.Markdown(
+            #         text_data,  # Provide your text data here
+            #         className="markdown-content",
+            #         # Add additional Markdown options if necessary
+            #     ),
+            #
+            #     style={
+            #         "border": "2px solid green",  # Debug border
+            #     },
+            # ),
+        #     style={
+        #         "border": "2px solid red",  # Debug border
+        #         # "padding": "10px",          # Optional: add some space inside
+        #     },
+        # ),
         # TODO:
-        10,
-        10,
+        dash.no_update,
+        dash.no_update
     )
 
 

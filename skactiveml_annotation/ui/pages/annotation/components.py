@@ -193,9 +193,13 @@ def create_data_display(data_type, human_data_path: Path, dpr):
     if data_type == DataType.IMAGE:
         rendered_data, w, h = data_display.create_image_display(human_data_path, dpr)
     elif data_type == DataType.TEXT:
+        print("Render Text Data")
         rendered_data, w, h = data_display.create_text_display(human_data_path)
     else:
         rendered_data, w, h = data_display.create_audio_display(human_data_path)
+
+    print(rendered_data)
+    print(type(rendered_data))
 
     return (
         rendered_data,
