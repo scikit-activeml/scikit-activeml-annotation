@@ -193,13 +193,9 @@ def create_data_display(data_type, human_data_path: Path, dpr):
     if data_type == DataType.IMAGE:
         rendered_data, w, h = data_display.create_image_display(human_data_path, dpr)
     elif data_type == DataType.TEXT:
-        print("Render Text Data")
         rendered_data, w, h = data_display.create_text_display(human_data_path)
     else:
         rendered_data, w, h = data_display.create_audio_display(human_data_path)
-
-    print(rendered_data)
-    print(type(rendered_data))
 
     return (
         rendered_data,
@@ -208,9 +204,8 @@ def create_data_display(data_type, human_data_path: Path, dpr):
     )
 
 
-# TODO: missing type annotation
 def create_label_chips(
-    classes: list[str], 
+    classes_yaml: list[str], 
     # TODO: The batch does not always contain probas as some classifers dont have this method
     annotation: Annotation | None,
     batch: Batch,  
@@ -239,27 +234,27 @@ def create_label_chips(
             class_probas = _pad_with_zeros(class_probas, insertion_idxes)
 
         # Sorted classes and class_probas
-        classes, class_probas = _sort(classes, class_probas, sort_by)
+        classes_yaml, class_probas = _sort(classes_yaml, batch.classes_sklearn, class_probas, sort_by)
 
     if was_class_added:
         # preselect last added class
-        preselect = classes[insertion_idxes[-1]]
+        preselect = classes_yaml[insertion_idxes[-1]]
         logging.info(f"preselect after adding label: {preselect}")
     elif was_annotated:
         # Was allready previously annoated. For intance when going back
         preselect = annotation.label
     elif class_probas is not None:
         highest_prob_idx = np.argmax(class_probas)
-        preselect = classes[int(highest_prob_idx)]
+        preselect = classes_yaml[int(highest_prob_idx)]
     else:
         preselect = MISSING_LABEL_MARKER
 
 
     if show_probas and class_probas is not None:
         chips = [_create_chip(label, probability) for label, probability in
-                 zip(classes, class_probas)]
+                 zip(classes_yaml, class_probas)]
     else:
-        chips = [_create_chip(label) for label in classes]
+        chips = [_create_chip(label) for label in classes_yaml]
 
 
     chip_group = dmc.ChipGroup(
@@ -277,8 +272,9 @@ def create_label_chips(
                     'display': 'inline-flex',
                     'flexDirection': 'row',
                     'flexWrap': 'wrap',
-                    'gap': '10px'
-                }
+                    'gap': '10px',
+                },
+                py=1
             ),
         ),
         id='my-scroll-area',
@@ -316,21 +312,51 @@ def _pad_with_zeros(class_probas, insertion_idxes):
 
 
 # TODO: It might be worth to convert to numpy array honestly
-def _sort(classes: list[str], class_probas: list[float], sort_by: SortBySetting):
-    if sort_by == SortBySetting.proba:
+def _sort(
+    classes_yaml: list[str], 
+    classes_sklearn: list[str],
+    class_probas: list[float], 
+    sort_by: SortBySetting
+):
+    """
+    Sorts classes and probabilities according to the user's preference.
+
+    Parameters
+    ----------
+    classes_yaml : list[str]
+        Original class order defined by the user (YAML).
+    classes_sklearn : list[str]
+        scikit-learn internal class order (clf.classes_).
+    class_probas : list[float] | None
+        Probabilities from clf.predict_proba (aligned with classes_sklearn).
+    sort_by : SortBySetting
+
+    Returns
+    -------
+    tuple[list[str], list[float] | None]
+        The sorted class names and corresponding probabilities.
+    """
+    if sort_by == SortBySetting.yaml_order:
+        # Return in YAML-defined order
+        # Need to remap from sklearn's order -> YAML order
+        mapping = {cls: i for i, cls in enumerate(classes_sklearn)}
+        sorted_indices = [mapping[cls] for cls in classes_yaml if cls in mapping]
+
+    elif sort_by == SortBySetting.proba:
         if class_probas is None:
             logging.warning("Cannot sort by predicted class probabilities as this info is not available.")
-            return classes, class_probas
+            return classes_yaml, class_probas
 
         sorted_indices = sorted(range(len(class_probas)), key=lambda i: class_probas[i], reverse=True)
-    elif sort_by == SortBySetting.alphabet:
-        sorted_indices = sorted(range(len(classes)), key=lambda i: str.lower(classes[i]))
 
-    elif sort_by == SortBySetting.no_sort:
-        return classes, class_probas
+    elif sort_by == SortBySetting.alphabet:
+        # sklearn already ensures alphabetical order so just return as is
+        return classes_sklearn, class_probas
+        
+    # TODO else?
 
     return (
-        [classes[i] for i in sorted_indices],
+        [classes_sklearn[i] for i in sorted_indices],
         [class_probas[i] for i in sorted_indices]
     )
 

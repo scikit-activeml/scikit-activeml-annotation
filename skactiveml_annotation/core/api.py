@@ -102,6 +102,33 @@ def compose_config(overrides: tuple[tuple[str, str], ...]) -> ActiveMlConfig:
             raise
 
 
+def _get_sklearn_classes(clf: SkactivemlClassifier) -> list[str]:
+    """
+    Extracts the classes_ attribute from a SkactivemlClassifier and returns it as a list of strings.
+    
+    Parameters:
+        clf (SkactivemlClassifier): The classifier from which to extract classes.
+    
+    Returns:
+        List[str]: List of class names. Returns [""] if extraction fails.
+    """
+    try:
+        raw_classes = getattr(clf, "classes_", None)
+        if raw_classes is None:
+            raise AttributeError("clf.classes_ is None (model not fitted?)")
+
+        classes_sklearn = raw_classes.to_list()
+        if not isinstance(classes_sklearn, str):
+            logging.warning("Is it not strings?")
+        classes_sklearn = cast(list[str], classes_sklearn)
+
+    except Exception as e:
+        logging.error("Failed to extract clf.classes_: %s", e, exc_info=True)
+        classes_sklearn = [""]
+
+    return classes_sklearn
+
+
 def request_query(
     cfg: ActiveMlConfig,
     session_cfg: SessionConfig,
@@ -160,6 +187,8 @@ def request_query(
     )
     class_probas_list = cast(list[list[float]], class_probas.tolist())
 
+    classes_sklearn = _get_sklearn_classes(clf)
+
     # Possibly restore annotations that have been previously skipped
     # TODO what are all the places you are getting annotaitons
     # TODO write helper for this? Restore annotations or something
@@ -176,6 +205,7 @@ def request_query(
         Batch(
             emb_indices=query_indices,
             class_probas=class_probas_list,
+            classes_sklearn=classes_sklearn,
             progress=0,
         ),
         annotations_list
@@ -192,8 +222,6 @@ def compute_embeddings(
     data_path = Path(dataset_cfg.data_path)
     if not data_path.is_absolute():
         data_path = sap.ROOT_PATH / data_path
-
-    # TODO:: Check type and cast, it has to be an EmbeddingBadeAdapter here
 
     adapter = embedding_cfg.definition.instantiate()
  
@@ -523,9 +551,9 @@ def _filter_out_annotated(X: npt.NDArray[np.number], y: npt.NDArray[np.number]):
 
 # TODO will this be used for estmiators aswell?
 def _build_activeml_classifier(
-        model_cfg: ModelConfig,
-        dataset_cfg: DatasetConfig,
-        random_state: np.random.RandomState
+    model_cfg: ModelConfig,
+    dataset_cfg: DatasetConfig,
+    random_state: np.random.RandomState
 ) -> SkactivemlClassifier:
     classes = dataset_cfg.classes
     # n_classes = len(dataset_cfg.classes)

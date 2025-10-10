@@ -145,6 +145,7 @@ class Batch:
     def __init__(
         self, 
         emb_indices: list[int], 
+        classes_sklearn: list[str],
         class_probas: list[list[float]] | None = None, 
         progress: int = 0
     ):
@@ -153,6 +154,7 @@ class Batch:
 
         self.emb_indices = emb_indices
         self.class_probas = class_probas
+        self.classes_sklearn = classes_sklearn
 
         self._progress = progress
         self._min_progress = progress
@@ -183,6 +185,7 @@ class Batch:
         data = {
             "emb_indices": self.emb_indices,
             "class_probas": self.class_probas,
+            "classes_sklearn": self.classes_sklearn,
             "_progress": self._progress,
             "_min_progress": self._min_progress,
             "_max_progress": self._max_progress
@@ -195,6 +198,7 @@ class Batch:
         batch = cls(
             emb_indices=data["emb_indices"],
             class_probas=data.get("class_probas", None),
+            classes_sklearn=data.get("classes_sklearn", None),
             progress=data["_progress"]
         )
         batch._min_progress = data["_min_progress"]

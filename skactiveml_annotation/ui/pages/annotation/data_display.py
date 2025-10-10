@@ -125,10 +125,6 @@ def create_text_display(path: Path):
 
     text_data = path.read_text(encoding="utf-8")
     
-    print("How oftne \n in text:", text_data.count("\n")) 
-
-    print("the text data is:", text_data)
-    
     # TODO limit max line lenght also add a scroolArea. 
     # Display the text nicly
 

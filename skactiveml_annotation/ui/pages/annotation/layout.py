@@ -485,7 +485,8 @@ def on_ui_update(
         ) 
     )
 
-    print("\nAre we getting here?\n")
+    print(human_data_path)
+
     rendered_data, w, h = components.create_data_display(data_type, human_data_path, browser_dpr)
 
     sort_by = SortBySetting[sort_by] 

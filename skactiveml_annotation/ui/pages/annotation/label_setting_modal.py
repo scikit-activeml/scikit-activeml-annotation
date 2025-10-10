@@ -14,7 +14,7 @@ import dash_mantine_components as dmc
 from . import ids
 
 class SortBySetting(StrEnum):
-    no_sort = auto()
+    yaml_order = auto()
     alphabet = auto()
     proba = auto()
 
@@ -50,8 +50,8 @@ def create_label_settings_modal():
                                 size='md',
                             ),
                             dmc.Radio(
-                                label='No sorting (keep yaml config order)',
-                                value=SortBySetting.no_sort.value,
+                                label='yaml config order',
+                                value=SortBySetting.yaml_order.value,
                                 size='md',
                             )
                         ],
@@ -61,7 +61,7 @@ def create_label_settings_modal():
                     deselectable=False,
                     persistence='label-setting-sortby-persistence',
                     persistence_type='local',
-                    value=SortBySetting.no_sort.value,
+                    value=SortBySetting.yaml_order.value,
                     label='Sort by',
                     size='md',
                 ),
