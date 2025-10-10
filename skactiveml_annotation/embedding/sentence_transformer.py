@@ -37,6 +37,7 @@ class SentenceTransformerAdapter(EmbeddingBaseAdapter):
             raise ValueError(f"Provided path {data_path} is not a valid directory.")
 
         text_files_paths = sorted(data_path.glob("*.txt"))
+
         if not text_files_paths:
             raise ValueError(f"No .txt files found in {data_path}")
 
@@ -44,16 +45,11 @@ class SentenceTransformerAdapter(EmbeddingBaseAdapter):
         samples = [path.read_text(encoding="utf-8") for path in text_files_paths]
         file_paths = [relative_to_root(path) for path in text_files_paths]
 
-        print("File paths")
-        print(len(file_paths))
-
         model = sentence_transformers.SentenceTransformer(self.model_variant)
 
         # 4. Compute embeddings
-        embeddings = model.encode(samples)
+        embeddings = model.encode(samples, normalize_embeddings=True)
 
-        print(embeddings)
-        print(type(embeddings))
         print(embeddings.shape)
 
         return embeddings, file_paths

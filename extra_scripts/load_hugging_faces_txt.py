@@ -43,16 +43,18 @@ def load_sms_spam_texts():
         base_path,
         dataset_name="sms_spam",
         split='train',
-        text_field='sms'
+        text_field='sms',
+        label_field='label'
     )
 
 
-def _load_hf_texts(name: str, path: Path, dataset_name: str, split: str, text_field: str):
+def _load_hf_texts(name: str, path: Path, dataset_name: str, split: str, text_field: str, label_field: str | None = None):
     """
     Helper function to download and save Hugging Face text datasets
     Each sample is saved as a separate .txt file in a single folder.
     """
     output_dir = path / f"{name}_texts"
+ 
     output_dir.mkdir(parents=True, exist_ok=True)
 
     dataset = load_dataset(dataset_name, split=split)
@@ -61,18 +63,29 @@ def _load_hf_texts(name: str, path: Path, dataset_name: str, split: str, text_fi
 
     texts = list(dataset[text_field]) 
 
-    random.shuffle(texts)
+    # TODO must I shuffle here?
+    # random.shuffle(texts)
 
     for idx, text in enumerate(texts):
         file_path = output_dir / f"{name}_{idx}.txt"
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(text)
 
+    if label_field is not None:
+        output_dir_labels = path / f"{name}_labels"
+        output_dir_labels.mkdir(parents=True, exist_ok=True)
+        labels = list(dataset[label_field])
+
+        for idx, label in enumerate(labels):
+            file_path_label = output_dir_labels / f"{name}_{idx}.txt"
+
+            with open(file_path_label, "w", encoding="utf-8") as f:
+                f.write(str(label))
+
     print(f"Saved {len(texts)} samples in '{output_dir}'")
 
 
 if __name__ == "__main__":
-    # Example usage
     # load_imdb_texts()
     # load_ag_news_texts()
     load_sms_spam_texts()
