@@ -68,6 +68,7 @@ def layout(**kwargs):
                 dcc.Store(id=ids.ADD_CLASS_WAS_ADDED, storage_type='session', data=False),
 
                 label_setting_modal.create_label_settings_modal(),
+                # TODO: this is a problem as it depends on the data type: text, image etc
                 data_display_modal.create_data_display_modal(),
                 auto_annotate_modal.create_auto_annotate_modal(),
 
@@ -127,8 +128,9 @@ def layout(**kwargs):
                                             dcc.Loading(
                                                 dmc.Box(
                                                     id=ids.DATA_DISPLAY_CONTAINER,
-                                                    w='250px',
-                                                    h='250px',
+                                                    # TODO why did I fix the width and heigh here?
+                                                    # w='250px',
+                                                    # h='250px',
                                                     my=10,
                                                     style=dict(border='4px dotted red')
                                                 ),

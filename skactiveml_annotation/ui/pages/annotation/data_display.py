@@ -123,49 +123,49 @@ def create_text_display(path: Path):
     if not path.exists():
         raise ValueError(f"Cannot load text data from path: {path}")
 
-    text_data = path.read_text(encoding="utf-8")
-    
-    # TODO limit max line lenght also add a scroolArea. 
-    # Display the text nicly
+    text_data = path.read_text(encoding="utf-8").strip()
 
     return (
-        dmc.Container(
-            dcc.Markdown(
-                text_data,
-            ),
-            # dcc.Markdown(
-            #     text_data,  # Provide your text data here
-            #     className="markdown-content",
-            #     # Add additional Markdown options if necessary
-            #     style={
-            #         "width": "600px",
-            #         # "whiteSpace": "normal",
-            #         # "wordWrap": "break-word",
-            #         # "overflowWrap": "break-word",
-            #         "display": "block",
-            #     }
-            # ),
+        dmc.ScrollArea(
+            dmc.Box(
+                dcc.Markdown(
+                    text_data,
+                    id="test",
+                    style={
+                        "margin": "0",             # remove paragraph margin
+                        "padding": "0",
+                        "fontSize": "18px",      # controls text size
+                        "fontFamily": "'Consolas', 'Courier New', 'Lucida Console', monospace",
+                        "fontVariantLigatures": "none",  # disable ligatures
 
-            style={
-                "border": "2px solid green",  # Debug border
-            },
+                        "lineHeight": "1.5",     # control line spacing
+                        # Preserve line breaks but wrap long lines
+                        "whiteSpace": "pre-line",  # allow wrapping (default is normal)
+                        "wordBreak": "normal",  # break long words if needed
+                        "overflowWrap": "normal",  # ensures text doesn't overflow
+                        # Width of the Text Container
+                        "overflowX": "hidden",      # no horizontal scrollbar
+                        
+                        'border':'blue dotted 2px',
+                    }
+                ),
+                py=1,
+                style={
+                    "width": "50vw",        # restrict component width
+                    "border": "2px solid green",  # Debug border
+                    "overflowX": "hidden",      # no horizontal scrollbar
+                },
+            ),
+            type='auto',
+            offsetScrollbars='y',
+            styles=dict(
+                viewport={
+                    'maxHeight': '60vh',
+                    'border':'brown dashed 3px',
+                },
+            ),
+            # w="50vw"
         ),
-            # dmc.Stack(
-            #     dcc.Markdown(
-            #         text_data,  # Provide your text data here
-            #         className="markdown-content",
-            #         # Add additional Markdown options if necessary
-            #     ),
-            #
-            #     style={
-            #         "border": "2px solid green",  # Debug border
-            #     },
-            # ),
-        #     style={
-        #         "border": "2px solid red",  # Debug border
-        #         # "padding": "10px",          # Optional: add some space inside
-        #     },
-        # ),
         # TODO:
         dash.no_update,
         dash.no_update
