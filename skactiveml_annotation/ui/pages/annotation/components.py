@@ -40,7 +40,7 @@ def create_sidebar():
                                     color='dark',
                                     mt=15
                                 ),
-                                label="Change how data is displayed",
+                                label="Change how data is rendered",
                                 openDelay=500
                             ),
                         ),
@@ -189,7 +189,8 @@ def create_progress_bar(progress=0):
     )
 
 
-def create_data_display(data_type, human_data_path: Path, dpr):
+def create_data_display(data_type: DataType, human_data_path: Path, dpr):
+    # TODO dont force these methods to returns stuff they dont care about
     if data_type == DataType.IMAGE:
         rendered_data, w, h = data_display.create_image_display(human_data_path, dpr)
     elif data_type == DataType.TEXT:
@@ -317,7 +318,7 @@ def _sort(
     classes_sklearn: list[str],
     class_probas: list[float], 
     sort_by: SortBySetting
-):
+) -> tuple[list[str], list[float]]:
     """
     Sorts classes and probabilities according to the user's preference.
 
@@ -333,7 +334,7 @@ def _sort(
 
     Returns
     -------
-    tuple[list[str], list[float] | None]
+    tuple[list[str], list[float]]
         The sorted class names and corresponding probabilities.
     """
     if sort_by == SortBySetting.yaml_order:

@@ -16,8 +16,6 @@ from skactiveml_annotation.ui.storekey import DataDisplayCfgKey
 
 def create_data_display_modal():
     # TODO need to check which data type it is.
-   
-
     return \
         dmc.Modal(
             [
@@ -37,7 +35,7 @@ def create_data_display_modal():
                             w='35%',
                             persistence='resizing-factor-persistence',
                             persistence_type='local'
-                       ),
+                        ),
 
                         dmc.RadioGroup(
                             dmc.Stack(
