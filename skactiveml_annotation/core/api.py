@@ -118,7 +118,7 @@ def _get_sklearn_classes(clf: SkactivemlClassifier) -> list[str]:
             raise AttributeError("clf.classes_ is None (model not fitted?)")
 
         classes_sklearn = raw_classes.tolist()
-        if not isinstance(classes_sklearn, str):
+        if not isinstance(classes_sklearn[0], str):
             logging.warning("Is it not strings?")
         classes_sklearn = cast(list[str], classes_sklearn)
 

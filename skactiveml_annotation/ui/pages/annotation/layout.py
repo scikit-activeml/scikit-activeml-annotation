@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import cast
 
@@ -24,9 +24,9 @@ from dash_iconify import DashIconify
 import dash_mantine_components as dmc
 import dash_loading_spinners as dls
 
+from skactiveml_annotation.core.data_display_model import DataDisplaySetting
 from skactiveml_annotation.ui import common
 from skactiveml_annotation.core import api
-import skactiveml_annotation.paths as sap
 
 from skactiveml_annotation.core.schema import (
     Batch,
@@ -60,9 +60,12 @@ def layout(**kwargs):
             [
                 dcc.Location(id='url-annotation', refresh=True),
                 dcc.Location(id=ids.ANNOTATION_INIT, refresh=False),
+                # Triggers
                 dcc.Store(id=ids.UI_TRIGGER),
                 dcc.Store(id=ids.QUERY_TRIGGER),
                 dcc.Store(id=ids.START_TIME_TRIGGER),
+                # Data
+                dcc.Store(id=ids.DATA_DISPLAY_CFG_DATA, storage_type='session'),
                 dcc.Store(id=ids.ANNOT_PROGRESS, storage_type='session'),
                 dcc.Store(id=ids.ADD_CLASS_INSERTION_IDXES, storage_type='session'),
                 dcc.Store(id=ids.ADD_CLASS_WAS_ADDED, storage_type='session', data=False),
@@ -70,6 +73,7 @@ def layout(**kwargs):
                 label_setting_modal.create_label_settings_modal(),
                 # TODO: this is a problem as it depends on the data type: text, image etc
                 data_display_modal.create_data_display_modal(),
+
                 auto_annotate_modal.create_auto_annotate_modal(),
 
                 dmc.Box(id='label-radio'),  # avoid id error
@@ -129,10 +133,11 @@ def layout(**kwargs):
                                                 dmc.Box(
                                                     id=ids.DATA_DISPLAY_CONTAINER,
                                                     # TODO why did I fix the width and heigh here?
+                                                    mih=15,
                                                     # w='250px',
                                                     # h='250px',
                                                     my=10,
-                                                    style=dict(border='4px dotted red')
+                                                    # style=dict(border='4px dotted red')
                                                 ),
                                                 delay_hide=150,
                                                 delay_show=150,
@@ -297,6 +302,7 @@ clientside_callback(
     State('session-store', 'data'),
     output=dict(
         annot_progress=Output(ids.ANNOT_PROGRESS, 'data'),
+        data_display_modal_children=Output(ids.DATA_DISPLAY_MODAL, 'children'),
         ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
         query_trigger=Output(ids.QUERY_TRIGGER, 'data', allow_duplicate=True),
     ),
@@ -307,24 +313,27 @@ def init(
     store_data,
 ):
     batch_json = store_data.get(StoreKey.BATCH_STATE.value)
-
-    if (
+    must_query = (
         batch_json is None or
         Batch.from_json(batch_json).is_completed()
-    ):
-        return dict(
-            ui_trigger=dash.no_update,
-            query_trigger=True,
-            annot_progress=init_annot_progress(store_data)
-        )
-
+    )
+    
+    if must_query:
+        ui_trigger = dash.no_update
+        query_trigger = True
     else:
-        return dict(
-            ui_trigger=True,
-            query_trigger=dash.no_update,
-            annot_progress=init_annot_progress(store_data)
-        )
+        ui_trigger = True
+        query_trigger = dash.no_update
 
+    activeml_cfg = common.compose_from_state(store_data)
+    data_type = activeml_cfg.dataset.data_type.instantiate()
+
+    return dict(
+        ui_trigger=ui_trigger,
+        query_trigger=query_trigger,
+        annot_progress=init_annot_progress(store_data),
+        data_display_modal_children=data_display_modal.create_modal_content(data_type)
+    )
 
 def init_annot_progress(store_data):
     dataset_id = store_data.get(StoreKey.DATASET_SELECTION.value)
@@ -438,6 +447,7 @@ def on_confirm(
 @callback(
     Input(ids.UI_TRIGGER, 'data'),
     State('session-store', 'data'),
+    State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
     State('browser-data', 'data'),
     State(ids.ADD_CLASS_WAS_ADDED, 'data'),
     State(ids.ADD_CLASS_INSERTION_IDXES, 'data'),
@@ -447,6 +457,7 @@ def on_confirm(
         label_container=Output(ids.LABELS_CONTAINER, 'children'),
         show_container=Output(ids.DATA_DISPLAY_CONTAINER, 'children'),
         batch_progress=Output('batch-progress-bar', 'value'),
+        data_display_data=Output(ids.DATA_DISPLAY_CFG_DATA, 'data'),
         is_computing_overlay=Output(ids.COMPUTING_OVERLAY, 'visible', allow_duplicate=True),
         data_width=Output(ids.DATA_DISPLAY_CONTAINER, 'w'),
         data_height=Output(ids.DATA_DISPLAY_CONTAINER, 'h'),
@@ -456,8 +467,11 @@ def on_confirm(
     prevent_initial_call=True,
 )
 def on_ui_update(
+    # Triggers
     ui_trigger,
+    # Data
     store_data,
+    data_display_setting,
     browser_dpr,
     # Adding classes
     was_class_added,
@@ -489,7 +503,12 @@ def on_ui_update(
 
     print(human_data_path)
 
-    rendered_data, w, h = components.create_data_display(data_type, human_data_path, browser_dpr)
+    if data_display_setting is None:
+        logging.info("Data Display Setting is not yet initialized. Initializing now.")
+        data_display_setting = DataDisplaySetting()
+    else:
+        data_display_setting = DataDisplaySetting.model_validate(data_display_setting)
+    rendered_data, w, h = components.create_data_display(data_display_setting, data_type, human_data_path, browser_dpr)
 
     sort_by = SortBySetting[sort_by] 
 
@@ -501,6 +520,7 @@ def on_ui_update(
         ),
         show_container=rendered_data,
         batch_progress=(idx / len(batch.emb_indices)) * 100,
+        data_display_data=data_display_setting.model_dump(),
         is_computing_overlay=False,
         data_width=w,
         data_height=h,

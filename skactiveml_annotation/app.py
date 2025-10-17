@@ -41,6 +41,7 @@ app.layout = (
     dmc.MantineProvider(
         dmc.AppShell(
             [
+                # Data stored across all pages
                 dcc.Store('browser-data'),
                 dcc.Store('session-store', storage_type='session'),
 

@@ -17,13 +17,21 @@ ANNOT_PROGRESS_TEXT = 'annot-progress-text'
 
 COMPUTING_OVERLAY = 'computing-overlay'
 
+# Data Display
+DATA_DISPLAY_CFG_DATA = 'data-display-cfg-data'
 # Data Display Modal
 DATA_DISPLAY_MODAL = 'data-display-modal'
 DATA_DISPLAY_BTN = 'data-display-btn'
 CONFIRM_DATA_DISPLAY_BTN = 'confirm-data-display-btn'
+CONFIRM_TEXT_DISPLAY_BTN = 'confirm-text-display-btn'
+CONFIRM_AUDIO_DISPLAY_BTN = 'confirm-audio-display-btn'
+
 # Data Display Modal Inputs
 RESAMPLING_METHOD_RADIO = 'resampling-method-radio'
 RESAMPLING_FACTOR_INPUT = 'resampling-factor-input'
+
+FONT_SIZE_INPUT = 'font-size-input'
+LINE_HEIGHT_INPUT = 'line-height-input'
 
 # Label setting Modal
 LABEL_SETTING_BTN = 'label-setting-btn'

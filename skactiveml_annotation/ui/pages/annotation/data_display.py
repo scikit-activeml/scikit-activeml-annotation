@@ -3,44 +3,33 @@ from pathlib import Path
 from io import BytesIO
 
 import dash
-from dash import dcc, html
+from dash import dcc
 import dash_mantine_components as dmc
 
 from plotly import graph_objects as go
 
 from PIL import Image as pil_image
  
-from skactiveml_annotation.ui import data_display_settings
-from skactiveml_annotation.ui.storekey import DataDisplayCfgKey
-
-DEFAULT_RESIZE_FACTOR = 1
-DEFAULT_RESAMPLING_METHOD = pil_image.Resampling.NEAREST
-
+from skactiveml_annotation.core.data_display_model import (
+    TextDataDisplaySetting,
+    ImageDataDisplaySetting,
+)
 
 # TODO make components out of these.
-def create_image_display(path_to_img: Path, dpr):
+def create_image_display(
+    path_to_img: Path, 
+    image_display_setting: ImageDataDisplaySetting, 
+    dpr: float
+):
     image = pil_image.open(path_to_img).convert("RGB")
 
-    # TODO set default values somewhere else.
-    display_cfg = data_display_settings.get_or_default(
-        'image',
-        {
-            DataDisplayCfgKey.RESCALE_FACTOR.value: DEFAULT_RESIZE_FACTOR,
-            DataDisplayCfgKey.RESAMPLING_METHOD.value: DEFAULT_RESAMPLING_METHOD
-        }
-    )
-
-    if not isinstance(display_cfg, dict):
-        # TODO: enhance this error msg
-        raise ValueError("Could not parse")
-
-    factor = display_cfg[DataDisplayCfgKey.RESCALE_FACTOR.value]
-    w = int(image.width * factor)
-    h = int(image.height * factor)
+    rescale_factor = image_display_setting.rescale_factor
+    w = int(image.width * rescale_factor)
+    h = int(image.height * rescale_factor)
 
     image = image.resize(
         (w, h),
-        resample=display_cfg[DataDisplayCfgKey.RESAMPLING_METHOD.value]
+        resample=image_display_setting.resampling_method
         # reducing_gap=4  # Only in effect when downscaling
     )
 
@@ -55,7 +44,7 @@ def create_image_display(path_to_img: Path, dpr):
 
     # image.show()
 
-    # Account for screen dpr to avoid resizing the image again to prevent artifacts.
+    # Account for screen dpr to prevent the browser from resizing the image again to avoid artifacts.
     w = int(w / dpr)
     h = int(h / dpr)
 
@@ -119,41 +108,42 @@ def pil_image_to_base64(img: pil_image.Image, fmt: str = "PNG") -> str:
     return f"data:{mime};base64,{b64_str}"
 
 
-def create_text_display(path: Path):
+def create_text_display(path: Path, text_display_setting: TextDataDisplaySetting):
     if not path.exists():
         raise ValueError(f"Cannot load text data from path: {path}")
 
     text_data = path.read_text(encoding="utf-8").strip()
 
-    return (
+    return \
         dmc.ScrollArea(
             dmc.Box(
                 dcc.Markdown(
                     text_data,
-                    id="test",
                     style={
-                        "margin": "0",             # remove paragraph margin
+                        "margin": "0",
                         "padding": "0",
-                        "fontSize": "18px",      # controls text size
+                        "fontSize": f"{text_display_setting.font_size}px",
                         "fontFamily": "'Consolas', 'Courier New', 'Lucida Console', monospace",
                         "fontVariantLigatures": "none",  # disable ligatures
 
-                        "lineHeight": "1.5",     # control line spacing
+                        "lineHeight": text_display_setting.line_height,
                         # Preserve line breaks but wrap long lines
                         "whiteSpace": "pre-line",  # allow wrapping (default is normal)
                         "wordBreak": "normal",  # break long words if needed
-                        "overflowWrap": "normal",  # ensures text doesn't overflow
+                        "overflowWrap": "normal", # ensures text doesn't overflow
                         # Width of the Text Container
-                        "overflowX": "hidden",      # no horizontal scrollbar
+                        "overflowX": "hidden", # no horizontal scrollbar
                         
-                        'border':'blue dotted 2px',
+                        # 'border':'blue dotted 2px',
                     }
                 ),
                 py=1,
                 style={
-                    "width": "50vw",        # restrict component width
-                    "border": "2px solid green",  # Debug border
+                    # TODO hardcoded width
+                    "width": "46vw",        # restrict component width
                     "overflowX": "hidden",      # no horizontal scrollbar
+
+                    # "border": "2px solid green",  # Debug border
                 },
             ),
             type='auto',
@@ -161,17 +151,12 @@ def create_text_display(path: Path):
             styles=dict(
                 viewport={
                     'maxHeight': '60vh',
-                    'border':'brown dashed 3px',
+                    # 'border':'brown dashed 3px',
                 },
-            ),
-            # w="50vw"
-        ),
-        # TODO:
-        dash.no_update,
-        dash.no_update
-    )
+            )
+        )
 
 
-def create_audio_display(audio) -> tuple[object, int, int]:
+def create_audio_display(audio, audio_display_setting):
     print(audio)
     raise NotImplementedError

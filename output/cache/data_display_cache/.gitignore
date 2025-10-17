@@ -1,3 +1,0 @@
-# Ignore everything except this gitignore to make sure the directory is in VCS
-*
-!.gitignore

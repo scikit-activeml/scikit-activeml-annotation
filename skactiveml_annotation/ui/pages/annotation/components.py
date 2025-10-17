@@ -5,13 +5,15 @@ from pathlib import Path
 
 import numpy as np
 
+import dash
 import dash_mantine_components as dmc
 
+from skactiveml_annotation.core.data_display_model import DataDisplaySetting
 from skactiveml_annotation.core.schema import (
     Annotation,
     Batch, 
     DataType, 
-    MISSING_LABEL_MARKER
+    MISSING_LABEL_MARKER,
 )
 from skactiveml_annotation.ui.components import sampling_input
 
@@ -189,14 +191,27 @@ def create_progress_bar(progress=0):
     )
 
 
-def create_data_display(data_type: DataType, human_data_path: Path, dpr):
+def create_data_display(
+    data_display_setting: DataDisplaySetting,
+    data_type: DataType, 
+    human_data_path: Path, 
+    dpr: float
+):
+    print(data_display_setting)
+
+    w = dash.no_update
+    h = dash.no_update
+
     # TODO dont force these methods to returns stuff they dont care about
     if data_type == DataType.IMAGE:
-        rendered_data, w, h = data_display.create_image_display(human_data_path, dpr)
+        image_display_setting = data_display_setting.image
+        rendered_data, w, h = data_display.create_image_display(human_data_path, image_display_setting, dpr)
     elif data_type == DataType.TEXT:
-        rendered_data, w, h = data_display.create_text_display(human_data_path)
+        text_display_setting = data_display_setting.text
+        rendered_data = data_display.create_text_display(human_data_path, text_display_setting)
     else:
-        rendered_data, w, h = data_display.create_audio_display(human_data_path)
+        audio_display_setting = data_display_setting.audio
+        rendered_data = data_display.create_audio_display(human_data_path, audio_display_setting)
 
     return (
         rendered_data,

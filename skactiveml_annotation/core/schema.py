@@ -1,9 +1,8 @@
-from collections.abc import Sequence
 import json
 from enum import Enum
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 import logging
-from typing import Any, Callable, Literal, TypeVar 
+from typing import Any, Literal, TypeVar 
 
 import hydra
 
@@ -243,3 +242,4 @@ class AutomatedAnnotation:
     def from_json(json_str: str):
         data = json.loads(json_str)
         return AutomatedAnnotation(**data)
+
