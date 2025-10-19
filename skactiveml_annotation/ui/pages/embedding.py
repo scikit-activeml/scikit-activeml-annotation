@@ -136,14 +136,15 @@ def on_cancel(
     prevent_initial_call=True,
 )
 def compute_embedding(
+    progress_func: DashProgressFunc, # Progress func gets passed as first arg
     n_clicks: int | None,
-    progress_func: DashProgressFunc,
-    store_data,
+    store_data
 ):
     if n_clicks is None:
         raise PreventUpdate
 
     print("compute embedding background callback")
+
     _compute_embedding(store_data, progress_func)
 
     return dict(

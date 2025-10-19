@@ -1,0 +1,10 @@
+display_name: "Wav2Vec"
+
+data_type:
+  _target_: skactiveml_annotation.core.schema.DataType
+  _args_: [Audio]
+
+definition:
+  _target_: skactiveml_annotation.embedding.wav2vec.Wav2Vec2EmbeddingAdapter
+  # model_variant: "HTSAT-base"
+  # batch_size: 8

@@ -12,7 +12,9 @@ class TextDataDisplaySetting(pydantic.BaseModel):
     line_height: float = 1.25
 
 class AudioDataDisplaySetting(pydantic.BaseModel):
-    pass
+    loop: bool = True
+    playback_rate: float = 1.0
+    
 
 class DataDisplaySetting(pydantic.BaseModel):
     image: ImageDataDisplaySetting = pydantic.Field(default_factory=ImageDataDisplaySetting)

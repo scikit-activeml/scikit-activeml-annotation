@@ -1,0 +1,9 @@
+display_name: "AudioMNIST"
+data_path: 'datasets/audio/AudioMNIST/data/merged'
+
+data_type:
+  _target_: skactiveml_annotation.core.schema.DataType
+  _args_: [Audio]
+
+classes: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+

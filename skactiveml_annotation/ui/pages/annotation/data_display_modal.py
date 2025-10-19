@@ -131,13 +131,13 @@ def image_modal():
     output=dict(
         ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
         show_modal=Output(ids.DATA_DISPLAY_MODAL, 'opened', allow_duplicate=True),
-        data_display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
+        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
     ),
     prevent_initial_call=True
 )
 def on_confirm_image_data_display_btn(
     clicks,
-    data_display_settings,
+    display_settings,
     rescale_factor,
     resampling_method,
 ):
@@ -254,8 +254,87 @@ def on_confirm_text_data_display_btn(
 
 # Audio
 def audio_modal():
-    return "Audio Placeholder"
+    default_audio_setting = AudioDataDisplaySetting()
 
+    return \
+        dmc.Stack(
+            [
+                dmc.Checkbox(
+                    id=ids.LOOP_INPUT,
+                    label="Looping",
+                    checked=default_audio_setting.loop,
+                    persistence=ids.LOOP_INPUT,
+                    persistence_type='session'
+                ),
+            
+                dmc.NumberInput(
+                    id=ids.PLAYBACK_RATE_INPUT,
+                    min=0.2,
+                    max=35,
+                    step=0.1,
+                    clampBehavior='strict',
+                    hideControls=False,
+                    decimalScale=2,
+                    label="Playback Rate",
+                    placeholder=str(default_audio_setting.playback_rate),
+                    value=default_audio_setting.playback_rate,
+                    allowNegative=False,
+                    w='35%',
+                    persistence=ids.PLAYBACK_RATE_INPUT,
+                    persistence_type='session'
+                ),
+
+                dmc.Center(
+                    dmc.Button(
+                        'Confirm',
+                        id=ids.CONFIRM_AUDIO_DISPLAY_BTN,
+                        color='dark',
+                    ),
+                    w='100%'
+                )
+            ],
+            align='start'
+        )
+
+
+# TODO simply the process of adding new modals
+# Perhaps using All in one components pattern (AIO)
+@callback(
+    Input(ids.CONFIRM_AUDIO_DISPLAY_BTN, 'n_clicks'),
+    State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
+    State(ids.LOOP_INPUT, 'checked'),
+    State(ids.PLAYBACK_RATE_INPUT, 'value'),
+    output=dict(
+        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
+        show_modal=Output(ids.DATA_DISPLAY_MODAL, 'opened', allow_duplicate=True),
+        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
+    ),
+    prevent_initial_call=True
+)
+def on_confirm_audio_data_display_btn(
+    clicks,
+    display_settings,
+    should_loop,
+    playback_rate,
+):
+    if clicks is None:
+        raise PreventUpdate
+
+    # TODO: Hardcoded for image data
+
+    display_settings = DataDisplaySetting.model_validate(display_settings)
+    audio_settings = display_settings.audio
+
+    audio_settings.loop = should_loop
+    audio_settings.playback_rate = playback_rate
+
+    print("ON Confirm")
+
+    return dict(
+        ui_trigger=True,
+        show_modal=False,
+        display_settings=display_settings.model_dump()
+    )
 
 
 # TODO use pattern matching callblack instead?

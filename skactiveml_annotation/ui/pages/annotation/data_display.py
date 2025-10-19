@@ -3,7 +3,9 @@ from pathlib import Path
 from io import BytesIO
 
 import dash
+from dash.html import Audio
 from dash import dcc
+import dash_player
 import dash_mantine_components as dmc
 
 from plotly import graph_objects as go
@@ -54,6 +56,7 @@ def create_image_display(
     mb = 0
     fig = go.Figure(
         data=go.Image(
+            # TODO instead of Inline URI server file on demand?
             source=pil_image_to_base64(image, fmt="PNG"),
             # z=image,
         ),
@@ -157,6 +160,50 @@ def create_text_display(path: Path, text_display_setting: TextDataDisplaySetting
         )
 
 
-def create_audio_display(audio, audio_display_setting):
-    print(audio)
-    raise NotImplementedError
+def create_audio_display(audio_data_path, audio_display_setting):
+    # TODO this is a relative path must it not be made absolute?
+
+    """
+    Creates a Dash Mantine AudioPlayer component from a local WAV file.
+    
+    Parameters:
+    - audio_data_path: str, path to your local .wav file
+    - audio_display_setting: dict, optional settings (e.g., width)
+    
+    Returns:
+    - dmc.Center containing the AudioPlayer
+    """
+
+    print("Path", audio_data_path)
+
+    # Read and encode the audio file as base64
+    with open(audio_data_path, "rb") as f:
+        audio_bytes = f.read()
+    audio_b64 = base64.b64encode(audio_bytes).decode()
+
+    # Create the data URI
+    # TODO this will only work for wav files if the browser supports wav format
+    
+    # TODO create halper for this base64 encoding?
+    audio_src = f"data:audio/wav;base64,{audio_b64}"
+
+    # Create the Dash Mantine AudioPlayer
+    return dmc.Center(
+        dash_player.DashPlayer(
+            url=audio_src,
+            controls=True,
+            loop=audio_display_setting.loop,
+            playbackRate=audio_display_setting.playback_rate,
+            height=50,
+        ),
+        # Audio(
+        #     title="test",
+        #     src=audio_src,
+        #     controls=True,
+        #     autoPlay='autoplay',
+        #     muted=False,
+        #     loop=True,
+        # ),
+        m="xl"
+    )
+

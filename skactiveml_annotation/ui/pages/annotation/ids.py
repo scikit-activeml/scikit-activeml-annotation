@@ -27,11 +27,18 @@ CONFIRM_TEXT_DISPLAY_BTN = 'confirm-text-display-btn'
 CONFIRM_AUDIO_DISPLAY_BTN = 'confirm-audio-display-btn'
 
 # Data Display Modal Inputs
+
+# Image
 RESAMPLING_METHOD_RADIO = 'resampling-method-radio'
 RESAMPLING_FACTOR_INPUT = 'resampling-factor-input'
 
+# Text
 FONT_SIZE_INPUT = 'font-size-input'
 LINE_HEIGHT_INPUT = 'line-height-input'
+
+# Audio
+LOOP_INPUT = 'loop-input'
+PLAYBACK_RATE_INPUT = 'playback_rate-input'
 
 # Label setting Modal
 LABEL_SETTING_BTN = 'label-setting-btn'
