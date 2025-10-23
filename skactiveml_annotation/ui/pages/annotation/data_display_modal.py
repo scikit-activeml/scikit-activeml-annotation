@@ -146,13 +146,13 @@ def on_confirm_image_data_display_btn(
 
     # TODO: Hardcoded for image data
 
-    display_settings = DataDisplaySetting.model_validate(data_display_settings)
+    display_settings = DataDisplaySetting.model_validate(display_settings)
     image_settings = display_settings.image
     image_settings.rescale_factor = rescale_factor
     image_settings.resampling_method = resampling_method
 
     print("Data Display Setting after confirm:")
-    print(data_display_settings)
+    print(display_settings)
 
     print("ON Confirm")
 
