@@ -207,14 +207,17 @@ class Batch:
         batch._max_progress = data["_max_progress"]
         return batch
 
+class AnnotationMetaData(pydantic.BaseModel):
+    first_view_time: str = ''
+    total_view_duration: str = ''
+    last_edit_time: str = ''
+    skip_intended_cnt: int = 0
+
 
 class Annotation(pydantic.BaseModel):
     embedding_idx: int
     label: str
-
-    first_view_time: str = ''
-    total_view_duration: str = ''
-    last_edit_time: str = ''
+    meta_data: AnnotationMetaData
 
 
 class AnnotationList(pydantic.BaseModel):

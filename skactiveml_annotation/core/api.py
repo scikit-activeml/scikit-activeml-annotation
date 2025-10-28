@@ -291,6 +291,7 @@ def completed_batch(
     print("Increment history_idx to: ", get_global_history_idx(dataset_id))
 
 
+# TODO: Not needed?
 def get_num_annotated_ram(annotations: Iterable[Annotation | None]):
     # Samples are counted as annotated if they have a label or are discareded
     cnt = 0

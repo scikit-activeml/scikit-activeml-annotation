@@ -32,6 +32,7 @@ from skactiveml_annotation.core import api
 from skactiveml_annotation.core.schema import (
     Batch,
     Annotation,
+    AnnotationMetaData,
     AnnotationList,
     SessionConfig,
     DISCARD_MARKER,
@@ -397,20 +398,30 @@ def on_confirm(
         # New Annotation
         first_view_time = start_time.isoformat()
         total_view_duration = isodate.duration_isoformat(delta_time)
+        skip_intended_cnt = 0
     else:
         # Sample was annotated before update the annotation
         # TODO only store last edit when there was a change?
-        old_delta_time = isodate.parse_duration(old_annotation.total_view_duration)
+        old_delta_time = isodate.parse_duration(old_annotation.meta_data.total_view_duration)
         delta_time += old_delta_time
-        first_view_time = old_annotation.first_view_time
+        first_view_time = old_annotation.meta_data.first_view_time
         total_view_duration = isodate.duration_isoformat(delta_time)
+        skip_intended_cnt = old_annotation.meta_data.skip_intended_cnt
+
+    print("TRIGGER ID", trigger_id)
+    # Increment skip counter if the user clicked skip
+    if trigger_id == "skip" :
+        skip_intended_cnt += 1
 
     annotation = Annotation(
         embedding_idx=batch.emb_indices[idx],
         label=label,
-        first_view_time=first_view_time,
-        total_view_duration=total_view_duration,
-        last_edit_time=end_time.isoformat(),
+        meta_data=AnnotationMetaData(
+            first_view_time=first_view_time,
+            total_view_duration=total_view_duration,
+            last_edit_time=end_time.isoformat(),
+            skip_intended_cnt=skip_intended_cnt
+        )
     )
 
     # TODO write helper for this in api?
@@ -772,18 +783,20 @@ def on_back_clicked(
     else:
         # Sample was annotated before update the annotation
         # TODO only store last edit when there was a change?
-        old_delta_time = isodate.parse_duration(old_annotation.total_view_duration)
+        old_delta_time = isodate.parse_duration(old_annotation.meta_data.total_view_duration)
         delta_time += old_delta_time
-        first_view_time = old_annotation.first_view_time
+        first_view_time = old_annotation.meta_data.first_view_time
         total_view_duration = isodate.duration_isoformat(delta_time)
         label = old_annotation.label
 
     annotation = Annotation(
         embedding_idx=batch.emb_indices[idx],
         label=label,
-        first_view_time=first_view_time,
-        total_view_duration=total_view_duration,
-        last_edit_time=end_time.isoformat(),
+        meta_data=AnnotationMetaData(
+            first_view_time=first_view_time,
+            total_view_duration=total_view_duration,
+            last_edit_time=end_time.isoformat(),
+        )
     )
 
     # TODO write helper for this in api?
