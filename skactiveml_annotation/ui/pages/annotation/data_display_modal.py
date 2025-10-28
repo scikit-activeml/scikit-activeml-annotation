@@ -152,7 +152,7 @@ def on_confirm_image_data_display_btn(
     image_settings.resampling_method = resampling_method
 
     print("Data Display Setting after confirm:")
-    print(display_settings)
+    # print(display_settings)
 
     print("ON Confirm")
 

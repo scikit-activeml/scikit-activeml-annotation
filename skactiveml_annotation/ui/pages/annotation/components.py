@@ -119,31 +119,30 @@ def create_confirm_buttons():
             [
                 dmc.Button(
                     'Back',
-                    id="back-button",
+                    id=ids.BACK_ANNOTATION_BTN,
                     color='dark'
                 ),
 
                 dmc.Button(
                     'Discard',
-                    id='discard-button',
+                    id=ids.DISCARD_ANNOTATION_BTN,
                     color='dark'
                 ),
 
                 dmc.Button(
                     'Skip',
-                    id="skip-button",
+                    id=ids.SKIP_ANNOTATION_BTN,
                     color='dark'
                 ),
 
                 dmc.Button(
                     'Confirm',
-                    id='confirm-button',
-                    color='dark'
+                    id=ids.CONFIRM_ANNOTATION_BTN,
+                    color='dark',
                 ),
-
             ],
-            # style={'border': 'red dashed 2px'},
             justify='center',
+            # style={'border': 'red dashed 2px'},
             # gap=20
         )
     )
@@ -197,7 +196,8 @@ def create_data_display(
     human_data_path: Path, 
     dpr: float
 ):
-    print(data_display_setting)
+    # TODO:
+    # print(data_display_setting)
 
     w = dash.no_update
     h = dash.no_update

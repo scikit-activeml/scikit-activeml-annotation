@@ -2,6 +2,7 @@ from enum import Enum, auto
 from typing import Any
 
 
+# TODO instead of this use a Pydantic Model
 class StoreKey(Enum):
     @staticmethod
     def _generate_next_value_(name: str, start: int, count: int, last_values: list[Any]):
@@ -17,6 +18,8 @@ class StoreKey(Enum):
     DATA_PRESENT_TIMESTAMP = auto()
 
 
+# TODO instead of this use a pydantic model
+# TODO: Unclear that this is only the annotation progress used for the ui display
 class AnnotProgress(Enum):
     @staticmethod
     def _generate_next_value_(name: str, start: int, count: int, last_values: list[Any]):
@@ -24,12 +27,3 @@ class AnnotProgress(Enum):
 
     PROGRESS = auto()
     TOTAL_NUM = auto()
-
-
-class DataDisplayCfgKey(Enum):
-    @staticmethod
-    def _generate_next_value_(name: str, start: int, count: int, last_values: list[Any]):
-        return name
-
-    RESCALE_FACTOR = auto()
-    RESAMPLING_METHOD = auto()

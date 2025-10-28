@@ -34,6 +34,7 @@ def create_auto_annotate_modal():
                     w='35%',
                     required=True,
                     persistence='auto-annotate-threshold-persistence',
+                    # TODO: use local?
                     persistence_type='local',
                 ),
 

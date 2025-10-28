@@ -1,8 +1,15 @@
+from dash import ALL
 
 ANNOTATION_INIT = 'annotation-init'
 DATA_DISPLAY_CONTAINER = 'data-display-container'
 LABELS_CONTAINER = 'labels-container'
 
+# Action Buttons
+CONFIRM_ANNOTATION_BTN = {'type': 'action-button', 'index': 'confirm'}
+BACK_ANNOTATION_BTN    = {'type': 'action-button', 'index': 'back'}
+DISCARD_ANNOTATION_BTN = {'type': 'action-button', 'index': 'discard'}
+SKIP_ANNOTATION_BTN    = {'type': 'action-button', 'index': 'skip'}
+ALL_ANNOTATION_BTNS = {'type': 'action-button', 'index': ALL}
 
 UI_TRIGGER = 'ui-trigger'
 QUERY_TRIGGER = 'query-trigger'

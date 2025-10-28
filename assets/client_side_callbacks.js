@@ -43,7 +43,24 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
             }
 
             return window.devicePixelRatio;
+        },
+
+        disableAllButtons: function(n_clicks_list) {
+            // n_clicks_list is an array of click counts for each matched button
+            if (!n_clicks_list) {
+                    return window.dash_clientside.no_update;
+            }
+
+            // If any button has been clicked (any value > 0 or truthy)
+            if (n_clicks_list.some(n => n)) {
+                    // Disable all buttons
+                    return Array(n_clicks_list.length).fill(true);
+            }
+
+            // Otherwise, keep them enabled
+            return Array(n_clicks_list.length).fill(false);
         }
+
     }
 });
 

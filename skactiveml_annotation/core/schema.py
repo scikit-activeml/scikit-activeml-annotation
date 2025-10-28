@@ -179,6 +179,9 @@ class Batch:
     def is_completed(self) -> bool:
         return self.progress < 0 or self.progress >= len(self.emb_indices)
 
+    def __len__(self) -> int:
+        return len(self.emb_indices)
+
     # -- Serialization & Deserialization --
     def to_json(self) -> str:
         data = {
@@ -205,28 +208,20 @@ class Batch:
         return batch
 
 
-# TODO use pydanic for this
 class Annotation(pydantic.BaseModel):
     embedding_idx: int
-    # TODO remove file_path here since its allready the key of the dict?
-    # file_path: str
     label: str
 
     first_view_time: str = ''
     total_view_duration: str = ''
     last_edit_time: str = ''
 
-    # def to_json(self) -> str:
-    #     return json.dumps(asdict(self))
-    #
-    # @staticmethod
-    # def from_json(json_str: str):
-    #     data = json.loads(json_str)
-    #     return Annotation(**data)
 
 class AnnotationList(pydantic.BaseModel):
     annotations: list[Annotation | None]
 
+class HistoryIdx(pydantic.BaseModel):
+    idx: int
 
 @dataclass
 class AutomatedAnnotation:

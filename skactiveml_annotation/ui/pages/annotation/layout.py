@@ -8,6 +8,7 @@ import isodate
 import dash
 from dash import (
     dcc,
+    no_update,
     register_page,
     callback,
     Input,
@@ -66,6 +67,8 @@ def layout(**kwargs):
                 dcc.Store(id=ids.START_TIME_TRIGGER),
                 # Data
                 dcc.Store(id=ids.DATA_DISPLAY_CFG_DATA, storage_type='session'),
+                # TODO use a pydantic Model for this. Its not even clear what this is exactly
+                # Why is there an extra Store for this? Just update UI properties?
                 dcc.Store(id=ids.ANNOT_PROGRESS, storage_type='session'),
                 dcc.Store(id=ids.ADD_CLASS_INSERTION_IDXES, storage_type='session'),
                 dcc.Store(id=ids.ADD_CLASS_WAS_ADDED, storage_type='session', data=False),
@@ -346,9 +349,9 @@ def init_annot_progress(store_data):
 
 
 @callback(
-    Input('confirm-button', 'n_clicks'),
-    Input('discard-button', 'n_clicks'),
-    Input('skip-button', 'n_clicks'),
+    Input(ids.CONFIRM_ANNOTATION_BTN, 'n_clicks'),
+    Input(ids.DISCARD_ANNOTATION_BTN, 'n_clicks'),
+    Input(ids.SKIP_ANNOTATION_BTN, 'n_clicks'),
     State('session-store', 'data'),
     State('label-radio', 'value'),
     State(ids.ANNOT_PROGRESS, 'data'),
@@ -370,11 +373,12 @@ def on_confirm(
     if confirm_click is None and discard_click is None and skip_click is None:
         raise PreventUpdate
 
-    trigger_id = callback_context.triggered_id
-    if trigger_id == 'skip-button':
+    trigger_id = cast(dict, callback_context.triggered_id)['index']
+
+    if trigger_id == 'skip':
         label = MISSING_LABEL_MARKER
     else:
-        label = value if trigger_id == 'confirm-button' else DISCARD_MARKER
+        label = value if trigger_id == 'confirm' else DISCARD_MARKER
 
     # Take timestamp when annotation was finished
     end_time = datetime.now()
@@ -425,7 +429,11 @@ def on_confirm(
 
         # All samples in the batch should be annotated by now
         annotations = cast(list[Annotation], annotations)
-        num_annotated = api.completed_batch(dataset_id, embedding_id, annotations, batch)
+        api.completed_batch(dataset_id, embedding_id, annotations, batch)
+
+        # TODO: Could improve performance by adding how many have been added (not skipped in this batch)
+        num_annotated = api.get_num_annotated_not_skipped(dataset_id)
+
         if num_annotated == annot_data[AnnotProgress.TOTAL_NUM.value]:
             print("ANNOTATION COMPLETE")
             raise PreventUpdate
@@ -462,7 +470,8 @@ def on_confirm(
         data_width=Output(ids.DATA_DISPLAY_CONTAINER, 'w'),
         data_height=Output(ids.DATA_DISPLAY_CONTAINER, 'h'),
         annot_start_time_trigger=Output(ids.START_TIME_TRIGGER, 'data'),
-        was_class_added=Output(ids.ADD_CLASS_WAS_ADDED, 'data', allow_duplicate=True)
+        was_class_added=Output(ids.ADD_CLASS_WAS_ADDED, 'data', allow_duplicate=True),
+        disable_all_action_buttons=Output(ids.ALL_ANNOTATION_BTNS, 'loading', allow_duplicate=True)
     ),
     prevent_initial_call=True,
 )
@@ -501,7 +510,8 @@ def on_ui_update(
         ) 
     )
 
-    print(human_data_path)
+    # TODO:
+    # print(human_data_path)
 
     if data_display_setting is None:
         logging.info("Data Display Setting is not yet initialized. Initializing now.")
@@ -525,7 +535,8 @@ def on_ui_update(
         data_width=w,
         data_height=h,
         annot_start_time_trigger=True,
-        was_class_added=False
+        was_class_added=False,
+        disable_all_action_buttons=[False] * 4 # TODO: hardcoded
     )
 
 
@@ -550,22 +561,119 @@ clientside_callback(
     prevent_initial_call=True,
     # background=True, # INFO LRU Cache won't work with this
 )
-def on_query(
+def on_next_batch(
     trigger,
     store_data,
     batch_size,
     subsampling,
 ):
+    # Assume that global index as at last position of batch
     if trigger is None:
         raise PreventUpdate
 
-    print("on query")
-    activeml_cfg = common.compose_from_state(store_data)
-    X = api.load_embeddings(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
-    # TODO bad name. Sampling parameters
-    session_cfg = SessionConfig(batch_size, subsampling)
+    print("\non next batch")
 
-    batch, annotations_list  = api.request_query(activeml_cfg, session_cfg, X)
+    # INFO: Assumes global idx is on the last of the completed batch
+    # to determine correct number of restorable samples
+    session_cfg = SessionConfig(batch_size, subsampling)
+    activeml_cfg = common.compose_from_state(store_data)
+
+    dataset_id = store_data[StoreKey.DATASET_SELECTION.value]
+
+    global_history_idx = api.get_global_history_idx(dataset_id)
+
+    history_size = api.get_num_annotated(dataset_id)
+
+    if global_history_idx is None:
+        if history_size == 0:
+            global_history_idx = 0
+        else:
+            # Assume there have been annotations made but the index is missing
+            global_history_idx = history_size - 1
+
+        print("Initializing global history idx to", global_history_idx)
+        api.set_global_history_idx(dataset_id, global_history_idx)
+
+    print("global_history_idx", global_history_idx)
+
+    print("history_size", history_size)
+
+    # TODO:
+    num_restorable = max(0, history_size - (global_history_idx + 1))
+    print("num_restorable", num_restorable)
+
+    if num_restorable >= batch_size:
+        print("No Active ML needed")
+        # No Active ML needed just restore
+        # Batch size many samples
+        # api.restore_forward (batch_size)
+        # TODO: refactor restore batch so it only restores as much as it can?
+        batch, annotations_list = api.restore_batch(activeml_cfg, global_history_idx, True, batch_size)
+
+        # INFO: This assumed the idx is on the last of the previous batch
+        api.increment_global_history_idx(dataset_id, 1)
+        # api.increment_global_history_idx(dataset_id, batch_size)
+
+    else:
+        print("Must use active ml")
+        # Active learning needed. 
+        # But first restore what is left to restore
+        if num_restorable > 0:
+            print(f"Can still restore {num_restorable} samples before Active ML")
+            batch_one, annotations_list_one = api.restore_batch(activeml_cfg, global_history_idx, True, num_restorable)
+
+            print("restored batch embings:")
+            print(batch_one.emb_indices)
+
+            emb_indices_one = batch_one.emb_indices
+            class_probas_one = batch_one.class_probas
+            annotations_one = annotations_list_one.annotations
+            api.increment_global_history_idx(dataset_id, 1)
+        else:
+            emb_indices_one = []
+            class_probas_one = []
+            annotations_one = []
+
+            new_history_idx = api.get_num_annotated(dataset_id)
+            api.set_global_history_idx(dataset_id, new_history_idx)
+        
+        # Only the difference has to be quried
+        session_cfg.batch_size = batch_size - num_restorable
+        print(f"Do active learning to get {session_cfg.batch_size} samples")
+
+        X = api.load_embeddings(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
+
+        # INFO: Remove samples from pool that have been restored. To avoid possible duplication
+        batch_two, annotations_list_two = api.request_query(activeml_cfg, session_cfg, X, emb_indices_one)
+
+        print("queried batch emb indices:")
+        print(batch_two.emb_indices)
+
+        # TODO: Determine how many samples have been previously skipped
+        # To align global idx correctly
+
+        class_probas_combined = (
+            class_probas_one + batch_two.class_probas
+            if class_probas_one is not None and batch_two.class_probas is not None
+            else None
+        )
+
+        # Combine Batches and annotations_list
+        batch = Batch(
+            emb_indices=emb_indices_one + batch_two.emb_indices,
+            classes_sklearn=batch_two.classes_sklearn,
+            class_probas=class_probas_combined,
+            progress=0
+        )
+
+        annotations_list = AnnotationList(
+            annotations=annotations_one + annotations_list_two.annotations
+        )
+
+    print()
+    print("Current History idx is:")
+    print(api.get_global_history_idx(dataset_id))
+
     store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
     store_data[StoreKey.ANNOTATIONS_STATE.value] = annotations_list.model_dump()
 
@@ -601,9 +709,13 @@ def on_skip_batch(
     embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
     batch = Batch.from_json(batch_json)
 
+    print(session_data[StoreKey.ANNOTATIONS_STATE.value])
+    annotations_list = AnnotationList.model_validate(session_data[StoreKey.ANNOTATIONS_STATE.value])
+    annotations = annotations_list.annotations
+
     # TODO this should not be necessary
-    num_annotated = api.save_partial_annotations(batch, dataset_id, embedding_id)
-    annot_progress[AnnotProgress.PROGRESS.value] = num_annotated
+    api.save_partial_annotations(batch, dataset_id, embedding_id, annotations)
+    annot_progress[AnnotProgress.PROGRESS.value] = api.get_num_annotated_not_skipped(dataset_id)
 
     return dict(
         query_trigger=True,
@@ -613,7 +725,7 @@ def on_skip_batch(
 
 
 @callback(
-    Input('back-button', 'n_clicks'),
+    Input(ids.BACK_ANNOTATION_BTN, 'n_clicks'),
     State('session-store', 'data'),
     State('batch-size-input', 'value'),
     State(ids.ANNOT_PROGRESS, 'data'),
@@ -627,17 +739,18 @@ def on_skip_batch(
 def on_back_clicked(
     clicks,
     store_data,
-    batch_size,
+    batch_size, # TODO input these are UI inputs
     annot_progress,
 ):
+    end_time = datetime.now()
+
     if clicks is None:
         raise PreventUpdate
 
-    print("on back click callback")
+    print("\non back click callback")
     # TODO only store last edit when there was a change?
 
     # TODO repeated code create helper for this.
-    end_time = datetime.now()
     start_time = datetime.fromisoformat(store_data[StoreKey.DATA_PRESENT_TIMESTAMP.value])
     delta_time = end_time - start_time
 
@@ -645,6 +758,7 @@ def on_back_clicked(
     batch = Batch.from_json(store_data[StoreKey.BATCH_STATE.value])
     idx = batch.progress
     # TODO that seems wierd
+
     annotations_list = AnnotationList.model_validate(store_data[StoreKey.ANNOTATIONS_STATE.value])
     annotations = annotations_list.annotations
     old_annotation = annotations[idx]
@@ -678,26 +792,35 @@ def on_back_clicked(
     if batch.progress == 0:
         # TODO write helper for that
         print("Have to get last batch to be able to go back.")
-        # TODO Serialize new Annotations
+        # TODO Serialize new Annotations made in current batch
         dataset_id = store_data.get(StoreKey.DATASET_SELECTION.value)
         embedding_id = store_data.get(StoreKey.EMBEDDING_SELECTION.value)
-
-        # TODO i should only get the file paths for the samples acctually annotated
         file_paths = api.get_file_paths(dataset_id, embedding_id, batch.emb_indices)
-
         _ = api.update_annotations(dataset_id, file_paths, annotations)
 
         # TODO this step should be done in the serialize and deserialize methods
         activeml_cfg = common.compose_from_state(store_data)
+        history_idx = api.get_global_history_idx(activeml_cfg.dataset.id)
+        assert history_idx is not None
 
         try:
-            batch, annotations_list, num_annotations = api.undo_annots_and_restore_batch(activeml_cfg, batch_size)
-            # TODO should annotations be decreased when going back?
-            # Decrease amount of annotations
-            annot_progress[AnnotProgress.PROGRESS.value] = num_annotations
+            batch, annotations_list = api.restore_batch(activeml_cfg, history_idx, False, batch_size)
         except RuntimeError:
-            logging.warning("Cannot go back further. No Annotations")
-            raise PreventUpdate
+            logging.warning("Raise PreventUpdate. Cannot go back further. No Annotations left")
+            # INFO: Have to do ui_trigger so the buttons are enabled
+            return dict(
+                ui_trigger=True,
+                session_data=dash.no_update,
+                annot_progress=dash.no_update
+            )
+            # raise PreventUpdate
+
+        # INFO: Update the global history idx
+        api.increment_global_history_idx(dataset_id, - len(batch))
+        print("info decrementing global idx to:", api.get_global_history_idx(dataset_id))
+        # TODO should annotations be decreased when going back?
+        # Decrease amount of annotations
+        annot_progress[AnnotProgress.PROGRESS.value] = api.get_num_annotated_not_skipped(dataset_id)
     else:
          batch.advance(step= -1)
 
@@ -721,7 +844,7 @@ def on_back_clicked(
 )
 def on_annot_progress(
     trigger,
-    annot_data
+    annot_data # TODO rename this is just the UI value that is updated via this
 ):
     if trigger is None:
         raise PreventUpdate
@@ -731,6 +854,14 @@ def on_annot_progress(
         num_samples=annot_data.get(AnnotProgress.TOTAL_NUM.value)
     )
 
+
+# Disable buttons to prevent spamming before processing is done.
+clientside_callback(
+    ClientsideFunction(namespace='clientside', function_name='disableAllButtons'),
+    Output(ids.ALL_ANNOTATION_BTNS, 'loading'),
+    Input(ids.ALL_ANNOTATION_BTNS, 'n_clicks'),
+    prevent_initial_call=True
+)
 
 clientside_callback(
     ClientsideFunction(namespace='clientside', function_name='scrollToChip'),

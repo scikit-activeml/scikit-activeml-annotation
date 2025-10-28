@@ -18,6 +18,7 @@ QS_CONFIG_PATH = CONFIG_PATH / 'query_strategy'
 
 # output
 ANNOTATED_PATH = OUTPUT_PATH / 'annotated'
+HISTORY_IDX = OUTPUT_PATH / 'annotation_history_idx'
 HISTORY_PATH = OUTPUT_PATH / 'annotation_history'
 CACHE_PATH = OUTPUT_PATH / 'cache'
 PROFILER_PATH = OUTPUT_PATH / 'profiler'
