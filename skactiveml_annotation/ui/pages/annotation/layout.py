@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
@@ -371,6 +371,8 @@ def on_confirm(
     value,
     annot_data
 ):
+    end_time = datetime.now(timezone.utc)
+
     if confirm_click is None and discard_click is None and skip_click is None:
         raise PreventUpdate
 
@@ -382,7 +384,6 @@ def on_confirm(
         label = value if trigger_id == 'confirm' else DISCARD_MARKER
 
     # Take timestamp when annotation was finished
-    end_time = datetime.now()
     start_time = datetime.fromisoformat(store_data[StoreKey.DATA_PRESENT_TIMESTAMP.value])
     delta_time = end_time - start_time
 
@@ -753,7 +754,7 @@ def on_back_clicked(
     batch_size, # TODO input these are UI inputs
     annot_progress,
 ):
-    end_time = datetime.now()
+    end_time = datetime.now(timezone.utc)
 
     if clicks is None:
         raise PreventUpdate
@@ -900,7 +901,8 @@ def on_annot_start_timestamp(
         raise PreventUpdate
 
     # TODO Problem that shit runs before ui rendering is complete.
-    now_str = datetime.now().isoformat()
+    # TODO: this will be utc aware time of the server and not user
+    now_str = datetime.now(timezone.utc).isoformat()
 
     session_data[StoreKey.DATA_PRESENT_TIMESTAMP.value] = now_str
 
