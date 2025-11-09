@@ -46,7 +46,8 @@ class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
         print("[INFO] load all audio waveforms ...")
         audio_list = []
         for path in file_paths:
-            waveform, sr = librosa.load(path, sr=16000, mono=True)
+            # Preserve sampling rate of the original data
+            waveform, sampling_rate = librosa.load(path, sr=None, mono=True)
             audio_list.append(waveform)
 
         # Process in batches
@@ -64,7 +65,12 @@ class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
 
             # Prepare batch inputs with padding
             # Adding padding for variable lenght samples and convert to tensor
-            inputs = self.processor(batch_waveforms, sampling_rate=16000, return_tensors="pt", padding=True)
+            inputs = self.processor(
+                batch_waveforms, 
+                sampling_rate=sampling_rate, 
+                return_tensors="pt", 
+                padding=True
+            )
 
             # PyTorch models require that all inputs are on the same device as the model.
             # If your model is on the GPU, but your input tensors are on the CPU, PyTorch will throw an error.
