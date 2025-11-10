@@ -1,5 +1,4 @@
 # TODO Todo Make it so not all dependencies for all modalities have to be installed
-import base64
 from pathlib import Path
 from io import BytesIO
 
@@ -20,6 +19,8 @@ from skactiveml_annotation.core.data_display_model import (
     TextDataDisplaySetting,
     ImageDataDisplaySetting,
 )
+
+from skactiveml_annotation.core import api
 
 # TODO make components out of these.
 def create_image_display(
@@ -61,7 +62,7 @@ def create_image_display(
     fig = go.Figure(
         data=go.Image(
             # TODO instead of Inline URI server file on demand?
-            source=pil_image_to_base64(image, fmt="PNG"),
+            source=pil_image_to_inline_data_url(image, format="PNG"),
             # z=image,
         ),
         layout=go.Layout(
@@ -95,7 +96,7 @@ def create_image_display(
     )
 
 
-def pil_image_to_base64(img: pil_image.Image, fmt: str = "PNG") -> str:
+def pil_image_to_inline_data_url(pil_image: pil_image.Image, format: str ="PNG") -> str:
     """
     Convert a PIL Image to a base64-encoded string.
 
@@ -106,15 +107,13 @@ def pil_image_to_base64(img: pil_image.Image, fmt: str = "PNG") -> str:
     Returns:
         Data URL for the base64 encoded image.
     """
-    buffered = BytesIO()
-    img.save(buffered, format=fmt)
-    img_bytes = buffered.getvalue()
-    b64_str = base64.b64encode(img_bytes).decode("utf-8")
-
-    mime = f"image/{fmt.lower()}"
-    return f"data:{mime};base64,{b64_str}"
+    buffer = BytesIO()
+    pil_image.save(buffer, format=format)
+    mime = f"image/{format.lower()}"
+    return api.file_buffer_to_inline_data_url(buffer, mime)
 
 
+# TODO: Introduce different modules for different modalities
 def create_text_display(path: Path, text_display_setting: TextDataDisplaySetting):
     if not path.exists():
         raise ValueError(f"Cannot load text data from path: {path}")
@@ -164,10 +163,7 @@ def create_text_display(path: Path, text_display_setting: TextDataDisplaySetting
         )
 
 
-def create_audio_display(audio_data_path, audio_display_setting):
-    # TODO this is a relative path must it not be made absolute?
-
-def create_audio_display(audio_data_path, audio_display_setting):
+def create_audio_display(audio_data_path, audio_display_setting, format ="WAV"):
     """
     Creates a Dash Mantine AudioPlayer component from a local WAV file.
     
@@ -181,8 +177,6 @@ def create_audio_display(audio_data_path, audio_display_setting):
 
     print("Path", audio_data_path)
 
-    # TODO: create helper for base64 encoding
-
     # Load data from audio file as Pulse Code Modulation (PCM) timeseries 
     # into numpy array.
     # librosa uses soundfile and audiofile as a backup so all their file formats
@@ -190,22 +184,19 @@ def create_audio_display(audio_data_path, audio_display_setting):
     time_series, sample_rate = librosa.load(audio_data_path, sr=None) # Use native sampling rate
 
     duration_in_sec = len(time_series) * (1 / sample_rate)
-
     print("\n The duration of the sample in sec is:", duration_in_sec)
     print("Sample Rate:", sample_rate)
     print()
 
-    # Convert raw data into raw in memory representation of a wav file
-    # Create in memory represention of wav_file and write it into buffer
+    # Convert raw timeseries data into raw in memory representation of a wav file
     wav_file_bytes_buffer = BytesIO()
-    soundfile.write(file=wav_file_bytes_buffer, data=time_series, samplerate=sample_rate, format="WAV")
+    soundfile.write(file=wav_file_bytes_buffer, data=time_series, samplerate=sample_rate, format=format)
         
-    # Encode in memory wav_file as base64 so it works in the browser as inline data URL.
-    wav_file_b64_enc_bytes = base64.b64encode(wav_file_bytes_buffer.getvalue()).decode()
-
     # Pretty much all browsers support wav format: https://caniuse.com/wav
-    mime = "audio/wav"
-    inline_wave_file_url = f"data:{mime};base64,{wav_file_b64_enc_bytes}"
+    inline_wave_file_url = api.file_buffer_to_inline_data_url(
+        wav_file_bytes_buffer,
+        mime=f"audio/{format.lower()}"
+    )
 
     player = dash_player.DashPlayer(
         url=inline_wave_file_url,

@@ -1,3 +1,5 @@
+from io import BytesIO
+import base64
 from typing import TypeVar, TypeGuard
 from collections import OrderedDict
 from collections.abc import Iterable, Sequence
@@ -838,3 +840,8 @@ def restore_batch(
         ),
         AnnotationList(annotations=annotations)
     )
+
+
+def file_buffer_to_inline_data_url(file_data_buffer: BytesIO, mime: str) -> str:
+    b64_encoded_file_data = base64.b64encode(file_data_buffer.getvalue()).decode()
+    return f"data:{mime};base64,{b64_encoded_file_data}"
