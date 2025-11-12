@@ -44,8 +44,8 @@ from . import (
     ids,
     components,
     auto_annotate_modal,
-    data_display_modal,
     label_setting_modal,
+    data_presentation_settings,
 )
 from .label_setting_modal import SortBySetting
 
@@ -75,9 +75,6 @@ def layout(**kwargs):
                 dcc.Store(id=ids.ADD_CLASS_WAS_ADDED, storage_type='session', data=False),
 
                 label_setting_modal.create_label_settings_modal(),
-                # TODO: this is a problem as it depends on the data type: text, image etc
-                data_display_modal.create_data_display_modal(),
-
                 auto_annotate_modal.create_auto_annotate_modal(),
 
                 dmc.Box(id='label-radio'),  # avoid id error
@@ -305,10 +302,10 @@ clientside_callback(
     Input(ids.ANNOTATION_INIT, 'pathname'),
     State('session-store', 'data'),
     output=dict(
-        annot_progress=Output(ids.ANNOT_PROGRESS, 'data'),
-        data_display_modal_children=Output(ids.DATA_DISPLAY_MODAL, 'children'),
         ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
         query_trigger=Output(ids.QUERY_TRIGGER, 'data', allow_duplicate=True),
+        annot_progress=Output(ids.ANNOT_PROGRESS, 'data'),
+        data_presentation_setting_children=Output(ids.DATA_PRESENTATION_SETTINGS_CONTAINER, "children")
     ),
     prevent_initial_call='initial_duplicate'
 )
@@ -336,7 +333,7 @@ def init(
         ui_trigger=ui_trigger,
         query_trigger=query_trigger,
         annot_progress=init_annot_progress(store_data),
-        data_display_modal_children=data_display_modal.create_modal_content(data_type)
+        data_presentation_setting_children=data_presentation_settings.create_data_presentation_settings(data_type)
     )
 
 def init_annot_progress(store_data):
@@ -519,7 +516,7 @@ def on_ui_update(
             activeml_cfg.dataset.id,
             activeml_cfg.embedding.id,
             embedding_idx
-        ) 
+        )
     )
 
     # TODO:
@@ -900,7 +897,7 @@ def on_annot_start_timestamp(
     if trigger is None:
         raise PreventUpdate
 
-    # TODO Problem that shit runs before ui rendering is complete.
+    # TODO Problem that runs before ui rendering is complete.
     # TODO: this will be utc aware time of the server and not user
     now_str = datetime.now(timezone.utc).isoformat()
 

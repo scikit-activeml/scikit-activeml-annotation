@@ -32,24 +32,62 @@ def create_sidebar():
                         ),
 
                         *sampling_input.create_sampling_inputs(),
-
-                        # Data display settings Button
-                        dmc.Center(
-                            dmc.Tooltip(
-                                dmc.Button(
-                                    'Display Settings',
-                                    id=ids.DATA_DISPLAY_BTN,
-                                    color='dark',
-                                    mt=15
-                                ),
-                                label="Change how data is rendered",
-                                openDelay=500
-                            ),
-                        ),
                     ],
                     # style={'border': 'red 3px dotted'},
                     gap=10,
                     mb=10,
+                ),
+
+                dmc.Divider(variant="solid"),
+
+                dmc.Stack(
+                    [
+                        dmc.Center(
+                            dmc.Title("Presentation", order=3)
+                        ),
+                        dmc.Center(
+                            dmc.ScrollArea(
+                                dmc.Center(
+
+                                    dmc.Box(
+                                        id=ids.DATA_PRESENTATION_SETTINGS_CONTAINER,
+                                        # TODO why did I fix the width and heigh here?
+                                        mih=15,
+                                        # w='250px',
+                                        # h='250px',
+                                        my=10,
+                                        # style=dict(border='4px dotted red')
+                                    ),
+
+                                ),
+                                id='my-scroll-area',
+                                type='auto',
+                                offsetScrollbars='y',
+                                styles=dict(
+                                    viewport={
+                                        'maxHeight': '15vh'
+                                    },
+                                    border='green dashed 3px',
+                                ),
+                                style={
+                                    # 'border': 'green dashed 3px'
+                                },
+                                w='50vw'
+                            )
+                        ),
+                        dmc.Center(
+                            dmc.Tooltip(
+                                dmc.Button(
+                                    "Apply",
+                                    id="refresh-ui-button",
+                                    color='dark'
+                                ),
+                                label="Apply Presentation Settings now"
+                            )
+                        )
+                    ],
+                    gap=10,
+                    my=10,
                 ),
 
                 dmc.Divider(variant="solid"),
@@ -97,10 +135,12 @@ def create_sidebar():
 
                     ],
                     # style={'border': 'red 3px dotted'},
-                    gap=10
+                    gap=15,
+                    mb=10
                 ),
 
-                # TODO allow to switch Query Strategy during annotation.
+
+                # TODO: allow to switch Query Strategy during annotation.
                 # dmc.Text(
                 #     'Query Strategy'
                 # ),
