@@ -1,9 +1,9 @@
-import logging
 from argparse import ArgumentParser
 
-from skactiveml_annotation import util
 from skactiveml_annotation.app import app
 import skactiveml_annotation.paths as sap
+
+from skactiveml_annotation.util import logging
 
 PORT = 8050
 
@@ -26,13 +26,12 @@ def main():
 def run_debug_mode():
     import os
     if os.environ.get("WERKZEUG_RUN_MAIN") == 'true':
-        util.logging.setup_logging()
+        logging.setup_logging()
 
     app.run(debug=True, host='localhost', dev_tools_hot_reload_interval=1, port=PORT)
 
-
 def run_profile_mode():
-    util.logging.setup_logging()
+    logging.setup_logging()
 
     try:
         from werkzeug.middleware.profiler import ProfilerMiddleware
@@ -49,12 +48,12 @@ def run_profile_mode():
         restrictions=[20],
         profile_dir=str(sap.PROFILER_PATH)
     )
-    print("Starting app in profiler mode")
+    logging.info("Starting app in profiler mode")
     app.run(debug=True, host='localhost', dev_tools_hot_reload=False, port=PORT)
 
 
 def run_prod_mode():
-    util.logging.setup_logging()
+    logging.setup_logging()
     import webbrowser
     try:
         from waitress import serve  # pyright: ignore[reportMissingModuleSource]

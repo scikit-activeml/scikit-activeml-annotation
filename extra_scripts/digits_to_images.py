@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +27,7 @@ def save_digits_images(output_dir=str(sap.DATASETS_PATH / 'digits_images')):
         img = preprocess_image(image)
         img.save(os.path.join(output_dir, f"digit_{idx}.png"))
 
-    print(f"Saved {len(images)} images in '{output_dir}'")
+    logging.info(f"Saved {len(images)} images in '{output_dir}'")
 
 
 def preprocess_image(image: np.ndarray) -> Image.Image:

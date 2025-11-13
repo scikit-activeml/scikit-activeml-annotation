@@ -13,6 +13,7 @@ try:
         FashionMNIST
     )
 except ImportError as e:
+    # TODO: Add better error msg
     logging.error(e)
     sys.exit()
 
@@ -106,7 +107,7 @@ def _load_torchvision_images(
     for idx, (image, label) in enumerate(dataset):
         image.save(output_dir / f'{name}_{idx}.png')
 
-    print(f"Saved {len(dataset)} images in '{output_dir}'")
+    logging.info(f"Saved {len(dataset)} images in '{output_dir}'")
 
 
 if __name__ == "__main__":

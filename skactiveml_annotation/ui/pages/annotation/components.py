@@ -236,9 +236,6 @@ def create_data_display(
     human_data_path: Path, 
     dpr: float
 ):
-    # TODO:
-    # print(data_display_setting)
-
     w = dash.no_update
     h = dash.no_update
 

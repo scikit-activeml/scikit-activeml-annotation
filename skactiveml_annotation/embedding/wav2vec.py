@@ -1,10 +1,14 @@
+import logging
 from pathlib import Path
-from abc import ABC
+
+try:
+    import torch  # pyright: ignore[reportMissingImports]
+    from transformers import Wav2Vec2Processor, Wav2Vec2Model  # pyright: ignore[reportMissingImports]
+except ImportError as e:
+    logging.error(e)
+    raise
 
 import numpy as np
-import torch
-from transformers import Wav2Vec2Processor, Wav2Vec2Model
-
 import librosa
 
 from skactiveml_annotation.core.shared_types import DashProgressFunc
@@ -18,7 +22,8 @@ class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
     def __init__(
         self, 
         model_name: str = "facebook/wav2vec2-base", 
-        batch_size: int = 8
+        batch_size: int = 8,
+        sample_rate: float | int = 16000 # Default for Speech recognition
     ):
         """
         Initialize the Wav2Vec2 embedding adapter.
@@ -33,26 +38,29 @@ class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
         self.model = Wav2Vec2Model.from_pretrained(model_name).to(self.device)
         self.model.eval()
         self.batch_size = batch_size
+        self.sample_rate = sample_rate
 
     def compute_embeddings(
         self, 
         data_path: Path, 
-        progress_func=None
+        progress_func: DashProgressFunc
     ) -> tuple[np.ndarray, list[Path]]:
         file_paths = sorted([p for p in data_path.iterdir() if p.suffix.lower() == ".wav"])
         embeddings = []
 
         # Load all audio first
-        print("[INFO] load all audio waveforms ...")
+        logging.info("load all audio waveforms ...")
+
         audio_list = []
+        sampling_rate = self.sample_rate
         for path in file_paths:
-            # Preserve sampling rate of the original data
-            waveform, sampling_rate = librosa.load(path, sr=None, mono=True)
+            # To preserve sampling rate None can be passed but that assumes all
+            # sampels have the same sampling rate
+            waveform, sampling_rate = librosa.load(path, sr=sampling_rate, mono=True)
             audio_list.append(waveform)
 
-        # Process in batches
 
-        print("[INFO] start preprocessing and embedding")
+        logging.info("start preprocessing and embedding")
 
         # Progress tracking
         update_step = 100
@@ -89,13 +97,13 @@ class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
 
             if processed_count >= next_report_value:
                 percent = (processed_count / total_files) * 100
-                print(f"{processed_count}/{total_files} samples embedded ({percent:.2f}%)")
+                logging.info(f"{processed_count}/{total_files} samples embedded ({percent:.2f}%)")
                 progress_func(percent)
                 next_report_value += update_step
 
         embeddings = np.vstack(embeddings)
 
-        print("[INFO] Final embedding matrix shape:", embeddings.shape)
+        logging.info("Final embedding matrix shape:", embeddings.shape)
 
         relative_paths = [relative_to_root(p) for p in file_paths]
 

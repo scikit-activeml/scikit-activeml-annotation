@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 
@@ -50,6 +49,6 @@ class SentenceTransformerAdapter(EmbeddingBaseAdapter):
         # 4. Compute embeddings
         embeddings = model.encode(samples, normalize_embeddings=True)
 
-        print(embeddings.shape)
+        logging.info("Embedding complete with shape:", embeddings.shape)
 
         return embeddings, file_paths

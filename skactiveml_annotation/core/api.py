@@ -5,7 +5,6 @@ from collections import OrderedDict
 from collections.abc import Iterable, Sequence
 from itertools import islice
 import json
-import logging
 import inspect
 import bisect
 from dataclasses import Field, asdict 
@@ -26,6 +25,7 @@ from skactiveml.base import SkactivemlClassifier
 from skactiveml.classifier import SklearnClassifier
 from skactiveml.pool import SubSamplingWrapper
 
+from skactiveml_annotation.util import logging
 from skactiveml_annotation import util
 from skactiveml_annotation.util import deserialize
 import skactiveml_annotation.paths as sap
@@ -154,7 +154,7 @@ def request_query(
     # Only fit and query on the samples not marked as discarded
     X_cand, y_cand, mapping = _filter_outliers(X, y)
 
-    print("Fitting the classifier")
+    logging.info("Fitting the classifier")
     # TODO can fitting the classifier fail?
     # TODO filter out y that appear less then 2 times.
     # Some classifiers need at least 2 samples per class to train properly
@@ -276,7 +276,7 @@ def completed_batch(
     new_annotations: list[Annotation],
     batch: Batch # TODO really only the emd_indices are needed
 ):
-    print("\ncompleted batch")
+    logging.info("\ncompleted batch")
 
     file_paths = get_file_paths(dataset_id, embedding_id, batch.emb_indices)
 
@@ -290,7 +290,7 @@ def completed_batch(
     # Put the idx on the last element of the batch
     # TODO: No longer increment index to last position
     increment_global_history_idx(dataset_id, len(new_annotations) - 1)
-    print("Increment history_idx to: ", get_global_history_idx(dataset_id))
+    logging.debug15("Increment history_idx to: ", get_global_history_idx(dataset_id))
 
 
 # TODO: Not needed?
@@ -624,7 +624,7 @@ def _build_activeml_classifier(
         raise RuntimeError(f"Estimator is not a sklearn ClassifierMixin")
 
 
-# TODO can use from skactiveml.utils import call_func instead?
+# TODO: can use from skactiveml.utils import call_func instead?
 def _filter_kwargs(func: QueryFunc, **kwargs) -> QueryFunc:
     params = inspect.signature(func).parameters
     param_names = params.keys()
@@ -636,8 +636,6 @@ def _filter_kwargs(func: QueryFunc, **kwargs) -> QueryFunc:
 
     # Otherwise, filter only the kwargs that match function's signature
     filtered_kwargs = {p_name: p_obj for p_name, p_obj in kwargs.items() if p_name in param_names}
-
-    # print("filtered_kwargs", filtered_kwargs)
 
     return partial(func, **filtered_kwargs)
 
@@ -701,7 +699,7 @@ def _normalize_and_validate_paths(
         file_paths_str.append(p_str)
 
     if has_absolute:
-        print("[WARNING] absolute paths were provided. Results won't be easily shareable.")
+        logging.warning("absolute paths were provided. Results won't be easily shareable")
     return file_paths_str
 
 
@@ -757,7 +755,6 @@ def set_global_history_idx(dataset_id: str, value: int) -> None:
     Store (or update) the history index for a given dataset ID.
     Creates the directory if needed.
     """
-    # print("SET GLOBAL IDX to: ", value)
     path = sap.HISTORY_IDX / f"{dataset_id}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -766,7 +763,6 @@ def set_global_history_idx(dataset_id: str, value: int) -> None:
     path.write_text(model.model_dump_json(indent=4))
 
 def increment_global_history_idx(dataset_id: str, value: int):
-    # print("INC IDX by:", value)
     current_idx = get_global_history_idx(dataset_id)
     assert current_idx is not None
 
@@ -783,9 +779,8 @@ def restore_batch(
     # If there are not enough samples left to restore it will restore as much as it can
     # If it cant restore it will throw an error
     # Assumes annotations are stored in json in the same order they were made.
-    print("\nRestore Batch")
-    print("history idx:", history_idx)
-
+    logging.info("\nRestore Batch")
+    logging.debug15("history idx:", history_idx)
     # INFO: History_idx is exclusive and wont be restored
 
     if restore_forward:
@@ -805,15 +800,15 @@ def restore_batch(
         elif num_restorable < num_restore:
             logging.info(f"Can not restore backwards {num_restore}, only {num_restorable} will be restored")
         
-    print("start:", start)
-    print("end:", end, "(exclusive)")
+    logging.debug15(f"start: {start}")
+    logging.debug15(f"end: {end} (exclusive)")
 
     annotations_data = _deserialize_annotations(cfg.dataset.id)
     sliced = islice(annotations_data.values(), start, end)
     annotations = list(sliced) 
 
-    print("len restored:")
-    print(len(annotations))
+    logging.debug15("len restored:")
+    logging.debug15(len(annotations))
 
     emb_idxes = [annot.embedding_idx for annot in annotations]
     

@@ -10,13 +10,10 @@ except ImportError as e:
     sys.exit(1)
 
 if __name__ == '__main__':
-    print("PyTorch Version:", torch.__version__)
-    print("PyTorch CUDA version:", torch.version.cuda)
+    logging.info("PyTorch Version:", torch.__version__)
+    logging.info("PyTorch CUDA version:", torch.version.cuda)
     if torch.cuda.is_available():
-        print("CUDA is available!")
-        print("GPU:", torch.cuda.get_device_name(0))
+        logging.info("CUDA is available!")
+        logging.info("GPU:", torch.cuda.get_device_name(0))
     else:
-        print("CUDA is not available.")
-
-
-
+        logging.info("CUDA is not available.")

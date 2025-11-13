@@ -18,6 +18,7 @@ from skactiveml_annotation.core import api
 from skactiveml_annotation.core.schema import DatasetConfig
 from skactiveml_annotation.ui.components import sampling_input
 from skactiveml_annotation.ui.storekey import StoreKey
+from skactiveml_annotation.util import logging
 
 RADIO_SELECTION = 'radio-selection'
 
@@ -168,7 +169,6 @@ def _create_dataset_radio_item(cfg: DatasetConfig, cfg_display: str):
 
 
 def _create_dataset_selection(preselect):
-    print("_create data selection invoked")
     dataset_options = api.get_dataset_config_options()
     data = [(cfg, f'{cfg.display_name} - ({cfg.data_type.instantiate().value})')
             for cfg in dataset_options]
@@ -269,7 +269,7 @@ def setup_page(
     _,
     session_data
 ):
-    print("Setup page")
+    logging.debug15("Setup page")
 
     if session_data is None:
         session_data = {}
@@ -298,7 +298,7 @@ def handle_confirm(
     current_step,
     session_data
 ):
-    print(f"handle_confirm triggered at step {current_step} with radio_value: {radio_value}")
+    logging.debug15(f"handle_confirm triggered at step {current_step} with radio_value: {radio_value}")
     if current_step >= 4 or radio_value is None or n_clicks is None:
         raise PreventUpdate
 
@@ -344,7 +344,6 @@ def handle_back(
     current_step,
     session_data
 ):
-    print("handle_back callback")
     if current_step == 0:
         raise PreventUpdate
 
@@ -377,10 +376,10 @@ def go_to_next_page(
     embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
 
     if api.is_dataset_embedded(dataset_id, embedding_id):
-        print("Home to annotation \n -------------------------- \n")
+        logging.debug15("Home to annotation \n -------------------------- \n")
         pathname = f'/annotation/{dataset_id}'
     else:
-        print("Home to embedding \n -------------------------- \n")
+        logging.debug15("Home to embedding \n -------------------------- \n")
         pathname = f'/embedding'
 
     return dict(pathname=pathname)

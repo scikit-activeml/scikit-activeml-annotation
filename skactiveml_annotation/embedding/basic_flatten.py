@@ -1,3 +1,5 @@
+import logging
+
 from PIL import Image
 from pathlib import Path
 
@@ -45,7 +47,7 @@ class SimpleFlattenAdapter(EmbeddingBaseAdapter):
                 progress_func((progress / n_files) * 100)
 
             except Exception as e:
-                print(f"Error processing {file}: {e}")
+                logging.error(f"Error processing {file}: {e}")
 
         try:
             feature_matrix = np.concatenate(feature_list, axis=0)

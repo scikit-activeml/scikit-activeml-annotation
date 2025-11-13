@@ -15,6 +15,7 @@ from skactiveml_annotation import ui
 from skactiveml_annotation.core import api
 from skactiveml_annotation.ui.storekey import StoreKey
 from skactiveml_annotation.core.shared_types import DashProgressFunc
+from skactiveml_annotation.util import logging
 
 register_page(
     __name__,
@@ -72,10 +73,9 @@ def layout(**kwargs):
     )
 )
 def setup_page(
-        _,
-        session_data
+    _,
+    session_data
 ):
-    print("setup embedding page callback")
     return dict(
         embedding_selection_content=create_selected_embedding_view(session_data)
     )
@@ -90,9 +90,8 @@ def setup_page(
     prevent_initial_call=True,
 )
 def on_embedding_start(
-        n_clicks,
+    n_clicks,
 ):
-    print("on_embedding_start callback")
     return dict(
         title="Embedding in progress...",
         # cancel_disabled=False
@@ -143,7 +142,7 @@ def compute_embedding(
     if n_clicks is None:
         raise PreventUpdate
 
-    print("compute embedding background callback")
+    logging.debug15("compute embedding background callback")
 
     _compute_embedding(store_data, progress_func)
 
@@ -188,14 +187,13 @@ def create_change_page_buttons():
     prevent_initial_call=True
 )
 def change_page(
-        home_clicks,
-        annot_clicks,
-        session_data
+    home_clicks,
+    annot_clicks,
+    session_data
 ):
     if home_clicks is None and annot_clicks is None:
         raise PreventUpdate
 
-    print("Change page callback")
     trigger_id = callback_context.triggered_id
 
     if trigger_id == 'go-home-button':

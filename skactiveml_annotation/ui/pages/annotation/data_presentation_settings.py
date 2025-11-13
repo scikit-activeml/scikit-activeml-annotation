@@ -86,6 +86,7 @@ def image_presentation_settings():
     Input(ids.RESAMPLING_METHOD_RADIO, 'value'),
     State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
     output=dict(
+        # TODO: Consider storing each modatliy data seperatly?
         display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
     ),
     prevent_initial_call=True

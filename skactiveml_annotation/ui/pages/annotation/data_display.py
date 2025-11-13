@@ -1,4 +1,3 @@
-# TODO Todo Make it so not all dependencies for all modalities have to be installed
 from pathlib import Path
 from io import BytesIO
 
@@ -21,6 +20,7 @@ from skactiveml_annotation.core.data_display_model import (
 )
 
 from skactiveml_annotation.core import api
+from skactiveml_annotation.util import logging
 
 # TODO make components out of these.
 def create_image_display(
@@ -31,6 +31,8 @@ def create_image_display(
     image = pil_image.open(path_to_img).convert("RGB")
 
     rescale_factor = image_display_setting.rescale_factor
+
+    # TODO: ensure the images width is within some boundaries
     w = int(image.width * rescale_factor)
     h = int(image.height * rescale_factor)
 
@@ -175,18 +177,13 @@ def create_audio_display(audio_data_path, audio_display_setting, format ="WAV"):
     - dmc.Center containing the AudioPlayer
     """
 
-    print("Path", audio_data_path)
+    logging.debug15("Path", audio_data_path)
 
     # Load data from audio file as Pulse Code Modulation (PCM) timeseries 
     # into numpy array.
     # librosa uses soundfile and audiofile as a backup so all their file formats
     # are supported
     time_series, sample_rate = librosa.load(audio_data_path, sr=None) # Use native sampling rate
-
-    duration_in_sec = len(time_series) * (1 / sample_rate)
-    print("\n The duration of the sample in sec is:", duration_in_sec)
-    print("Sample Rate:", sample_rate)
-    print()
 
     # Convert raw timeseries data into raw in memory representation of a wav file
     wav_file_bytes_buffer = BytesIO()

@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
@@ -28,6 +27,7 @@ import dash_loading_spinners as dls
 from skactiveml_annotation.core.data_display_model import DataDisplaySetting
 from skactiveml_annotation.ui import common
 from skactiveml_annotation.core import api
+from skactiveml_annotation.util import logging
 
 from skactiveml_annotation.core.schema import (
     Batch,
@@ -406,7 +406,8 @@ def on_confirm(
         total_view_duration = isodate.duration_isoformat(delta_time)
         skip_intended_cnt = old_annotation.meta_data.skip_intended_cnt
 
-    print("TRIGGER ID", trigger_id)
+    logging.debug15("TRIGGER ID", trigger_id)
+
     # Increment skip counter if the user clicked skip
     if trigger_id == "skip" :
         skip_intended_cnt += 1
@@ -444,7 +445,7 @@ def on_confirm(
         num_annotated = api.get_num_annotated_not_skipped(dataset_id)
 
         if num_annotated == annot_data[AnnotProgress.TOTAL_NUM.value]:
-            print("ANNOTATION COMPLETE")
+            logging.info("All Samples Annotated!")
             raise PreventUpdate
 
         annot_data[AnnotProgress.PROGRESS.value] = num_annotated
@@ -519,9 +520,6 @@ def on_ui_update(
         )
     )
 
-    # TODO:
-    # print(human_data_path)
-
     if data_display_setting is None:
         logging.info("Data Display Setting is not yet initialized. Initializing now.")
         data_display_setting = DataDisplaySetting()
@@ -580,7 +578,7 @@ def on_next_batch(
     if trigger is None:
         raise PreventUpdate
 
-    print("\non next batch")
+    logging.debug15("\n On next batch")
 
     # INFO: Assumes global idx is on the last of the completed batch
     # to determine correct number of restorable samples
@@ -600,19 +598,14 @@ def on_next_batch(
             # Assume there have been annotations made but the index is missing
             global_history_idx = history_size - 1
 
-        print("Initializing global history idx to", global_history_idx)
+        logging.debug15("Initializing global history idx to", global_history_idx)
         api.set_global_history_idx(dataset_id, global_history_idx)
-
-    print("global_history_idx", global_history_idx)
-
-    print("history_size", history_size)
 
     # TODO:
     num_restorable = max(0, history_size - (global_history_idx + 1))
-    print("num_restorable", num_restorable)
 
     if num_restorable >= batch_size:
-        print("No Active ML needed")
+        logging.debug15("No Active ML needed")
         # No Active ML needed just restore
         # Batch size many samples
         # api.restore_forward (batch_size)
@@ -624,15 +617,12 @@ def on_next_batch(
         # api.increment_global_history_idx(dataset_id, batch_size)
 
     else:
-        print("Must use active ml")
+        logging.debug15("Must use active ml")
         # Active learning needed. 
         # But first restore what is left to restore
         if num_restorable > 0:
-            print(f"Can still restore {num_restorable} samples before Active ML")
+            logging.debug15(f"Can still restore {num_restorable} samples before Active ML")
             batch_one, annotations_list_one = api.restore_batch(activeml_cfg, global_history_idx, True, num_restorable)
-
-            print("restored batch embings:")
-            print(batch_one.emb_indices)
 
             emb_indices_one = batch_one.emb_indices
             class_probas_one = batch_one.class_probas
@@ -648,15 +638,15 @@ def on_next_batch(
         
         # Only the difference has to be quried
         session_cfg.batch_size = batch_size - num_restorable
-        print(f"Do active learning to get {session_cfg.batch_size} samples")
+        logging.debug15(f"Do active learning to get {session_cfg.batch_size} samples")
 
         X = api.load_embeddings(activeml_cfg.dataset.id, activeml_cfg.embedding.id)
 
         # INFO: Remove samples from pool that have been restored. To avoid possible duplication
         batch_two, annotations_list_two = api.request_query(activeml_cfg, session_cfg, X, emb_indices_one)
 
-        print("queried batch emb indices:")
-        print(batch_two.emb_indices)
+        logging.debug15("queried batch emb indices:")
+        logging.debug15(batch_two.emb_indices)
 
         # TODO: Determine how many samples have been previously skipped
         # To align global idx correctly
@@ -678,10 +668,6 @@ def on_next_batch(
         annotations_list = AnnotationList(
             annotations=annotations_one + annotations_list_two.annotations
         )
-
-    print()
-    print("Current History idx is:")
-    print(api.get_global_history_idx(dataset_id))
 
     store_data[StoreKey.BATCH_STATE.value] = batch.to_json()
     store_data[StoreKey.ANNOTATIONS_STATE.value] = annotations_list.model_dump()
@@ -718,7 +704,7 @@ def on_skip_batch(
     embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
     batch = Batch.from_json(batch_json)
 
-    print(session_data[StoreKey.ANNOTATIONS_STATE.value])
+    logging.debug15(session_data[StoreKey.ANNOTATIONS_STATE.value])
     annotations_list = AnnotationList.model_validate(session_data[StoreKey.ANNOTATIONS_STATE.value])
     annotations = annotations_list.annotations
 
@@ -756,7 +742,7 @@ def on_back_clicked(
     if clicks is None:
         raise PreventUpdate
 
-    print("\non back click callback")
+    logging.debug15("\non back click callback")
     # TODO only store last edit when there was a change?
 
     # TODO repeated code create helper for this.
@@ -774,7 +760,7 @@ def on_back_clicked(
 
     if old_annotation is None:
         # TODO should not happen right?
-        print("Does this happen?")
+        logging.debug15("Does this happen?")
         first_view_time = start_time.isoformat()
         total_view_duration = isodate.duration_isoformat(delta_time)
         label = MISSING_LABEL_MARKER
@@ -802,7 +788,7 @@ def on_back_clicked(
 
     if batch.progress == 0:
         # TODO write helper for that
-        print("Have to get last batch to be able to go back.")
+        logging.debug15("Have to get last batch to be able to go back.")
         # TODO Serialize new Annotations made in current batch
         dataset_id = store_data.get(StoreKey.DATASET_SELECTION.value)
         embedding_id = store_data.get(StoreKey.EMBEDDING_SELECTION.value)
@@ -828,7 +814,7 @@ def on_back_clicked(
 
         # INFO: Update the global history idx
         api.increment_global_history_idx(dataset_id, - len(batch))
-        print("info decrementing global idx to:", api.get_global_history_idx(dataset_id))
+        logging.debug15(f"info decrementing global idx to: {api.get_global_history_idx(dataset_id)}")
         # TODO should annotations be decreased when going back?
         # Decrease amount of annotations
         annot_progress[AnnotProgress.PROGRESS.value] = api.get_num_annotated_not_skipped(dataset_id)

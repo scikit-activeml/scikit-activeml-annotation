@@ -1,9 +1,10 @@
-import logging
 from pathlib import Path
 from typing import Callable
 
 import numpy as np
 from PIL import Image
+
+from skactiveml_annotation.util import logging
 
 try:
     import torch # pyright: ignore[reportMissingImports]
@@ -36,7 +37,7 @@ class ImageDataset(torch.utils.data.Dataset):
             # Open the image using Pillow
             image = Image.open(image_path).convert('RGB')
         except Exception as e:
-            print(f"Error loading image {image_path}: {e}")
+            logging.error(f"Error loading image {image_path}: {e}")
             return None, image_path  # If there's an error, return None and the file name
 
         image = self.transform(image)  # Apply the transformations
@@ -79,7 +80,8 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
         Load images from the directory in batches, process them through the model,
         and return the concatenated feature matrix and corresponding file names.
         """
-        print(f"Compute Torchvision embedding using device: {self.device}")
+        logging.info(f"Compute Torchvision embedding using device: {self.device}")
+
         dataset = ImageDataset(data_path, self.transform)
         n_samples = len(dataset)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, num_workers=4)
