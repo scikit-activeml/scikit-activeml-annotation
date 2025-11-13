@@ -12,7 +12,7 @@ class TextDataDisplaySetting(pydantic.BaseModel):
     line_height: float = 1.25
 
 class AudioDataDisplaySetting(pydantic.BaseModel):
-    loop: bool = True
+    loop: bool = False
     playback_rate: float = 1.0
     
 
