@@ -91,16 +91,21 @@ def image_presentation_settings():
     prevent_initial_call=True
 )
 def on_image_presentation_settings_changed(
-    rescale_factor,
-    resampling_method,
+    rescale_factor: float,
+    resampling_method: str,
     display_settings,
 ):
-    display_settings = DataDisplaySetting.model_validate(display_settings)
+    display_settings = (
+        DataDisplaySetting.model_validate(display_settings)
+        if display_settings is not None
+        else DataDisplaySetting()
+    )
+
     image_settings = display_settings.image
     image_settings.rescale_factor = rescale_factor
-    image_settings.resampling_method = resampling_method
-
-    print("Data Display Setting after confirm:")
+    
+    # Convert string to enum value
+    image_settings.resampling_method = PIL_Resampling(int(resampling_method))
 
     return dict(
         display_settings=display_settings.model_dump()
@@ -165,7 +170,12 @@ def on_text_presentation_settings_changed(
     line_height,
     display_settings_json,
 ):
-    display_settings = DataDisplaySetting.model_validate(display_settings_json)
+    display_settings = (
+        DataDisplaySetting.model_validate(display_settings_json)
+        if display_settings_json is not None
+        else DataDisplaySetting()
+    )
+
     text_settings = display_settings.text
     
     text_settings.font_size = font_size
@@ -227,7 +237,12 @@ def on_audio_presentation_settings_changed(
     # Data
     display_settings,
 ):
-    display_settings = DataDisplaySetting.model_validate(display_settings)
+    display_settings = (
+        DataDisplaySetting.model_validate(display_settings)
+        if display_settings is not None
+        else DataDisplaySetting()
+    )
+        
     audio_settings = display_settings.audio
 
     audio_settings.loop = should_loop
