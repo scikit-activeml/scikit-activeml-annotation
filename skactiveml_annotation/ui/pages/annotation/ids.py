@@ -29,6 +29,7 @@ COMPUTING_OVERLAY = 'computing-overlay'
 # Data Display
 # TODO: cleanup
 DATA_PRESENTATION_SETTINGS_CONTAINER = 'data-presentation-settings-container'
+DATA_PRESENTATION_APPLY_BTN_CONTAINER = "data-presentation-apply-btn-container"
 DATA_DISPLAY_CFG_DATA = 'data-display-cfg-data'
 
 # Image

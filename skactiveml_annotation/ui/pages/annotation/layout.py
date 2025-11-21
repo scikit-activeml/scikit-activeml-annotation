@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
+import pydantic
 import isodate
 
 import dash
@@ -305,7 +306,8 @@ clientside_callback(
         ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
         query_trigger=Output(ids.QUERY_TRIGGER, 'data', allow_duplicate=True),
         annot_progress=Output(ids.ANNOT_PROGRESS, 'data'),
-        data_presentation_setting_children=Output(ids.DATA_PRESENTATION_SETTINGS_CONTAINER, "children")
+        data_presentation_setting_children=Output(ids.DATA_PRESENTATION_SETTINGS_CONTAINER, "children"),
+        data_presentation_apply_children=Output(ids.DATA_PRESENTATION_APPLY_BTN_CONTAINER, "children")
     ),
     prevent_initial_call='initial_duplicate'
 )
@@ -333,7 +335,8 @@ def init(
         ui_trigger=ui_trigger,
         query_trigger=query_trigger,
         annot_progress=init_annot_progress(store_data),
-        data_presentation_setting_children=data_presentation_settings.create_data_presentation_settings(data_type)
+        data_presentation_setting_children=data_presentation_settings.create_data_presentation_settings(data_type),
+        data_presentation_apply_children=data_presentation_settings.create_apply_button(data_type)
     )
 
 def init_annot_progress(store_data):
@@ -490,7 +493,7 @@ def on_ui_update(
     ui_trigger,
     # Data
     store_data,
-    data_display_setting,
+    data_display_setting_json,
     browser_dpr,
     # Adding classes
     was_class_added,
@@ -520,11 +523,16 @@ def on_ui_update(
         )
     )
 
-    if data_display_setting is None:
+    if data_display_setting_json is None:
         logging.info("Data Display Setting is not yet initialized. Initializing now.")
         data_display_setting = DataDisplaySetting()
     else:
-        data_display_setting = DataDisplaySetting.model_validate(data_display_setting)
+        try:
+            data_display_setting = DataDisplaySetting.model_validate(data_display_setting_json)
+        except pydantic.ValidationError as e:
+            logging.error(f"Data Presentation settings are expected to be valid here but are invalid: {e}")
+            raise PreventUpdate
+
     rendered_data, w, h = components.create_data_display(data_display_setting, data_type, human_data_path, browser_dpr)
 
     sort_by = SortBySetting[sort_by] 

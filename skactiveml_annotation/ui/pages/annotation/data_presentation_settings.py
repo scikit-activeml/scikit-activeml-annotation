@@ -10,12 +10,14 @@ from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
 
 from PIL.Image import Resampling as PIL_Resampling
+import pydantic
 
 from . import ids
 from skactiveml_annotation.core.schema import (
     DataType,
 )
 
+from skactiveml_annotation.util import logging
 from skactiveml_annotation.core.data_display_model import (
     DataDisplaySetting,
     ImageDataDisplaySetting,
@@ -31,6 +33,30 @@ def create_data_presentation_settings(data_type: DataType):
         return text_presentation_settings()
     else:
         return audio_presentation_settings()
+
+
+def create_apply_button(data_type: DataType):
+    if data_type == DataType.IMAGE:
+        return _create_apply_button("image-presentation-setting-apply-btn")
+    elif data_type == DataType.TEXT:
+        return _create_apply_button("text-presentation-setting-apply-btn")
+    else:
+        return _create_apply_button("audio-presentation-setting-apply-btn")
+
+
+def _create_apply_button(button_id: str):
+    return (
+        dmc.Center(
+            dmc.Tooltip(
+                dmc.Button(
+                    "Apply",
+                    id=button_id,
+                    color='dark'
+                ),
+                label="Apply Presentation Settings now"
+            )
+        )
+    )
 
 
 # Image
@@ -81,37 +107,7 @@ def image_presentation_settings():
         )
 
 
-@callback(
-    Input(ids.RESAMPLING_FACTOR_INPUT, 'value'),
-    Input(ids.RESAMPLING_METHOD_RADIO, 'value'),
-    State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
-    output=dict(
-        # TODO: Consider storing each modatliy data seperatly?
-        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
-    ),
-    prevent_initial_call=True
-)
-def on_image_presentation_settings_changed(
-    rescale_factor: float,
-    resampling_method: str,
-    display_settings,
-):
-    display_settings = (
-        DataDisplaySetting.model_validate(display_settings)
-        if display_settings is not None
-        else DataDisplaySetting()
-    )
-
-    image_settings = display_settings.image
-    image_settings.rescale_factor = rescale_factor
-    
-    # Convert string to enum value
-    image_settings.resampling_method = PIL_Resampling(int(resampling_method))
-
-    return dict(
-        display_settings=display_settings.model_dump()
-    )
-
+# Text
 def text_presentation_settings():
     default_text_setting = TextDataDisplaySetting()
 
@@ -157,35 +153,6 @@ def text_presentation_settings():
         )
 
 
-@callback(
-    Input(ids.FONT_SIZE_INPUT, 'value'),
-    Input(ids.LINE_HEIGHT_INPUT, 'value'),
-    State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
-    output=dict(
-        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
-    ),
-    prevent_initial_call=True
-)
-def on_text_presentation_settings_changed(
-    font_size,
-    line_height,
-    display_settings_json,
-):
-    display_settings = (
-        DataDisplaySetting.model_validate(display_settings_json)
-        if display_settings_json is not None
-        else DataDisplaySetting()
-    )
-
-    text_settings = display_settings.text
-    
-    text_settings.font_size = font_size
-    text_settings.line_height = line_height
-
-    return dict(
-        display_settings=display_settings.model_dump()
-    )
-
 # Audio
 def audio_presentation_settings():
     default_audio_setting = AudioDataDisplaySetting()
@@ -221,53 +188,133 @@ def audio_presentation_settings():
             align='start'
         )
 
+
 # TODO: Organize this new code it does not belong here:
-
 @callback(
-    Input(ids.LOOP_INPUT, 'checked'),
-    Input(ids.PLAYBACK_RATE_INPUT, 'value'),
+    Input("image-presentation-setting-apply-btn", 'n_clicks'),
     State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
-    output=dict(
-        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
-    ),
-    prevent_initial_call=True
-)
-def on_audio_presentation_settings_changed(
-    should_loop,
-    playback_rate,
-    # Data
-    display_settings,
-):
-    display_settings = (
-        DataDisplaySetting.model_validate(display_settings)
-        if display_settings is not None
-        else DataDisplaySetting()
-    )
-        
-    audio_settings = display_settings.audio
-
-    audio_settings.loop = should_loop
-    audio_settings.playback_rate = playback_rate
-
-    return dict(
-        display_settings=display_settings.model_dump()
-    )
-
-
-# Generic
-@callback(
-    Input("refresh-ui-button", 'n_clicks'),
+    State(ids.RESAMPLING_FACTOR_INPUT, 'value'),
+    State(ids.RESAMPLING_METHOD_RADIO, 'value'),
     output=dict(
         ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
+        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
     ),
-    prevent_initial_call=True
+    prevent_initial_call=True,
+    allow_missing=True
 )
-def on_refresh_ui_clicked(
-    clicks
+def apply_image_presentation_settings(
+    apply_clicks: None | int,
+    display_settings_json,
+    # Settings
+    rescale_factor: float,
+    resampling_method: str,
 ):
-    if clicks is None:
+    if apply_clicks is None:
+        raise PreventUpdate
+
+    display_settings = DataDisplaySetting.model_validate(display_settings_json)
+
+    try:
+        image_settings = display_settings.image
+        image_settings.rescale_factor = rescale_factor
+        # Convert string to enum value
+        image_settings.resampling_method = int(resampling_method)
+    except pydantic.ValidationError as e:
+        logging.error(
+            f"Invalid data presentation setting applied: %s",
+            _format_pydantic_validation_error(e)
+        )
         raise PreventUpdate
 
     return dict(
         ui_trigger=True,
+        display_settings=display_settings.model_dump()
     )
+
+
+@callback(
+    Input("text-presentation-setting-apply-btn", 'n_clicks'),
+    State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
+    State(ids.FONT_SIZE_INPUT, 'value'),
+    State(ids.LINE_HEIGHT_INPUT, 'value'),
+    output=dict(
+        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
+        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
+    ),
+    prevent_initial_call=True
+)
+def apply_text_presentation_settings(
+    apply_clicks: None | int,
+    display_settings_json,
+    # Settings
+    font_size: int,
+    line_height: int,
+):
+    if apply_clicks is None:
+        raise PreventUpdate
+
+    display_settings = DataDisplaySetting.model_validate(display_settings_json)
+
+    try:
+        text_settings = display_settings.text
+        text_settings.font_size = font_size
+        text_settings.line_height = line_height
+    except pydantic.ValidationError as e:
+        logging.error(
+            f"Invalid data presentation setting applied: %s",
+            _format_pydantic_validation_error(e)
+        )
+        raise PreventUpdate
+
+    return dict(
+        ui_trigger=True,
+        display_settings=display_settings.model_dump()
+    )
+
+
+@callback(
+    Input("audio-presentation-setting-apply-btn", 'n_clicks'),
+    State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
+    State(ids.LOOP_INPUT, 'checked'),
+    State(ids.PLAYBACK_RATE_INPUT, 'value'),
+    output=dict(
+        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
+        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
+    ),
+    prevent_initial_call=True
+)
+def apply_audio_presentation_settings(
+    apply_clicks: None | int,
+    display_settings_json,
+    # Settings
+    should_loop: bool,
+    playback_rate: float
+):
+    if apply_clicks is None:
+        raise PreventUpdate
+
+    display_settings = DataDisplaySetting.model_validate(display_settings_json)
+
+    try:
+        audio_settings = display_settings.audio
+        audio_settings.loop = should_loop
+        audio_settings.playback_rate = playback_rate
+    except pydantic.ValidationError as e:
+        logging.error(
+            f"Invalid data presentation setting applied: %s",
+            _format_pydantic_validation_error(e)
+        )
+        raise PreventUpdate
+
+    return dict(
+        ui_trigger=True,
+        display_settings=display_settings.model_dump()
+    )
+
+
+def _format_pydantic_validation_error(e: pydantic.ValidationError) -> str:
+    err = e.errors()[0]
+    field = err["loc"][0]
+    msg = err["msg"]
+    inp = err["input"]
+    return f"{field} {msg} (got {inp!r})"

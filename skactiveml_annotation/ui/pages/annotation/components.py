@@ -48,7 +48,6 @@ def create_sidebar():
                         dmc.Center(
                             dmc.ScrollArea(
                                 dmc.Center(
-
                                     dmc.Box(
                                         id=ids.DATA_PRESENTATION_SETTINGS_CONTAINER,
                                         # TODO why did I fix the width and heigh here?
@@ -58,14 +57,13 @@ def create_sidebar():
                                         my=10,
                                         # style=dict(border='4px dotted red')
                                     ),
-
                                 ),
                                 id='my-scroll-area',
                                 type='auto',
                                 offsetScrollbars='y',
                                 styles=dict(
                                     viewport={
-                                        'maxHeight': '15vh'
+                                        'maxHeight': '20vh'
                                     },
                                     border='green dashed 3px',
                                 ),
@@ -75,16 +73,10 @@ def create_sidebar():
                                 w='50vw'
                             )
                         ),
+
                         dmc.Center(
-                            dmc.Tooltip(
-                                dmc.Button(
-                                    "Apply",
-                                    id="refresh-ui-button",
-                                    color='dark'
-                                ),
-                                label="Apply Presentation Settings now"
-                            )
-                        )
+                            id=ids.DATA_PRESENTATION_APPLY_BTN_CONTAINER,
+                        ),
                     ],
                     gap=10,
                     my=10,
