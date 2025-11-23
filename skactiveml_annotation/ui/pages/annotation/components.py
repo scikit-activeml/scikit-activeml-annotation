@@ -58,7 +58,6 @@ def create_sidebar():
                                         # style=dict(border='4px dotted red')
                                     ),
                                 ),
-                                id='my-scroll-area',
                                 type='auto',
                                 offsetScrollbars='y',
                                 styles=dict(
