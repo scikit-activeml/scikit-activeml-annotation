@@ -1,4 +1,5 @@
 from dash import (
+    ALL,
     Input,
     Output,
     State,
@@ -13,6 +14,7 @@ from PIL.Image import Resampling as PIL_Resampling
 import pydantic
 
 from . import ids
+from skactiveml_annotation.ui.pages.annotation import actions
 from skactiveml_annotation.core.schema import (
     DataType,
 )
@@ -35,30 +37,6 @@ def create_data_presentation_settings(data_type: DataType):
         return audio_presentation_settings()
 
 
-def create_apply_button(data_type: DataType):
-    if data_type == DataType.IMAGE:
-        return _create_apply_button("image-presentation-setting-apply-btn")
-    elif data_type == DataType.TEXT:
-        return _create_apply_button("text-presentation-setting-apply-btn")
-    else:
-        return _create_apply_button("audio-presentation-setting-apply-btn")
-
-
-def _create_apply_button(button_id: str):
-    return (
-        dmc.Center(
-            dmc.Tooltip(
-                dmc.Button(
-                    "Apply",
-                    id=button_id,
-                    color='dark'
-                ),
-                label="Apply Presentation Settings now"
-            )
-        )
-    )
-
-
 # Image
 def image_presentation_settings():
     default_image_setting = ImageDataDisplaySetting()
@@ -67,8 +45,7 @@ def image_presentation_settings():
         dmc.Stack(
             [
                 dmc.NumberInput(
-                    # id={"type": "tweak", "dtype": "image", "prop": "resampling_factor"},
-                    id=ids.RESAMPLING_FACTOR_INPUT,
+                    id=ids.IMAGE_RESIZING_FACTOR_INPUT,
                     min=0.25,
                     max=50,
                     clampBehavior='strict',
@@ -97,8 +74,7 @@ def image_presentation_settings():
                     persistence_type='session',
                     label='Resampling Method',
                     # description="Choose method",
-                    # id={"type": "tweak", "dtype": "image", "prop": "resampling_method"},
-                    id=ids.RESAMPLING_METHOD_RADIO,
+                    id=ids.IMAGE_RESAMPLING_METHOD_INPUT,
                     value=str(default_image_setting.resampling_method),
                     size="sm"
                 ),
@@ -115,8 +91,7 @@ def text_presentation_settings():
         dmc.Stack(
             [
                 dmc.NumberInput(
-                    # id={"type": "tweak", "dtype": "image", "prop": "resampling_factor"},
-                    id=ids.FONT_SIZE_INPUT,
+                    id=ids.TEXT_FONT_SIZE_INPUT,
                     min=1,
                     max=35,
                     step=1,
@@ -133,7 +108,7 @@ def text_presentation_settings():
                 ),
             
                 dmc.NumberInput(
-                    id=ids.LINE_HEIGHT_INPUT,
+                    id=ids.TEXT_LINE_HEIGHT_INPUT,
                     min=0.2,
                     max=35,
                     step=0.1,
@@ -161,7 +136,7 @@ def audio_presentation_settings():
         dmc.Stack(
             [
                 dmc.Checkbox(
-                    id=ids.LOOP_INPUT,
+                    id=ids.AUDIO_LOOP_INPUT,
                     label="Looping",
                     checked=default_audio_setting.loop,
                     persistence=ids.LOOP_INPUT,
@@ -169,7 +144,7 @@ def audio_presentation_settings():
                 ),
             
                 dmc.NumberInput(
-                    id=ids.PLAYBACK_RATE_INPUT,
+                    id=ids.AUDIO_PLAYBACK_RATE_INPUT,
                     min=0.2,
                     max=35,
                     step=0.1,
@@ -189,42 +164,35 @@ def audio_presentation_settings():
         )
 
 
-# TODO: Organize this new code it does not belong here:
 @callback(
-    Input("image-presentation-setting-apply-btn", 'n_clicks'),
+    Input(actions.APPLY.btn_id, 'n_clicks'),
     State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
-    State(ids.RESAMPLING_FACTOR_INPUT, 'value'),
-    State(ids.RESAMPLING_METHOD_RADIO, 'value'),
+    # Pattern Matching ids
+    State({'type': ids.DATA_PRESENTATION_INPUT, 'property': 'checked', 'modality': ALL, 'index': ALL}, 'id'),
+    State({'type': ids.DATA_PRESENTATION_INPUT, 'property': 'checked', 'modality': ALL, 'index': ALL}, 'checked'),
+    State({'type': ids.DATA_PRESENTATION_INPUT, 'property': 'value', 'modality': ALL, 'index': ALL}, 'id'),
+    State({'type': ids.DATA_PRESENTATION_INPUT, 'property': 'value', 'modality': ALL, 'index': ALL}, 'value'),
     output=dict(
         ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
         display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
     ),
     prevent_initial_call=True,
-    allow_missing=True
 )
-def apply_image_presentation_settings(
-    apply_clicks: None | int,
-    display_settings_json,
-    # Settings
-    rescale_factor: float,
-    resampling_method: str,
+def on_apply_data_presentation_settings(
+    n_clicks: int | None,
+    display_settings_json: dict,
+    checked_ids: list[dict[str, str]],
+    checked_values: list[bool],
+    value_ids: list[dict[str, str]],
+    value_values: list[str | bool | int | float],
 ):
-    if apply_clicks is None:
+    if n_clicks is None:
         raise PreventUpdate
 
     display_settings = DataDisplaySetting.model_validate(display_settings_json)
 
-    try:
-        image_settings = display_settings.image
-        image_settings.rescale_factor = rescale_factor
-        # Convert string to enum value
-        image_settings.resampling_method = int(resampling_method)
-    except pydantic.ValidationError as e:
-        logging.error(
-            f"Invalid data presentation setting applied: %s",
-            _format_pydantic_validation_error(e)
-        )
-        raise PreventUpdate
+    _apply_updates(display_settings, checked_ids, checked_values)
+    _apply_updates(display_settings, value_ids, value_values)
 
     return dict(
         ui_trigger=True,
@@ -232,84 +200,35 @@ def apply_image_presentation_settings(
     )
 
 
-@callback(
-    Input("text-presentation-setting-apply-btn", 'n_clicks'),
-    State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
-    State(ids.FONT_SIZE_INPUT, 'value'),
-    State(ids.LINE_HEIGHT_INPUT, 'value'),
-    output=dict(
-        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
-        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
-    ),
-    prevent_initial_call=True
-)
-def apply_text_presentation_settings(
-    apply_clicks: None | int,
-    display_settings_json,
-    # Settings
-    font_size: int,
-    line_height: int,
+def _apply_updates(
+    display_settings: DataDisplaySetting,
+    ids: list[dict],
+    values: list,
 ):
-    if apply_clicks is None:
-        raise PreventUpdate
+    for cid, val in zip(ids, values):
+        # modality field will exist otherwise they the ids would not be matched
+        # for the callback.
+        modality = cid["modality"] # "audio", "image", "text"
+        field = cid["index"] # "loop", "playback_rate", ...
 
-    display_settings = DataDisplaySetting.model_validate(display_settings_json)
+        if not hasattr(display_settings, modality):
+            logging.error(f"Unknown modality '{modality}' in id {cid!r}")
+            raise PreventUpdate
+        submodel = getattr(display_settings, modality)
 
-    try:
-        text_settings = display_settings.text
-        text_settings.font_size = font_size
-        text_settings.line_height = line_height
-    except pydantic.ValidationError as e:
-        logging.error(
-            f"Invalid data presentation setting applied: %s",
-            _format_pydantic_validation_error(e)
-        )
-        raise PreventUpdate
+        if not hasattr(submodel, field):
+            logging.error(f"Unknown field '{field}' in id {cid!r}")
+            raise PreventUpdate
 
-    return dict(
-        ui_trigger=True,
-        display_settings=display_settings.model_dump()
-    )
-
-
-@callback(
-    Input("audio-presentation-setting-apply-btn", 'n_clicks'),
-    State(ids.DATA_DISPLAY_CFG_DATA, 'data'),
-    State(ids.LOOP_INPUT, 'checked'),
-    State(ids.PLAYBACK_RATE_INPUT, 'value'),
-    output=dict(
-        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
-        display_settings=Output(ids.DATA_DISPLAY_CFG_DATA, 'data', allow_duplicate=True),
-    ),
-    prevent_initial_call=True
-)
-def apply_audio_presentation_settings(
-    apply_clicks: None | int,
-    display_settings_json,
-    # Settings
-    should_loop: bool,
-    playback_rate: float
-):
-    if apply_clicks is None:
-        raise PreventUpdate
-
-    display_settings = DataDisplaySetting.model_validate(display_settings_json)
-
-    try:
-        audio_settings = display_settings.audio
-        audio_settings.loop = should_loop
-        audio_settings.playback_rate = playback_rate
-    except pydantic.ValidationError as e:
-        logging.error(
-            f"Invalid data presentation setting applied: %s",
-            _format_pydantic_validation_error(e)
-        )
-        raise PreventUpdate
-
-    return dict(
-        ui_trigger=True,
-        display_settings=display_settings.model_dump()
-    )
+        try:
+            # Radio buttons use string as type ...
+            setattr(submodel, field, val)
+        except pydantic.ValidationError as e:
+            logging.error(
+                f"Invalid data presentation setting applied: %s",
+                _format_pydantic_validation_error(e)
+            )
+            raise PreventUpdate
 
 
 def _format_pydantic_validation_error(e: pydantic.ValidationError) -> str:

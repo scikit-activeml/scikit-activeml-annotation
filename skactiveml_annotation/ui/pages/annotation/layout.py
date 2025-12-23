@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
+from dash_extensions import Keyboard
 import pydantic
 import isodate
 
@@ -26,7 +27,10 @@ import dash_mantine_components as dmc
 import dash_loading_spinners as dls
 
 from skactiveml_annotation.core.data_display_model import DataDisplaySetting
-from skactiveml_annotation.ui import common
+from skactiveml_annotation.ui import (
+    common,
+    hotkeys,
+)
 from skactiveml_annotation.core import api
 from skactiveml_annotation.util import logging
 
@@ -43,6 +47,7 @@ from skactiveml_annotation.ui.storekey import StoreKey, AnnotProgress
 
 from . import (
     ids,
+    actions,
     components,
     auto_annotate_modal,
     label_setting_modal,
@@ -75,10 +80,14 @@ def layout(**kwargs):
                 dcc.Store(id=ids.ADD_CLASS_INSERTION_IDXES, storage_type='session'),
                 dcc.Store(id=ids.ADD_CLASS_WAS_ADDED, storage_type='session', data=False),
 
+                Keyboard(id="keyboard"),
+
                 label_setting_modal.create_label_settings_modal(),
                 auto_annotate_modal.create_auto_annotate_modal(),
 
+                # TODO: Try to use allowOptional instead
                 dmc.Box(id='label-radio'),  # avoid id error
+
                 dmc.AppShell(
                     [
                         dmc.AppShellNavbar(
@@ -176,6 +185,9 @@ def layout(**kwargs):
                                                     id=ids.LABEL_SEARCH_INPUT,
                                                     radius='sm',
                                                     w='150px',
+                                                    # inputProps={
+                                                    #     "autoFocus": True
+                                                    # }
                                                 ),
                                             ],
                                             mt=15,
@@ -281,7 +293,7 @@ def layout(**kwargs):
                     },
                     padding=0,
                     id="appshell",
-                )
+                ),
             ],
             style={
                 # 'height': '100%',
@@ -307,7 +319,6 @@ clientside_callback(
         query_trigger=Output(ids.QUERY_TRIGGER, 'data', allow_duplicate=True),
         annot_progress=Output(ids.ANNOT_PROGRESS, 'data'),
         data_presentation_setting_children=Output(ids.DATA_PRESENTATION_SETTINGS_CONTAINER, "children"),
-        data_presentation_apply_children=Output(ids.DATA_PRESENTATION_APPLY_BTN_CONTAINER, "children")
     ),
     prevent_initial_call='initial_duplicate'
 )
@@ -336,7 +347,7 @@ def init(
         query_trigger=query_trigger,
         annot_progress=init_annot_progress(store_data),
         data_presentation_setting_children=data_presentation_settings.create_data_presentation_settings(data_type),
-        data_presentation_apply_children=data_presentation_settings.create_apply_button(data_type)
+        # data_presentation_apply_children=data_presentation_settings.create_apply_button(data_type)
     )
 
 def init_annot_progress(store_data):
@@ -350,9 +361,9 @@ def init_annot_progress(store_data):
 
 
 @callback(
-    Input(ids.CONFIRM_ANNOTATION_BTN, 'n_clicks'),
-    Input(ids.DISCARD_ANNOTATION_BTN, 'n_clicks'),
-    Input(ids.SKIP_ANNOTATION_BTN, 'n_clicks'),
+    Input(actions.CONFIRM.btn_id, 'n_clicks'),
+    Input(actions.DISCARD.btn_id, 'n_clicks'),
+    Input(actions.SKIP.btn_id, 'n_clicks'),
     State('session-store', 'data'),
     State('label-radio', 'value'),
     State(ids.ANNOT_PROGRESS, 'data'),
@@ -460,6 +471,7 @@ def on_confirm(
     return dict(
         store_data=store_data,
         annot_data=annot_data,
+        # TODO: Reset search_text also when going back
         search_text='',
     )
 
@@ -484,7 +496,8 @@ def on_confirm(
         data_height=Output(ids.DATA_DISPLAY_CONTAINER, 'h'),
         annot_start_time_trigger=Output(ids.START_TIME_TRIGGER, 'data'),
         was_class_added=Output(ids.ADD_CLASS_WAS_ADDED, 'data', allow_duplicate=True),
-        disable_all_action_buttons=Output(ids.ALL_ANNOTATION_BTNS, 'loading', allow_duplicate=True)
+        disable_all_action_buttons=Output(ids.ALL_ANNOTATION_BTNS, 'loading', allow_duplicate=True),
+        focus_trigger=Output("focus-el-trigger", "data"),
     ),
     prevent_initial_call=True,
 )
@@ -524,7 +537,7 @@ def on_ui_update(
     )
 
     if data_display_setting_json is None:
-        logging.info("Data Display Setting is not yet initialized. Initializing now.")
+        logging.debug15("Data Display Setting is not yet initialized. Initializing now.")
         data_display_setting = DataDisplaySetting()
     else:
         try:
@@ -551,7 +564,9 @@ def on_ui_update(
         data_height=h,
         annot_start_time_trigger=True,
         was_class_added=False,
-        disable_all_action_buttons=[False] * 4 # TODO: hardcoded
+        disable_all_action_buttons=[False] * 4, # TODO: hardcoded
+        # TODO: I should also clear the Input here
+        focus_trigger=ids.LABEL_SEARCH_INPUT,
     )
 
 
@@ -728,7 +743,7 @@ def on_skip_batch(
 
 
 @callback(
-    Input(ids.BACK_ANNOTATION_BTN, 'n_clicks'),
+    Input(actions.BACK.btn_id, 'n_clicks'),
     State('session-store', 'data'),
     State('batch-size-input', 'value'),
     State(ids.ANNOT_PROGRESS, 'data'),

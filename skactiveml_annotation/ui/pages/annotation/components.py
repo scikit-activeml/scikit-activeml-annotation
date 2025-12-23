@@ -20,6 +20,7 @@ from skactiveml_annotation.ui.components import sampling_input
 from . import ids
 from . import data_display
 from .label_setting_modal import SortBySetting
+from . import actions
 
 def create_sidebar():
     return (
@@ -73,9 +74,17 @@ def create_sidebar():
                             )
                         ),
 
+
                         dmc.Center(
-                            id=ids.DATA_PRESENTATION_APPLY_BTN_CONTAINER,
-                        ),
+                            dmc.Tooltip(
+                                dmc.Button(
+                                    "Apply",
+                                    id=actions.APPLY.btn_id,
+                                    color='dark'
+                                ),
+                                label="Apply Presentation Settings"
+                            )
+                        )
                     ],
                     gap=10,
                     my=10,
@@ -149,26 +158,26 @@ def create_confirm_buttons():
         dmc.Group(
             [
                 dmc.Button(
-                    'Back',
-                    id=ids.BACK_ANNOTATION_BTN,
+                    actions.BACK.btn_text,
+                    id=actions.BACK.btn_id,
                     color='dark'
                 ),
 
                 dmc.Button(
-                    'Discard',
-                    id=ids.DISCARD_ANNOTATION_BTN,
+                    actions.DISCARD.btn_text,
+                    id=actions.DISCARD.btn_id,
                     color='dark'
                 ),
 
                 dmc.Button(
-                    'Skip',
-                    id=ids.SKIP_ANNOTATION_BTN,
+                    actions.SKIP.btn_text,
+                    id=actions.SKIP.btn_id,
                     color='dark'
                 ),
 
                 dmc.Button(
-                    'Confirm',
-                    id=ids.CONFIRM_ANNOTATION_BTN,
+                    actions.CONFIRM.btn_text,
+                    id=actions.CONFIRM.btn_id,
                     color='dark',
                 ),
             ],
@@ -318,7 +327,7 @@ def create_label_chips(
                     'flexWrap': 'wrap',
                     'gap': '10px',
                 },
-                py=1
+                py=5,
             ),
         ),
         id='my-scroll-area',
@@ -333,7 +342,7 @@ def create_label_chips(
         style={
             # 'border': 'green dashed 3px'
         },
-        w='50vw'
+        w='50vw',
     )
 
 

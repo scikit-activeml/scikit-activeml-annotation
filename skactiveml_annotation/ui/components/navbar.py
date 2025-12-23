@@ -15,7 +15,17 @@ def create_navbar(**kwargs: object):
                             'color': "var(--mantine-color-white)"
                         },
                     ),
+
+                    dmc.Anchor(
+                        children='Hotkeys',
+                        href='/hotkeys',
+                        size="xl",
+                        style={
+                            'color': "var(--mantine-color-white)"
+                        },
+                    ),
                 ],
+                gap='xl',
                 justify='flex-start',
                 direction='row',
                 align='center',

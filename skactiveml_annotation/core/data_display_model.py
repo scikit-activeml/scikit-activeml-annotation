@@ -12,10 +12,12 @@ from PIL import Image as pil_image
 
 # Data Display Settings
 class ImageDataDisplaySetting(pydantic.BaseModel):
+    # Make pydantic validate assignments
     model_config = ConfigDict(validate_assignment=True)
 
     rescale_factor: StrictFloat = 1.0
-    resampling_method: StrictInt = pil_image.Resampling.NEAREST  # pil_image.Resampling
+    # Allow coercion from str to int
+    resampling_method: int = pil_image.Resampling.NEAREST  # pil_image.Resampling
 
 class TextDataDisplaySetting(pydantic.BaseModel):
     model_config = ConfigDict(validate_assignment=True)

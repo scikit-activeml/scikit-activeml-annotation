@@ -44,6 +44,13 @@ app.layout = (
                 # Data stored across all pages
                 dcc.Store('browser-data'),
                 dcc.Store('session-store', storage_type='session'),
+                dcc.Store("click-btn-trigger"),
+                dcc.Store("focus-el-trigger"),
+
+                # Hotkeys per Page
+                dcc.Store("keymapping-cfg", storage_type="session"),
+                # TODO: Make key mappings persitent.
+                # dcc.Store("keymapping-cfg", storage_type="local"),
 
                 navbar.create_navbar(),
                 dmc.AppShellMain(

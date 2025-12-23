@@ -51,6 +51,7 @@ def create_auto_annotate_modal():
         title='Auto Annotate with Threshold',
         centered=True,
         shadow='xl',
+        withCloseButton=False,
     )
 
 

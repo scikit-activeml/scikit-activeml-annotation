@@ -3,8 +3,9 @@ import logging
 
 from dash import (
     Input,
+    State,
     Output,
-    callback
+    callback,
 )
 
 from dash.exceptions import PreventUpdate
@@ -33,7 +34,8 @@ def create_label_settings_modal():
                     checked=True,
                     id=ids.LABEL_SETTING_SHOW_PROBAS,
                     persistence='show-proba-persistence',
-                    persistence_type='local'
+                    persistence_type='local',
+                    pt="xs",
                 ),
 
                 dmc.RadioGroup(
@@ -76,6 +78,8 @@ def create_label_settings_modal():
                 )
             ],
         ),
+        withCloseButton=False,
+        withOverlay=True,
         id=ids.LABEL_SETTING_MODAL,
         title='Label settings',
         centered=True,
@@ -86,7 +90,7 @@ def create_label_settings_modal():
 @callback(
     Input(ids.LABEL_SETTING_BTN, 'n_clicks'),
     output=dict(
-        show_modal=Output(ids.LABEL_SETTING_MODAL, 'opened', allow_duplicate=True)
+        show_modal=Output(ids.LABEL_SETTING_MODAL, 'opened', allow_duplicate=True),
     ),
     prevent_initial_call=True
 )
@@ -110,7 +114,7 @@ def show_label_settings_modal(
     prevent_initial_call=True
 )
 def on_confirm(
-    clicks
+    clicks,
 ):
     if clicks is None:
         raise PreventUpdate

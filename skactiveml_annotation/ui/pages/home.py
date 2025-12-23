@@ -11,12 +11,20 @@ from dash import (
 )
 from dash.exceptions import PreventUpdate
 
+from dash_extensions import Keyboard
+
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 
 from skactiveml_annotation.core import api
 from skactiveml_annotation.core.schema import DatasetConfig
 from skactiveml_annotation.ui.components import sampling_input
+from skactiveml_annotation.ui.hotkeys import (
+    ButtonAction,
+    on_key_pressed_handler, 
+    register_action,
+    register_default_keybinds,
+)
 from skactiveml_annotation.ui.storekey import StoreKey
 from skactiveml_annotation.util import logging
 
@@ -24,6 +32,51 @@ RADIO_SELECTION = 'radio-selection'
 
 register_page(__name__, path='/')
 
+# TODO: Make home page a package rather than a module (cleanup)
+# ---------------------------
+# Home Page Actions
+# ---------------------------
+CONFIRM_ACTION = register_action(
+    ButtonAction(
+        "Home.Main.Confirm",
+        "confirm_button",
+        "Confirm",
+        "Confirm label selection for current sample and move on to the next sample"
+    ),
+)
+
+BACK_ACTION = register_action(
+    ButtonAction(
+        "Home.Main.Back",
+        "back_button",
+        "Back",
+        "Go back to previous sample"
+    ),
+)
+
+DEFAULT_KEYBINDS_HOME = register_default_keybinds(
+    "Home",
+    {
+        "Main": {
+            "Enter": CONFIRM_ACTION.action_id,
+            "Backspace": BACK_ACTION.action_id,
+        },
+    }
+)
+
+
+@callback(
+    Input("home-keyboard", "n_keydowns"),
+    State("home-keyboard", "keydown"),
+    State("keymapping-cfg", "data"),
+    prevent_initial_call=True
+)
+def on_home_key_pressed(
+    trigger,
+    key_event,
+    key_mappings,
+):
+    on_key_pressed_handler(trigger, key_event, key_mappings, 'Home')
 
 def layout(**kwargs: object):
     _ = kwargs
@@ -32,6 +85,11 @@ def layout(**kwargs: object):
             [
                 dcc.Location(id='url_home', refresh=True),
                 dcc.Location(id='url_home_init', refresh=False),
+
+                Keyboard(
+                    id="home-keyboard",
+                ),
+
                 dmc.Stack(
                     [
                         dmc.Stack(
@@ -53,7 +111,7 @@ def layout(**kwargs: object):
                                         id='selection_container',
                                         # TODO use Mantine styling for this.
                                         style={
-                                            "min-width": "15vw",
+                                            "mw": "15vw",
                                             "whiteSpace": "normal", "wordWrap": "break-word",
                                             # 'border': '3px dotted red'
                                         }
@@ -70,8 +128,17 @@ def layout(**kwargs: object):
 
                         dmc.Group(
                             [
-                                dmc.Button("Back", id='back_button', color='dark'),
-                                dmc.Button("Confirm", id='confirm_button', color='dark', disabled=True)
+                                dmc.Button(
+                                    BACK_ACTION.btn_text,
+                                    id=BACK_ACTION.btn_id,
+                                    color='dark',
+                                ),
+                                dmc.Button(
+                                    CONFIRM_ACTION.btn_text,
+                                    id=CONFIRM_ACTION.btn_id,
+                                    color='dark',
+                                    disabled=True,
+                                )
                             ]
                         )
                     ],
@@ -154,7 +221,7 @@ def _create_dataset_radio_item(cfg: DatasetConfig, cfg_display: str):
             label=cfg_display,
             value=cfg.id,
             disabled=not dataset_exists,
-            size='md'
+            size='md',
         )
     )
 
@@ -173,6 +240,11 @@ def _create_dataset_selection(preselect):
     data = [(cfg, f'{cfg.display_name} - ({cfg.data_type.instantiate().value})')
             for cfg in dataset_options]
 
+    # TODO: Make it so the first none disabled element is preselected by default
+    if preselect is None:
+        # Preselect the first element
+        preselect = data[1][0].id
+
     # TODO repeated code.
     return \
         dmc.RadioGroup(
@@ -185,6 +257,8 @@ def _create_dataset_selection(preselect):
             ),
             value=preselect,
             size="md",
+            wrapperProps={"autoFocus": True},
+            p="xs",
             # style={'border': '2px solid red'}
         )
 
@@ -214,6 +288,7 @@ def _create_embedding_radio_group(session_data):
         ),
         value=preselect,
         size="md",
+        p="xs",
         # style={'border': '2px solid red'},
     )
 
@@ -251,6 +326,7 @@ def _create_radio_group(options, preselect):
         children=dmc.Stack([dmc.Radio(label=l, value=k, size='md') for k, l in formatted_options]),
         value=preselect,
         size="md",
+        p="xs",
         # style={'border': '2px solid red'},
     )
 # endregion
