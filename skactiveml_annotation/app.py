@@ -48,9 +48,7 @@ app.layout = (
                 dcc.Store("focus-el-trigger"),
 
                 # Hotkeys per Page
-                dcc.Store("keymapping-cfg", storage_type="session"),
-                # TODO: Make key mappings persitent.
-                # dcc.Store("keymapping-cfg", storage_type="local"),
+                dcc.Store("keymapping-cfg", storage_type="local"),
 
                 navbar.create_navbar(),
                 dmc.AppShellMain(
