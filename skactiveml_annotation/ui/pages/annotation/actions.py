@@ -1,6 +1,3 @@
-
-import logging
-
 from dash import (
     ALL,
     Output,
@@ -9,13 +6,13 @@ from dash import (
     callback,
 )
 
+from skactiveml_annotation.ui import common
 from skactiveml_annotation.ui.hotkeys import (
     ButtonAction,
     on_key_pressed_handler, 
     register_action,
     register_default_keybinds,
 )
-from . import ids
 
 # ---------------------------
 # Annotations Page Actions
@@ -135,7 +132,7 @@ DEFAULT_KEYBINDS_ANNOTATION = register_default_keybinds(
 def on_annotation_key_pressed(
     trigger,
     key_event,
-    key_mappings,
+    key_mappings_json,
     modal_ids,
     modal_open_values,
 ):
@@ -145,4 +142,5 @@ def on_annotation_key_pressed(
             modal_id = id['index']
             break
 
-    on_key_pressed_handler(trigger, key_event, key_mappings, "Annotation", modal_id)
+    hotkey_cfg = common.try_deserialize_hotkey_cfg(key_mappings_json)
+    on_key_pressed_handler(trigger, key_event, hotkey_cfg, "Annotation", modal_id)

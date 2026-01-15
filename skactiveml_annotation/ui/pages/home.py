@@ -18,9 +18,11 @@ from dash_iconify import DashIconify
 
 from skactiveml_annotation.core import api
 from skactiveml_annotation.core.schema import DatasetConfig
+from skactiveml_annotation.ui import common
 from skactiveml_annotation.ui.components import sampling_input
 from skactiveml_annotation.ui.hotkeys import (
     ButtonAction,
+    HotkeyConfig,
     on_key_pressed_handler, 
     register_action,
     register_default_keybinds,
@@ -74,9 +76,11 @@ DEFAULT_KEYBINDS_HOME = register_default_keybinds(
 def on_home_key_pressed(
     trigger,
     key_event,
-    key_mappings,
+    key_mappings_json,
 ):
-    on_key_pressed_handler(trigger, key_event, key_mappings, 'Home')
+    hotkey_cfg = common.try_deserialize_hotkey_cfg(key_mappings_json)
+    on_key_pressed_handler(trigger, key_event, hotkey_cfg, 'Home')
+
 
 def layout(**kwargs: object):
     _ = kwargs

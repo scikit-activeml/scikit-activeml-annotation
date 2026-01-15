@@ -6,8 +6,6 @@ from dash import (
     ALL,
     dcc,
     callback,
-    clientside_callback,
-    ClientsideFunction,
     Input,
     Output,
     State,
@@ -19,9 +17,10 @@ import dash_mantine_components as dmc
 
 from dash_extensions import Keyboard
 
+from skactiveml_annotation.ui import common
 from skactiveml_annotation.ui.hotkeys import (
-    DEFAULT_KEYBINDS,
-    ButtonAction, 
+    ButtonAction,
+    HotkeyConfig, 
     button_actions, 
     normalize_hotkey_str,
     on_key_pressed_handler,
@@ -84,9 +83,10 @@ DEFAULT_KEYBINDS_ANNOTATION = register_default_keybinds(
 def on_home_key_pressed(
     trigger,
     key_event,
-    key_mappings,
+    hotkey_cfg_json,
 ):
-    on_key_pressed_handler(trigger, key_event, key_mappings, 'Hotkeys')
+    hotkey_cfg = common.try_deserialize_hotkey_cfg(hotkey_cfg_json)
+    on_key_pressed_handler(trigger, key_event, hotkey_cfg, 'Hotkeys')
 
 
 def layout(**kwargs: object):
@@ -159,8 +159,9 @@ def _camel_case_to_title(s: str) -> str:
 )
 def update_hotkey_page(
     _,
-    hotkey_cfg,
+    hotkey_cfg_json,
 ):
+    mapping = HotkeyConfig.model_validate(hotkey_cfg_json).mapping
     content = dmc.Stack(
         [
             dmc.Stack(
@@ -200,7 +201,7 @@ def update_hotkey_page(
 
                 ],
             )
-            for page, modal_mapping in hotkey_cfg.items()
+            for page, modal_mapping in mapping.items()
         ],
     )
 
@@ -281,7 +282,10 @@ def on_hotkey_cfg_change_confirmed(
     logging.debug15("updated_cfg:\n", updated_cfg)
 
     return dict(
-        hotkey_cfg=updated_cfg,
+        hotkey_cfg=HotkeyConfig(
+            mapping=updated_cfg,
+            is_user_defined=True,
+        ).model_dump(),
         ui_trigger=dict(data=True),
         errors=[False] * num_inputs,
     )
@@ -302,6 +306,6 @@ def reset_hotkeys_to_default(
         raise PreventUpdate
 
     return dict(
-        hotkey_cfg=DEFAULT_KEYBINDS,
+        hotkey_cfg=HotkeyConfig().model_dump(),
         ui_trigger=dict(data=True)
     )
