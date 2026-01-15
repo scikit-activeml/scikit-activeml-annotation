@@ -20,6 +20,7 @@ LOGGING_LVL = logging.INFO
 # For debugging
 # LOGGING_LVL = MYDEBUG 
 
+
 def setup_logging():
     logging.addLevelName(MYDEBUG, "DEBUG")
 
@@ -28,6 +29,14 @@ def setup_logging():
         datefmt='%H:%M',  # This sets the time format to just hours and minutes
         level=LOGGING_LVL
     )
+
+def setup_logging_background_callback():
+    # Clear existing handlers in the background process
+    logger = logging.getLogger()
+    if logger.hasHandlers():
+        logger.handlers.clear()
+    setup_logging()
+
 
 def debug15(msg, *args, **kwargs):
     logging.log(MYDEBUG, msg, *args, **kwargs)
