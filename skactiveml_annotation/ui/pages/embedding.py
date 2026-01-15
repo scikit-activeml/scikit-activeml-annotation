@@ -142,6 +142,10 @@ def compute_embedding(
     if n_clicks is None:
         raise PreventUpdate
 
+    # The background Callback runs in a different process.
+    # Logging needs to be initialized in this new context
+    logging.setup_logging_background_callback()
+
     logging.debug15("compute embedding background callback")
 
     _compute_embedding(store_data, progress_func)
