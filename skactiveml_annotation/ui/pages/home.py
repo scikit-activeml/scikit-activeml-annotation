@@ -61,7 +61,7 @@ DEFAULT_KEYBINDS_HOME = register_default_keybinds(
     {
         "Main": {
             "Enter": CONFIRM_ACTION.action_id,
-            "Backspace": BACK_ACTION.action_id,
+            "Backspace+Alt+Control": BACK_ACTION.action_id,
         },
     }
 )
