@@ -3,6 +3,8 @@ import json
 from dataclasses import dataclass
 from typing import Final
 
+import pydantic
+
 from dash import (
     Output,
     Input, 
@@ -35,6 +37,12 @@ class ButtonAction:
 __button_actions: dict[str, ButtonAction] = dict()
 DEFAULT_KEYBINDS: dict[str, dict] = dict()
 
+
+class HotkeyConfig(pydantic.BaseModel):
+    mapping: dict = DEFAULT_KEYBINDS
+    is_user_defined: bool = False
+
+
 # --- API ---
 def register_action(button_action: ButtonAction) -> ButtonAction:
     action_id = button_action.action_id
@@ -59,7 +67,7 @@ def button_actions() -> dict[str, ButtonAction]:
 def on_key_pressed_handler(
     trigger,
     key_event,
-    hotkey_cfg,
+    hotkey_cfg: HotkeyConfig,
     page: str,
     modal: str = "Main",
 ):
@@ -69,11 +77,9 @@ def on_key_pressed_handler(
 
     logging.debug15(json.dumps(key_event))
 
-    if hotkey_cfg is None:
-        logging.error("key_mappings should be initialized here allready")
-        raise PreventUpdate
+    mapping = hotkey_cfg.mapping
 
-    modal_mapping = hotkey_cfg.get(page, None)
+    modal_mapping = mapping.get(page, None)
     if modal_mapping is None:
         logging.error(f"Key Bindings for page: {page} does not exist")
         raise PreventUpdate
@@ -167,20 +173,39 @@ clientside_callback(
         hotkey_cfg=Output("keymapping-cfg", "data")
     )
 )
-def init_hotkey_mapping(
+def ensure_hotkeys_initialized(
     _,
-    hotkey_cfg
+    hotkey_cfg_json,
 ):
-    if hotkey_cfg is not None:
+    if hotkey_cfg_json is None:
+        logging.debug15("Initializing hotkeys to default bindings.")
+        logging.debug15(DEFAULT_KEYBINDS)
+        return dict(
+            hotkey_cfg=HotkeyConfig().model_dump()
+        )
+
+    try:
+        hotkey_cfg = HotkeyConfig.model_validate(hotkey_cfg_json)
+    except pydantic.ValidationError:
+        logging.error(
+            "Invalid hotkey configuration json; using defaults instead",
+            exc_info=True
+        )
+        return dict(
+            hotkey_cfg=HotkeyConfig().model_dump()
+        )
+
+    if hotkey_cfg.is_user_defined:
+        # Dont override user defined hotkeys
         raise PreventUpdate
 
-    logging.debug15("Initializing hotkeys to default bindings.")
+    # Updating non-user defined hotkeys to latest defaults
+    logging.debug15("Updating non-user-defined hotkeys to latest defaults")
     logging.debug15(DEFAULT_KEYBINDS)
-
-    hotkey_cfg = DEFAULT_KEYBINDS
+    hotkey_cfg = HotkeyConfig()
 
     return dict(
-        hotkey_cfg=hotkey_cfg
+        hotkey_cfg=hotkey_cfg.model_dump()
     )
 
 
