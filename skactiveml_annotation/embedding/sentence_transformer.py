@@ -49,6 +49,6 @@ class SentenceTransformerAdapter(EmbeddingBaseAdapter):
         # 4. Compute embeddings
         embeddings = model.encode(samples, normalize_embeddings=True)
 
-        logging.info("Embedding complete with shape:", embeddings.shape)
+        logging.info("Embedding complete with shape: %s", embeddings.shape)
 
         return embeddings, file_paths
