@@ -1,4 +1,6 @@
+import dash
 from dash import (
+    ctx,
     dcc,
     callback,
     clientside_callback,
@@ -8,6 +10,7 @@ from dash import (
     State,
     html,
     register_page,
+    set_props,
 )
 from dash.exceptions import PreventUpdate
 
@@ -30,7 +33,12 @@ from skactiveml_annotation.ui.hotkeys import (
 from skactiveml_annotation.ui.storekey import StoreKey
 from skactiveml_annotation.util import logging
 
+CONFIRM_BUTTON = 'confirm_button'
+BACK_BUTTON = 'back_button'
 RADIO_SELECTION = 'radio-selection'
+NEXT_PAGE_TRIGGER = 'next-page-trigger'
+STEPPER = 'stepper'
+UI_CONTAINER = 'ui-container'
 
 register_page(__name__, path='/')
 
@@ -41,7 +49,7 @@ register_page(__name__, path='/')
 CONFIRM_ACTION = register_action(
     ButtonAction(
         "Home.Main.Confirm",
-        "confirm_button",
+        CONFIRM_BUTTON,
         "Confirm",
         "Confirm label selection for current sample and move on to the next sample"
     ),
@@ -50,7 +58,7 @@ CONFIRM_ACTION = register_action(
 BACK_ACTION = register_action(
     ButtonAction(
         "Home.Main.Back",
-        "back_button",
+        BACK_BUTTON,
         "Back",
         "Go back to previous sample"
     ),
@@ -90,6 +98,8 @@ def layout(**kwargs: object):
                 dcc.Location(id='url_home', refresh=True),
                 dcc.Location(id='url_home_init', refresh=False),
 
+                dcc.Store(id=NEXT_PAGE_TRIGGER),
+
                 Keyboard(
                     id="home-keyboard",
                 ),
@@ -112,11 +122,13 @@ def layout(**kwargs: object):
                                     dmc.Container(
                                         # Current selection injected here
                                         html.Div(id=RADIO_SELECTION),  # workaround so id exists at the start
-                                        id='selection_container',
+                                        id=UI_CONTAINER,
+                                        tabIndex=0, # Make Container focusable
                                         # TODO use Mantine styling for this.
                                         style={
                                             "mw": "15vw",
                                             "whiteSpace": "normal", "wordWrap": "break-word",
+                                            "outline": "none",
                                             # 'border': '3px dotted red'
                                         }
                                     ),
@@ -206,7 +218,7 @@ def create_stepper():
                 dmc.StepperStep(id={'type': 'stepper-step', 'index': 3}, label="Model", description="Select a model"),
                 dmc.StepperStep(id={'type': 'stepper-step', 'index': 4}, label="Sampling", description="Set Sampling parameters"),
             ],
-            id='stepper',
+            id=STEPPER,
             active=0,
             orientation='vertical',
             iconSize=40,
@@ -333,14 +345,13 @@ def _create_radio_group(options, preselect):
         p="xs",
         # style={'border': '2px solid red'},
     )
-# endregion
 
 
 @callback(
     Input('url_home_init', 'pathname'),
     State('session-store', 'data'),
     output=dict(
-        selection_content=Output('selection_container', 'children', allow_duplicate=True),
+        selection_content=Output(UI_CONTAINER, 'children', allow_duplicate=True),
         session_data=Output('session-store', 'data', allow_duplicate=True)
     ),
     prevent_initial_call='initial_duplicate'
@@ -361,28 +372,65 @@ def setup_page(
 
 
 @callback(
-    Input('confirm_button', 'n_clicks'),
+    Input(CONFIRM_BUTTON, 'n_clicks'),
+    Input(BACK_BUTTON, 'n_clicks'),
+    Input(STEPPER, 'active'),
     State(RADIO_SELECTION, 'value'),
-    State('stepper', 'active'),
+    State(STEPPER, 'active'),
     State('session-store', 'data'),
     output=dict(
-        selection_content=Output('selection_container', 'children', allow_duplicate=True),
+        selection_content=Output(UI_CONTAINER, 'children', allow_duplicate=True),
         session_data=Output('session-store', 'data', allow_duplicate=True),
-        step=Output('stepper', 'active', allow_duplicate=True)
+        step=Output(STEPPER, 'active', allow_duplicate=True),
+        focus=Output('focus-el-trigger', 'data', allow_duplicate=True),
     ),
     prevent_initial_call=True
 )
-def handle_confirm(
-    n_clicks,
-    radio_value,
-    current_step,
-    session_data
+def update(
+    confirm_clicks: int | None,
+    back_clicks: int | None,
+    new_active: int | None,
+    radio_value: str,
+    current_step: int,
+    session_data: dict,
 ):
-    logging.debug15(f"handle_confirm triggered at step {current_step} with radio_value: {radio_value}")
-    if current_step >= 4 or radio_value is None or n_clicks is None:
+    if confirm_clicks is None and back_clicks is None and new_active is None:
         raise PreventUpdate
 
-    if current_step == 0:
+    trigger_id = ctx.triggered_id
+
+    if trigger_id == CONFIRM_BUTTON:
+        return handle_confirm(radio_value, current_step, session_data)
+
+    elif trigger_id == BACK_BUTTON:
+        return handle_back(current_step, session_data)
+
+    elif trigger_id == STEPPER:
+        if new_active is None:
+            logging.error("new_active is None when the trigger was the STEPPER. Should not occure")
+            raise PreventUpdate
+        return handle_ui_stepper_clicked(new_active, session_data)
+
+
+def handle_confirm(
+    radio_value: str,
+    current_step: int,
+    session_data: dict,
+):
+    # logging.debug15(f"handle_confirm triggered at step {current_step} with radio_value: {radio_value}")
+    # if current_step >= 4 or radio_value is None or n_clicks is None:
+    #     raise PreventUpdate
+
+    if current_step >= 4: # TODO: Hardcoded
+        set_props(NEXT_PAGE_TRIGGER, dict(data=True))
+        return dict(
+            selection_content=dash.no_update,
+            session_data=dash.no_update,
+            step=dash.no_update,
+            focus=dash.no_update,
+        )
+
+    elif current_step == 0:
         # TODO move this somewhere else. This is bad here.
         prev_dataset_id = session_data.get(StoreKey.DATASET_SELECTION.value)
         was_dataset_changed = prev_dataset_id is not None and radio_value != prev_dataset_id
@@ -404,25 +452,14 @@ def handle_confirm(
     return dict(
         selection_content=create_step_ui(new_step, session_data),
         session_data=session_data,
-        step=new_step
+        step=new_step,
+        focus=UI_CONTAINER,
     )
 
 
-# Back button callback
-@callback(
-    Input('back_button', 'n_clicks'),
-    State('stepper', 'active'),
-    State('session-store', 'data'),
-    output=dict(
-        children=Output('selection_container', 'children', allow_duplicate=True),
-        active=Output('stepper', 'active', allow_duplicate=True)
-    ),
-    prevent_initial_call=True
-)
 def handle_back(
-    _,
-    current_step,
-    session_data
+    current_step: int,
+    session_data: dict,
 ):
     if current_step == 0:
         raise PreventUpdate
@@ -430,14 +467,27 @@ def handle_back(
     next_step = current_step - 1
 
     return dict(
-        children=create_step_ui(next_step, session_data),
-        active=next_step
+        selection_content=create_step_ui(next_step, session_data),
+        session_data=dash.no_update,
+        step=next_step,
+        focus=UI_CONTAINER,
+    )
+
+
+def handle_ui_stepper_clicked(
+    new_active: int,
+    session_data: dict,
+):
+    return dict(
+        selection_content=create_step_ui(new_active, session_data),
+        session_data=dash.no_update,
+        step=dash.no_update,
+        focus=UI_CONTAINER,
     )
 
 
 @callback(
-    Input('confirm_button', 'n_clicks'),
-    State('stepper', 'active'),
+    Input(NEXT_PAGE_TRIGGER, 'data'),
     State('session-store', 'data'),
     output=dict(
         pathname=Output('url_home', 'pathname')
@@ -446,12 +496,8 @@ def handle_back(
 )
 def go_to_next_page(
     _,
-    current_step,
-    session_data
+    session_data,
 ):
-    if current_step < 4:
-        raise PreventUpdate
-
     dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
     embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
 
@@ -467,7 +513,7 @@ def go_to_next_page(
 
 clientside_callback(
     ClientsideFunction(namespace='clientside', function_name='validateConfirmButton'),
-    Output('confirm_button', "disabled"),
+    Output(CONFIRM_BUTTON, "disabled"),
     Input("radio-selection", "value"),
 )
 
@@ -488,7 +534,7 @@ clientside_callback(
 # @callback(
 #     Output({'type': 'step', 'index': MATCH}, 'loading'),
 #     Output({'type': 'step', 'index': MATCH}, 'description'),
-#     Input('stepper', 'active'),
+#     Input(STEPPER, 'active'),
 #     State({'type': 'step', 'index': MATCH}, 'id'),
 #     prevent_initial_call=True
 # )
