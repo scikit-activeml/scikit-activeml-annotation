@@ -670,13 +670,13 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Query
 
 
 def _normalize_and_validate_paths(
-        file_paths: list[Path],
-        X: np.ndarray
+    file_paths: list[Path],
+    X: np.ndarray,
 ) -> list[str]:
     if len(file_paths) != len(X):
         raise RuntimeError(f'Amount of samples does not match amount of file paths!')
 
-    file_paths_str = []
+    file_paths_str: list[str] = []
     has_absolute = False
 
     for p in file_paths:
