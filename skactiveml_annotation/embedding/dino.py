@@ -25,23 +25,48 @@ from .base import (
 class ImageDataset(torch.utils.data.Dataset):
     def __init__(self, data_path: Path, transform: Callable):
         self.transform = transform
-        self.image_paths = [path for path in data_path.iterdir() if path.is_file()]
+        self.image_paths = self._collect_valid_images(data_path)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.image_paths)
 
-    def __getitem__(self, idx):
+    def _collect_valid_images(self, data_path: Path) -> list[Path]:
+            """
+            Iterate over files in data_path and keep only valid images.
+            Invalid or unreadable images are skipped with a warning.
+            """
+            logging.info("Collecting valid images ...")
+
+            valid_paths: list[Path] = []
+
+            for path in data_path.iterdir():
+                if not path.is_file():
+                    continue
+
+                try:
+                    with Image.open(path) as img:
+                        img.verify()  # integrity check
+                    valid_paths.append(path)
+                except Exception as e:
+                    logging.warning(f"Skipping invalid image file: {path} ({e})")
+
+            return valid_paths
+
+    def __getitem__(self, idx) -> tuple[torch.Tensor, str]:
         image_path = self.image_paths[idx]
 
         try:
             # Open the image using Pillow
             image = Image.open(image_path).convert('RGB')
         except Exception as e:
-            logging.error(f"Error loading image {image_path}: {e}")
-            return None, image_path  # If there's an error, return None and the file name
+            # This error should not occure becauce all image files are checked
+            # beforehand.
+            logging.error(f"Unexpected error loading image {image_path}: {e}")
+            raise
 
-        image = self.transform(image)  # Apply the transformations
-        return image, str(relative_to_root(image_path))
+        # Transform pil image to a tensor of shape (3, h, w), containg raw data
+        image_tensor: torch.Tensor = self.transform(image)
+        return image_tensor, str(relative_to_root(image_path))
 
 
 class TorchVisionAdapter(EmbeddingBaseAdapter):
@@ -71,8 +96,9 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
         # Set the model to evaluation mode
         self.model.eval()
 
+
     def compute_embeddings(
-        self, 
+        self,
         data_path: Path,
         progress_func: DashProgressFunc
     ) -> tuple[np.ndarray, list[Path]]:
@@ -94,15 +120,9 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
 
         # Disable gradient tracking since we are in inference mode
         with torch.no_grad():
-            for batch, file_paths in dataloader:
-
-                # Filter out any failed image loads (None entries)
-                batch = [img for img in batch if img is not None]
-                if not batch:
-                    continue
-
-                # Stack the images into a tensor and move to the correct device
-                batch_tensor = torch.stack(batch).to(self.device)
+            for batch_tensor, file_paths in dataloader:
+                # Move the batch_tensor to the correct device
+                batch_tensor = batch_tensor.to(self.device)
 
                 # Get embeddings for all images in the batch
                 embeddings = self.model(batch_tensor)
@@ -112,7 +132,7 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
                 file_path_list.extend(file_paths)  # Ensure file_paths match embeddings
 
                 # Update progress counter and print every 1000 samples
-                processed_samples += len(batch)
+                processed_samples += batch_tensor.shape[0]
                 if processed_samples >= next_report:
                     next_report += steps
                     progress_func((processed_samples / n_samples) * 100)
@@ -121,4 +141,4 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
         feature_matrix = np.concatenate(embeddings_list, axis=0)
 
         # Return the feature matrix and corresponding file_paths
-        return feature_matrix, file_path_list
+        return feature_matrix, [Path(s) for s in file_path_list]
