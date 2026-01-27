@@ -79,7 +79,7 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
         focusElementWithId: function(el_id) {
             const el = window.dash_clientside.helpers.getElementFromDashId(el_id);
             if (!el) {
-                console.warn("Cannot click button as no element found with ID:", el_id);
+                console.warn("Cannot focus element as no element is found with ID:", el_id);
                 return;
             }
             el.focus();
