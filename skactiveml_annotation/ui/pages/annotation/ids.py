@@ -12,6 +12,7 @@ ALL_ANNOTATION_BTNS = {'type': 'action-button', 'index': ALL}
 UI_TRIGGER = 'ui-trigger'
 QUERY_TRIGGER = 'query-trigger'
 START_TIME_TRIGGER = 'start-time-trigger'
+AUTO_PLAYBACK_TRIGGER = "auto-playback-trigger"
 
 # Stats
 # Annotation Progress
@@ -40,10 +41,9 @@ TEXT_FONT_SIZE_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'value', '
 TEXT_LINE_HEIGHT_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'value', 'modality': 'text', 'index': 'line_height' }
 
 # Audio
+AUDIO_AUTOPLAY = { 'type': DATA_PRESENTATION_INPUT, 'property': 'checked', 'modality': 'audio', 'index': 'autoplay' }
 AUDIO_LOOP_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'checked', 'modality': 'audio', 'index': 'loop' }
 AUDIO_PLAYBACK_RATE_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'value', 'modality': 'audio', 'index': 'playback_rate' }
-LOOP_INPUT = 'loop-input'
-PLAYBACK_RATE_INPUT = 'playback_rate-input'
 
 # Modals
 # LABEL_SETTING_MODAL = 'label-setting-modal'

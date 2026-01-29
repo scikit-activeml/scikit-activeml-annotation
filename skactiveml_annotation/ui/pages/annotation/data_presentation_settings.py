@@ -139,7 +139,15 @@ def audio_presentation_settings():
                     id=ids.AUDIO_LOOP_INPUT,
                     label="Looping",
                     checked=default_audio_setting.loop,
-                    persistence=ids.LOOP_INPUT,
+                    persistence=str(ids.AUDIO_LOOP_INPUT),
+                    persistence_type='session'
+                ),
+
+                dmc.Checkbox(
+                    id=ids.AUDIO_AUTOPLAY,
+                    label="Autoplay",
+                    checked=default_audio_setting.autoplay,
+                    persistence=str(ids.AUDIO_AUTOPLAY),
                     persistence_type='session'
                 ),
             
@@ -156,7 +164,7 @@ def audio_presentation_settings():
                     value=default_audio_setting.playback_rate,
                     allowNegative=False,
                     # w='35%',
-                    persistence=ids.PLAYBACK_RATE_INPUT,
+                    persistence=str(ids.AUDIO_PLAYBACK_RATE_INPUT),
                     persistence_type='session'
                 ),
             ],
