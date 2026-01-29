@@ -29,6 +29,7 @@ class AudioDataDisplaySetting(pydantic.BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     loop: bool = False
+    autoplay: bool = True
     playback_rate: StrictFloat = 1.0
 
 class DataDisplaySetting(pydantic.BaseModel):

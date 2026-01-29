@@ -196,10 +196,12 @@ def create_audio_display(audio_data_path, audio_display_setting, format ="WAV"):
     )
 
     player = dash_player.DashPlayer(
+        id="dash-player",
         url=inline_wave_file_url,
         controls=True,
         loop=audio_display_setting.loop,
         playbackRate=audio_display_setting.playback_rate,
+        playing=audio_display_setting.autoplay,
         height=50,
     )
 
