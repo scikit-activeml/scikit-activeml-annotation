@@ -229,5 +229,5 @@ class HistoryIdx(pydantic.BaseModel):
 
 class AutomatedAnnotation(pydantic.BaseModel):
     embedding_idx: int
-    label: int
+    label: str
     confidence: float
