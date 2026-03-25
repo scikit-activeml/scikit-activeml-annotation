@@ -1,8 +1,7 @@
 display_name: "all-MiniLM-L6-v2"
 
-data_type:
-  _target_: skactiveml_annotation.core.schema.DataType
-  _args_: [Text]
+modalities:
+  - Text
 
 definition:
   _target_: skactiveml_annotation.embedding.sentence_transformer.SentenceTransformerAdapter

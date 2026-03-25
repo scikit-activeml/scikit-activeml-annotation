@@ -12,14 +12,12 @@ import skactiveml_annotation.paths as sap
 
 T = TypeVar("T", bound=pydantic.BaseModel)
 
-# TODO: Remove string from this signature
-@lru_cache(maxsize=5)
-def parse_yaml_config_dir(dir_path: Path | str, clazz: type[T]) -> list[T]:
-    if isinstance(dir_path, str):
-        dir_path = Path(dir_path)
 
+@lru_cache(maxsize=5)
+def parse_yaml_config_dir(dir_path: Path, clazz: type[T]) -> list[T]:
     yaml_files_paths = (f for f in dir_path.iterdir() if f.is_file() and f.suffix.lower() == ".yaml")
     return [parse_yaml_file(file_path, clazz) for file_path in yaml_files_paths]
+
 
 def parse_yaml_file(file_path: Path | str, clazz: type[T]) -> T:
     if isinstance(file_path, str):
@@ -58,7 +56,7 @@ def parse_yaml_file(file_path: Path | str, clazz: type[T]) -> T:
         )
         raise
 
-# TODO: overrides should never be None here
+
 def overrides_to_list(overrides: tuple[tuple[str, str], ...]) -> list[str]:
     # eg. [("dataset","mnist"), …] → ["dataset=mnist", …]
     return [f'{group}={name}' for group, name in overrides]

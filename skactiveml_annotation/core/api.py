@@ -1,14 +1,16 @@
+import re
 from io import BytesIO
 import base64
-from typing import TypeVar, TypeGuard
+from typing import TypeVar, TypeGuard, cast
 from collections import OrderedDict
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from itertools import islice
 import json
 import inspect
 from functools import partial, lru_cache
 from pathlib import Path
-from typing import Callable, cast
+from typing import Callable
+import logging
 
 import hydra
 import pydantic
@@ -24,18 +26,11 @@ from skactiveml.classifier import SklearnClassifier
 from skactiveml.pool import SubSamplingWrapper
 from sklearn.preprocessing import LabelEncoder
 
-from skactiveml_annotation.util import logging
 from skactiveml_annotation import util
 from skactiveml_annotation.util import deserialize
 import skactiveml_annotation.paths as sap
 
 from skactiveml_annotation.core.schema import (
-    ActiveMlConfig,
-    AnnotationList,
-    EmbeddingConfig,
-    QueryStrategyConfig,
-    ModelConfig,
-    DatasetConfig,
     SessionConfig,
     Annotation,
     AutomatedAnnotation,
@@ -45,6 +40,14 @@ from skactiveml_annotation.core.schema import (
     HistoryIdx,
 )
 
+from skactiveml_annotation.hydra_schema import (
+    ActiveMlConfig,
+    EmbeddingConfig,
+    QueryStrategyConfig,
+    ModelConfig,
+    DatasetConfig,
+)
+
 from skactiveml_annotation.core.shared_types import DashProgressFunc
 from skactiveml_annotation.util.utils import SortOrder
 
@@ -52,7 +55,7 @@ QueryFunc = Callable[..., npt.NDArray[np.intp]]
 
 T = TypeVar("T")
 
-def _not_none_type_narrowing(x: T | None) -> TypeGuard[T]:
+def not_none_type_narrowing(x: T | None) -> TypeGuard[T]:
     return x is not None
 
 def get_dataset_config_options() -> list[DatasetConfig]:
@@ -70,6 +73,10 @@ def get_embedding_config_options() -> list[EmbeddingConfig]:
 def get_query_cfg_from_id(query_id: str) -> QueryStrategyConfig:
     path = sap.QS_CONFIG_PATH / f'{query_id}.yaml'
     return deserialize.parse_yaml_file(path, QueryStrategyConfig)
+
+def get_dataset_cfg_from_id(id: str) -> DatasetConfig:
+    path = sap.DATA_CONFIG_PATH / f'{id}.yaml'
+    return deserialize.parse_yaml_file(path, DatasetConfig)
 
 def get_dataset_cfg_from_path(path: Path) -> DatasetConfig:
     return deserialize.parse_yaml_file(path, DatasetConfig)
@@ -144,88 +151,97 @@ def request_query(
     cfg: ActiveMlConfig,
     session_cfg: SessionConfig,
     X: np.ndarray,
-    filter_out_emb_indices: list[int]
-) -> tuple[Batch, AnnotationList]:
+    filter_out_emb_indices: list[int] | None = None,
+) -> Batch:
     y = _load_or_init_annotations(X, cfg.dataset)
 
-    # INFO: Dont query on these samples in filter_out_emb_indices by marking them as discarded
-    y[filter_out_emb_indices] = DISCARD_MARKER
+    if filter_out_emb_indices is not None:
+        # Exclude these embedding indices from querying by marking them as discarded
+        y[filter_out_emb_indices] = DISCARD_MARKER
 
     query_func, clf = _setup_query(cfg, session_cfg)
 
     # Only fit and query on the samples not marked as discarded
-    X_cand, y_cand, mapping = _filter_outliers(X, y)
+    X_cand, y_cand, cand_to_emb_idx = _filter_discarded_samples(X, y)
 
     logging.info("Fitting the classifier")
-    # TODO can fitting the classifier fail?
-    # TODO filter out y that appear less then 2 times.
-    # Some classifiers need at least 2 samples per class to train properly
-    clf.fit(X_cand, y_cand)
 
-    # TODO show how often class appeared
-    # Only update when refitting?
-    # unique_values, counts = np.unique(y_cand, return_counts=True)
-    # for val, count in zip(unique_values, counts):
-    #     logging.info(f'{val}: {count}')
+    # The model is wrapped. Rely on scikit-activeml error handling
+    # Any errors during fitting will result in fallback predictions using class label counts.
+    clf.fit(X_cand, y_cand)
 
     logging.info("Querying the active ML model ...")
 
     try:
-        query_indices_cand = query_func(X=X_cand, y=y_cand)
+        query_cand_indices = query_func(X=X_cand, y=y_cand)
     except Exception as e:
-        # TODO add error handling, UI notification and logging.
         raise RuntimeError(
-            f'[ERROR] Sample selection process failed with error: {e}'
+            f'Sample selection process failed with error: {e}'
         )
 
-    # Map back to original indices.
-    # TODo naming sometimes query_indices sometimes embedding. Inconsistent.
-    query_indices = mapping[query_indices_cand]
+    # Map back cand indices to embedding index space
+    emb_indices = cand_to_emb_idx[query_cand_indices]
+    query_embeddings = X[emb_indices]
 
-    # TODO sometimes query returns list of np.int64? It has be be serializeable in current implementation.
-    if isinstance(query_indices, np.ndarray):
-        query_indices = query_indices.tolist()
-    # TODO: Should it not alwayls return a numpy array with ints?
-    if not isinstance(query_indices[0], int):
-        query_indices = [int(x) for x in query_indices]
-
-    query_samples = X[query_indices]
-
-    # TODO: clf could not have predict_proba
-
-    # From doc prodict Proba always returns 
-    # Probabilites P of : array-like of shape (n_samples, classes)
-    # get turned into list[list[float]] by to_list()
-    class_probas = cast(
-        np.ndarray[tuple[int, int], np.dtype[np.float32]],
-        # npt.NDArray[np.float64], 
-        clf.predict_proba(query_samples)
-    )
-    class_probas_list = cast(list[list[float]], class_probas.tolist())
+    try:
+        class_probas = _safe_predict_proba(clf, query_embeddings)
+    except Exception as e:
+        logging.warning(
+            f"No class probabilities can be displayed."
+            f"predict_proba failed with error error: {e}. "
+        )
+        class_probas = None
 
     classes_sklearn = _get_sklearn_classes(clf)
 
-    # Possibly restore annotations that have been previously skipped
-    # TODO what are all the places you are getting annotaitons
-    # TODO write helper for this? Restore annotations or something
-    file_paths = get_file_paths(cfg.dataset.id, cfg.embedding.id, query_indices)
-    annotations_data = _deserialize_annotations(cfg.dataset.id)
-    # file_paths are the keys
-    annotations_list = AnnotationList(
-        annotations = [
-            annotations_data.get(f_path, None) for f_path in file_paths
-        ]
-    )
+    emb_indices = emb_indices.astype(int).tolist()
 
-    return (
-        Batch(
-            emb_indices=query_indices,
-            class_probas=class_probas_list,
-            classes_sklearn=classes_sklearn,
-            progress=0,
-        ),
-        annotations_list
-    )
+    # Possibly restore annotations that have been previously skipped
+    file_paths = get_file_paths(cfg.dataset.id, cfg.embedding.id, emb_indices)
+    annotations_data = _deserialize_annotations(cfg.dataset.id)
+
+    # file_paths are the keys
+    annotations = [
+        annotations_data.get(f_path) for f_path in file_paths
+    ]
+
+    return Batch(
+        emb_indices=emb_indices,
+        class_probas=class_probas,
+        classes_sklearn=classes_sklearn,
+        progress=0,
+        annotations=annotations,
+    ).init()
+
+
+def _safe_predict_proba(
+    clf: SkactivemlClassifier,
+    emb_samples: np.ndarray,
+) -> list[list[float]]:
+    """
+    Call predict_proba on a classifier.
+
+    Raises:
+        AttributeError: if predict_proba is not supported.
+        RuntimeError: if predict_proba fails at runtime.
+    """
+    if not hasattr(clf, "predict_proba"):
+        raise AttributeError(
+            f"{clf.__class__.__name__} does not support predict_proba"
+        )
+
+    try:
+        class_probas = clf.predict_proba(emb_samples)
+    except Exception as e:
+        raise RuntimeError(
+            f"predict_proba failed for {clf.__class__.__name__}"
+        ) from e
+
+    # scikit-learn guarantees predict_proba returns an array-like of shape
+    # (n_samples, n_classes). Calling tolist() therefore produces
+    # list[list[float]].
+    return class_probas.tolist()
+
 
 def compute_embeddings(
     activeml_cfg: ActiveMlConfig,
@@ -257,8 +273,8 @@ def compute_embeddings(
 
 @lru_cache(maxsize=1)
 def load_embeddings(
-        dataset_id: str,
-        embedding_id: str,
+    dataset_id: str,
+    embedding_id: str,
 ) -> np.ndarray:
     cache_key = f"{dataset_id}_{embedding_id}"
     cache_path = sap.EMBEDDINGS_CACHE_PATH / f"{cache_key}.npz"
@@ -271,62 +287,12 @@ def load_embeddings(
     return X
 
 
-# TODO rename to update json_annotations
-def completed_batch(
-    dataset_id: str, 
-    embedding_id: str, 
-    new_annotations: list[Annotation],
-    batch: Batch # TODO really only the emd_indices are needed
-):
-    logging.info("\ncompleted batch")
-
-    file_paths = get_file_paths(dataset_id, embedding_id, batch.emb_indices)
-
-    update_annotations(
-        dataset_id, 
-        file_paths,
-        new_annotations
-    )
-
-    # Assumes the idx is on the first of the current batch
-    # Put the idx on the last element of the batch
-    # TODO: No longer increment index to last position
-    increment_global_history_idx(dataset_id, len(new_annotations) - 1)
-    logging.debug15("Increment history_idx to: ", get_global_history_idx(dataset_id))
-
-
-# TODO: Not needed?
-def get_num_annotated_ram(annotations: Iterable[Annotation | None]):
-    # Samples are counted as annotated if they have a label or are discareded
-    cnt = 0
-    for annot in annotations:
-        if annot is not None and annot.label != MISSING_LABEL_MARKER:
-            cnt += 1
-    return cnt
-
-
-def get_num_annotated_not_skipped(dataset_id: str) -> int:
-    annotations = _deserialize_annotations(dataset_id)
-
-    return sum(
-        (
-            1
-            for annot in annotations.values()
-            if annot.label != MISSING_LABEL_MARKER
-        )
-    )
-
-
-def get_num_annotated(dataset_id: str) -> int:
-    return len(_deserialize_annotations(dataset_id))
-
-
 def get_total_num_samples(dataset_id: str, embedding_id: str) -> int:
     return len(load_embeddings(dataset_id, embedding_id))
 
 
 def auto_annotate(
-    X: np.ndarray, # TODO: type?
+    X: np.ndarray,
     cfg: ActiveMlConfig,
     threshold: float,
     sort_by_proba: bool = True
@@ -335,28 +301,27 @@ def auto_annotate(
 
     model_cfg = cfg.model
     if model_cfg is None:
-        # TODO use estimator to have more accurate terminology
-        logging.warning("Cannot auto complete as there is no estimator selected!")
+        logging.warning("Cannot auto complete as there is no classifier selected!")
         return
 
-    # TODO there is some repeated code here.
     random_state = np.random.RandomState(cfg.random_seed)
-    estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+    clf = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
-    X_cand, y_cand, _ = _filter_outliers(X, y)
-    # TODO clf or estimator?
-    clf = estimator
+    # Fit classifier on samples not marked as discarded
+    X_cand, y_cand, _ = _filter_discarded_samples(X, y)
     clf.fit(X_cand, y_cand)
 
+    # Auto Annotate all samples that were not annotated and where the 
+    # top class probability meets the threshold
     X_missing, _, mapping = _filter_out_annotated(X, y)
     class_probas = clf.predict_proba(X=X_missing)  # shape (num_samples * num_labels)
 
-    top_idxes = np.argmax(class_probas, axis=1)
+    top_indices = np.argmax(class_probas, axis=1)
 
     assert clf.classes_ is not None
-    top_classes = clf.classes_[top_idxes]
+    top_classes = clf.classes_[top_indices]
     # Select top proba from each row
-    top_probas = class_probas[np.arange(class_probas.shape[0]), top_idxes]
+    top_probas = class_probas[np.arange(class_probas.shape[0]), top_indices]
 
     # Select samples that are above the threshold probability
     is_threshold = (top_probas > threshold)
@@ -377,9 +342,6 @@ def auto_annotate(
         cfg.embedding.id,
         emb_indices=emb_indices,
     )
-
-    print(probas)
-    print(util.utils.get_sort_order(probas))
 
     # python lists garantee to preserve insertion order since pytyon 3.17
     auto_annots = {
@@ -407,11 +369,6 @@ def auto_annotate(
     logging.info(f'In total annotated: {num_total_annotated}')
 
 
-def save_partial_annotations(batch: Batch, dataset_id: str, embedding_id: str, annotations: list[Annotation | None]):
-    annotated = list(filter(_not_none_type_narrowing, annotations)) 
-    completed_batch(dataset_id, embedding_id, annotated, batch)
-
-
 def add_class(
     dataset_cfg: DatasetConfig,
     new_class_name: str,
@@ -427,7 +384,6 @@ def add_class(
         raise ValueError(f"Cannot add new class because '{new_class_name}' already exists.")
 
     _add_class_and_save_yaml_override(classes, new_class_name, dataset_cfg.id)
-
     _update_batch_after_class_insertion(batch, classes, new_class_name)
 
     # Invalidate cache. Force new composing when called next time.
@@ -521,27 +477,55 @@ def _insert_class_prob_column(probas: list[list[float]], idx: int) -> list[list[
     ]
 
 
-# TODO put this stuff into utils package?
 def _load_or_init_annotations(
-        X: np.ndarray,  # TODO Should not take X but rather num_of_samples
-        dataset_cfg: DatasetConfig
+    X: np.ndarray,
+    dataset_cfg: DatasetConfig,
 ) -> np.ndarray:
     """Load existing labels or initialize with missing labels."""
     num_samples = len(X)
-    # TODO Performance. Dont repeat this computation
     max_label_name_len = max(
         len(s)
         for s in dataset_cfg.classes + [DISCARD_MARKER, MISSING_LABEL_MARKER]
     )
 
-    # TODO for performance maybe it can be better to use ascci string with dtype=S
-    # But then there is a disconnect.
     y = np.full(num_samples, MISSING_LABEL_MARKER, dtype=f'U{max_label_name_len}')
 
-    # if json_file_path.exists():
     _load_labels_as_np(y, dataset_cfg.id)
 
     return y
+
+
+def get_num_annotated(dataset_id: str, exclude_missing: bool = False) -> int:
+    annotations = _deserialize_annotations(dataset_id)
+
+    if not exclude_missing:
+        return len(annotations)
+
+    return sum(
+        (
+            1
+            for annot in annotations.values()
+            if annot.label != MISSING_LABEL_MARKER
+        )
+    )
+
+
+def update_json_annotations(
+    dataset_id: str,
+    embedding_id: str,
+    batch: Batch,
+):
+    file_paths = get_file_paths(dataset_id, embedding_id, batch.emb_indices)
+
+    update_annotations(
+        dataset_id,
+        file_paths,
+        batch.annotations,
+    )
+
+    # Assumes the idx is on the first of the current batch
+    # Put the idx on the last element of the batch
+    increment_global_history_idx(dataset_id, len(batch.annotations) - 1)
 
 
 def _deserialize_annotations(dataset_id: str) -> OrderedDict[str, Annotation]:
@@ -558,7 +542,7 @@ def _deserialize_annotations(dataset_id: str) -> OrderedDict[str, Annotation]:
     annotations_data: dict = json.loads(content)
 
     return OrderedDict(
-        (key, Annotation.model_validate(ann_data)) 
+        (key, Annotation.model_validate(ann_data))
         for key, ann_data in annotations_data.items()
     )
 
@@ -568,47 +552,27 @@ def _serialize_annotations(dataset_id: str, annotations: OrderedDict[str, Annota
     with json_path.open("w") as f:
         json.dump(
             OrderedDict(
-                [(key, ann.model_dump()) for key, ann in annotations.items()]
+                [(key, ann.model_dump(mode='json')) for key, ann in annotations.items()]
             ),
             f,
             indent=4
         )
 
+# TODO: is this method needed when there is update_annotation_json()
 def update_annotations(
     dataset_id: str,
     file_paths: list[str],
     new_annotations: Sequence[Annotation | None],
-    move_to_end_on_update: bool = True
-): 
+):
     annotations = _deserialize_annotations(dataset_id)
-    # Get file_paths as they are the keys
 
+    # Get file_paths as they are the keys
     new_annotations_dict = OrderedDict(
         (f_path, annot) for f_path, annot in zip(file_paths, new_annotations)
         if annot is not None
     )
 
-    # TODO
-    # new_annotations_dict = {
-    #     f_path: annot
-    #     for f_path, annot in zip(file_paths, new_annotations) if annot is not None
-    # }
-
-    # TODO its always moved to end now, which should not always be the case
-
-    # TODO: Dont move to end
-    # if move_to_end_on_update:
-    #     for key, item in new_annotations_dict.items():
-    #         # INFO: Only move skipped samples to the end
-    #         annotations[key] = item
-    #         if item.label == MISSING_LABEL_MARKER:
-    #             print("Move to end")
-    #             annotations.move_to_end(key, last=True)
-    # else:
-        # annotations.update(new_annotations_dict)
-
     annotations.update(new_annotations_dict)
-
     _serialize_annotations(dataset_id, annotations)
 
 
@@ -619,10 +583,10 @@ def _serialize_automatic_and_manual_annotations(
 ):
     payload = {
         'manual': {
-            f_path: ann.model_dump() for f_path, ann in manual_annotations.items()
+            f_path: ann.model_dump(mode='json') for f_path, ann in manual_annotations.items()
         },
         'automatic': {
-            f_path: ann.model_dump() for f_path, ann in auto_annotations.items()
+            f_path: ann.model_dump(mode='json') for f_path, ann in auto_annotations.items()
         },
     }
 
@@ -638,7 +602,6 @@ def _load_labels_as_np(y: np.ndarray, dataset_id: str):
 
     num_annotations = len(annotations)
     emb_indices = np.empty(num_annotations, dtype=int)
-    # TODO Use label encoder earlier?
     labels = np.empty(num_annotations, dtype=object)
 
     for i, ann in enumerate(annotations.values()):
@@ -647,18 +610,13 @@ def _load_labels_as_np(y: np.ndarray, dataset_id: str):
     
     y[emb_indices] = labels
 
-    # for ann in annotations.values():
-    #     idx = ann.embedding_idx
-    #     y[idx] = ann.label
 
-
-def _estimator_accepts_random(est_cls) -> bool:
-    sig = inspect.signature(est_cls.__init__)
+def _clf_accepts_random(clf_cls) -> bool:
+    sig = inspect.signature(clf_cls.__init__)
     return "random_state" in sig.parameters
 
 
-# TODO bad name it should be filter_discard_samples
-def _filter_outliers(X: npt.NDArray[np.number], y: npt.NDArray[np.number]):
+def _filter_discarded_samples(X: npt.NDArray[np.number], y: npt.NDArray[np.number]):
     # keep = np.isfinite(y) | np.isnan(y)  # np.isfinite(np.nan) == False
     keep = (y != DISCARD_MARKER)
     X_filtered = X[keep]
@@ -675,7 +633,6 @@ def _filter_out_annotated(X: npt.NDArray[np.number], y: npt.NDArray[np.number]):
     return X_filtered, y_filtered, mapping
 
 
-# TODO will this be used for estmiators aswell?
 def _build_activeml_classifier(
     model_cfg: ModelConfig,
     dataset_cfg: DatasetConfig,
@@ -685,33 +642,31 @@ def _build_activeml_classifier(
     # n_classes = len(dataset_cfg.classes)
     # classes = np.arange(n_classes)
 
-    # TODO rename to Estimator?
-    est_cls = model_cfg.definition.target_
+    clf_cls = model_cfg.definition.target_
 
-    # TODO: just pass key value pair here
     kwargs = {}
-    if _estimator_accepts_random(est_cls):
+    if _clf_accepts_random(clf_cls):
         kwargs['random_state'] = random_state
 
-    est = model_cfg.definition.instantiate(**kwargs)
+    clf = model_cfg.definition.instantiate(**kwargs)
 
-    if isinstance(est, SkactivemlClassifier):
+    if isinstance(clf, SkactivemlClassifier):
         # Classifier is already wrapped aka supports missing labels
-        # TODO missing_label wont have correct value.
-        return est
-    elif isinstance(est, sklearn.base.ClassifierMixin):
-        wrapped_est = SklearnClassifier(
-            estimator=est,
+        # assigning a string for missing_label is valid from the documentation.
+        clf.missing_label=MISSING_LABEL_MARKER  # pyright: ignore[reportAttributeAccessIssue]
+        return clf
+    elif isinstance(clf, sklearn.base.ClassifierMixin):
+        wrapped_clf = SklearnClassifier(
+            estimator=clf,
             classes=classes,
             random_state=random_state,
             missing_label=MISSING_LABEL_MARKER,  # pyright: ignore[reportArgumentType]
         )
-        return wrapped_est
+        return wrapped_clf
     else:
-        raise RuntimeError(f"Estimator is not a sklearn ClassifierMixin")
+        raise RuntimeError(f"Classifer is not a sklearn ClassifierMixin")
 
 
-# TODO: can use from skactiveml.utils import call_func instead?
 def _filter_kwargs(func: QueryFunc, **kwargs) -> QueryFunc:
     params = inspect.signature(func).parameters
     param_names = params.keys()
@@ -727,12 +682,11 @@ def _filter_kwargs(func: QueryFunc, **kwargs) -> QueryFunc:
     return partial(func, **filtered_kwargs)
 
 
-# TODO always load dataset over and over again.
 def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[QueryFunc, SkactivemlClassifier]:
     random_state = np.random.RandomState(cfg.random_seed)
 
     model_cfg = cfg.model
-    estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+    clf = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
     # max_candidates for subsampling.
     qs = cfg.query_strategy.definition.instantiate(
@@ -750,10 +704,9 @@ def _setup_query(cfg: ActiveMlConfig, session_cfg: SessionConfig) -> tuple[Query
         )
 
     # Dont fit classifier here to prevent fitting twice
-    # TODO:: Does each one have fit_clf flag?
-    query_func = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=estimator, fit_clf=False,
-                                          discriminator=estimator)
-    return query_func, estimator
+    query_func = _filter_kwargs(qs.query, batch_size=session_cfg.batch_size, clf=clf, fit_clf=False,
+                                          discriminator=clf)
+    return query_func, clf
 
 
 def _normalize_and_validate_paths(
@@ -798,9 +751,6 @@ def get_one_file_path(
     return get_file_paths(dataset_id, embedding_id, emb_idx)[0]
 
 
-# TODO: this should convert to Path allready
-# it should maybe just return a list[str]?
-# My ui should not deal with numpy stuff
 def get_file_paths(
     dataset_id: str,
     embedding_id: str,
@@ -821,7 +771,22 @@ def get_file_paths(
         return file_paths[emb_indices].tolist()
 
 
-def get_global_history_idx(dataset_id: str) -> int | None:
+def ensure_global_history_idx_init(dataset_id: str):
+    try:
+        global_history_idx = get_global_history_idx(dataset_id)
+        return
+    except FileNotFoundError:
+        history_size = get_num_annotated(dataset_id)
+        if history_size == 0:
+            global_history_idx = 0
+        else:
+            # Assume there have been annotations made but the index is missing
+            global_history_idx = history_size - 1
+            
+        set_global_history_idx(dataset_id, global_history_idx)
+
+
+def get_global_history_idx(dataset_id: str) -> int:
     """
     Retrieve the history index for a given dataset ID.
     Returns None if the file dose not exist
@@ -829,7 +794,9 @@ def get_global_history_idx(dataset_id: str) -> int | None:
     path = sap.HISTORY_IDX / f"{dataset_id}.json"
 
     if not path.exists():
-        return None
+        raise FileNotFoundError(
+            f"Global history index not found at {path}. This file should already exist."
+        )
 
     # Read JSON from file
     content = path.read_text()
@@ -849,34 +816,32 @@ def set_global_history_idx(dataset_id: str, value: int) -> None:
 
     path.write_text(model.model_dump_json(indent=4))
 
+
 def increment_global_history_idx(dataset_id: str, value: int):
     current_idx = get_global_history_idx(dataset_id)
-    assert current_idx is not None
-
     new_val = current_idx + value
     set_global_history_idx(dataset_id, new_val)
     
+
 def restore_batch(
-    cfg: ActiveMlConfig, 
-    history_idx: int, 
+    cfg: ActiveMlConfig,
+    history_idx: int,
     restore_forward: bool,
-    num_restore: int
-) -> tuple[Batch, AnnotationList]:
-    # INFO: When restoring backwards it will try to restore num_restore samples
+    num_restore: int,
+) -> Batch:
+    # When restoring backwards it will try to restore num_restore samples
     # If there are not enough samples left to restore it will restore as much as it can
     # If it cant restore it will throw an error
     # Assumes annotations are stored in json in the same order they were made.
     logging.info("\nRestore Batch")
-    logging.debug15("history idx:", history_idx)
-    # INFO: History_idx is exclusive and wont be restored
+    # History_idx is exclusive and wont be restored
 
     if restore_forward:
         start = history_idx + 1
         end = start + num_restore
     else:
         end = history_idx # exclusive
-        # TODO: 
-        start = max(0, end - num_restore) 
+        start = max(0, end - num_restore)
 
         num_restorable = end - start
 
@@ -887,43 +852,39 @@ def restore_batch(
         elif num_restorable < num_restore:
             logging.info(f"Can not restore backwards {num_restore}, only {num_restorable} will be restored")
         
-    logging.debug15(f"start: {start}")
-    logging.debug15(f"end: {end} (exclusive)")
-
     annotations_data = _deserialize_annotations(cfg.dataset.id)
     sliced = islice(annotations_data.values(), start, end)
-    annotations = list(sliced) 
+    annotations = list(sliced)
 
-    logging.debug15("len restored:")
-    logging.debug15(len(annotations))
-
-    emb_idxes = [annot.embedding_idx for annot in annotations]
+    emb_indices = [annot.embedding_idx for annot in annotations]
     
     model_cfg = cfg.model
     random_state = np.random.RandomState(cfg.random_seed)
-    estimator = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
+    clf = _build_activeml_classifier(model_cfg, cfg.dataset, random_state=random_state)
 
     X = load_embeddings(cfg.dataset.id, cfg.embedding.id)
     y = _load_or_init_annotations(X, cfg.dataset)
-    X_cand, y_cand, _ = _filter_outliers(X, y)
+    X_cand, y_cand, _ = _filter_discarded_samples(X, y)
 
-    estimator.fit(X_cand, y_cand)
-    class_probas = estimator.predict_proba(X[emb_idxes])
+    clf.fit(X_cand, y_cand)
+    class_probas = clf.predict_proba(X[emb_indices])
 
-    #  TODO workarround typing 
-    annotations = cast(list[Annotation | None], annotations)
-
-    return (
-        Batch(
-            emb_indices=emb_idxes,
-            class_probas=class_probas.tolist(),
-            classes_sklearn=_get_sklearn_classes(estimator),
-            progress=0 if restore_forward else len(emb_idxes) - 1
-        ),
-        AnnotationList(annotations=annotations)
-    )
+    return Batch(
+        emb_indices=emb_indices,
+        class_probas=class_probas.tolist(),
+        classes_sklearn=_get_sklearn_classes(clf),
+        progress=0 if restore_forward else len(emb_indices) - 1,
+        annotations=cast(list[Annotation | None], annotations),
+    ).init()
 
 
 def file_buffer_to_inline_data_url(file_data_buffer: BytesIO, mime: str) -> str:
     b64_encoded_file_data = base64.b64encode(file_data_buffer.getvalue()).decode()
     return f"data:{mime};base64,{b64_encoded_file_data}"
+
+
+def camel_case_to_title(s: str) -> str:
+    # Split before capital letters that are followed by lowercase (normal word start)
+    # or when a lowercase is followed by a capital (e.g., "HTMLParser")
+    parts = re.findall(r'[A-Z]?[a-z]+|[A-Z]+(?![a-z])', s)
+    return " ".join(parts)

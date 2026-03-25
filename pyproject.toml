@@ -1,5 +1,6 @@
-[tool.pyright] 
+[tool.pyright]
 # off, basic, standard, strict
 typeCheckingMode = "standard"
 reportUnusedCallResult = false
 reportAny = false
+include = ["extra_scripts", "skactiveml_annotation"]

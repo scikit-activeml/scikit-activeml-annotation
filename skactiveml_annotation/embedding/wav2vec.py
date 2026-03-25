@@ -1,9 +1,11 @@
 import logging
 from pathlib import Path
+from typing import cast
 
 try:
     import torch  # pyright: ignore[reportMissingImports]
     from transformers import Wav2Vec2Processor, Wav2Vec2Model  # pyright: ignore[reportMissingImports]
+    from transformers import TensorType
 except ImportError as e:
     logging.error(e)
     raise
@@ -14,16 +16,15 @@ import librosa
 from skactiveml_annotation.core.shared_types import DashProgressFunc
 from .base import (
     relative_to_root,
-    EmbeddingBaseAdapter
+    EmbeddingBaseAdapter,
 )
 
 class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
-
     def __init__(
-        self, 
-        model_name: str = "facebook/wav2vec2-base", 
+        self,
+        model_name: str = "facebook/wav2vec2-base",
         batch_size: int = 8,
-        sample_rate: float | int = 16000 # Default for Speech recognition
+        sample_rate: int = 16000 # Default for Speech recognition
     ):
         """
         Initialize the Wav2Vec2 embedding adapter.
@@ -33,17 +34,21 @@ class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
             device (str): 'cuda' or 'cpu'. Defaults to CUDA if available.
             batch_size (int): Number of audio samples per batch
         """
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.processor = Wav2Vec2Processor.from_pretrained(model_name)
-        self.model = Wav2Vec2Model.from_pretrained(model_name).to(self.device)
-        self.model.eval()
         self.batch_size = batch_size
         self.sample_rate = sample_rate
 
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.processor = Wav2Vec2Processor.from_pretrained(model_name)
+
+        self.model = cast(torch.nn.Module, Wav2Vec2Model.from_pretrained(model_name))
+        self.model.to(self.device)
+        self.model.eval()
+
+
     def compute_embeddings(
-        self, 
-        data_path: Path, 
-        progress_func: DashProgressFunc
+        self,
+        data_path: Path,
+        progress_func: DashProgressFunc,
     ) -> tuple[np.ndarray, list[Path]]:
         file_paths = sorted([p for p in data_path.iterdir() if p.suffix.lower() == ".wav"])
         embeddings = []
@@ -56,7 +61,7 @@ class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
         for path in file_paths:
             # To preserve sampling rate None can be passed but that assumes all
             # sampels have the same sampling rate
-            waveform, sampling_rate = librosa.load(path, sr=sampling_rate, mono=True)
+            waveform, _ = librosa.load(path, sr=sampling_rate, mono=True)
             audio_list.append(waveform)
 
 
@@ -74,10 +79,14 @@ class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
             # Prepare batch inputs with padding
             # Adding padding for variable lenght samples and convert to tensor
             inputs = self.processor(
-                batch_waveforms, 
-                sampling_rate=sampling_rate, 
-                return_tensors="pt", 
-                padding=True
+                audio=batch_waveforms,
+                common_kwargs={
+                    "return_tensors": TensorType.PYTORCH,
+                },
+                audio_kwargs={
+                    "sampling_rate": sampling_rate,
+                    "padding": True,
+                },
             )
 
             # PyTorch models require that all inputs are on the same device as the model.
@@ -102,9 +111,7 @@ class Wav2Vec2EmbeddingAdapter(EmbeddingBaseAdapter):
                 next_report_value += update_step
 
         embeddings = np.vstack(embeddings)
-
         logging.info("Final embedding matrix shape:", embeddings.shape)
-
         relative_paths = [relative_to_root(p) for p in file_paths]
 
         return embeddings, relative_paths

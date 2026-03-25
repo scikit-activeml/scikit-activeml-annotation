@@ -1,11 +1,9 @@
-from enum import Enum, StrEnum, auto
-import logging
+from enum import StrEnum, auto
 
 from dash import (
+    Dash,
     Input,
-    State,
     Output,
-    callback,
 )
 
 from dash.exceptions import PreventUpdate
@@ -14,15 +12,17 @@ import dash_mantine_components as dmc
 
 from . import ids
 
+LABEL_SETTING_MODAL = { 'type': 'modal', 'index': "LabelSettingsModal" }
+AUTO_ANNOTATE_MODAL = { 'type': 'modal', 'index': "AutoAnnotateModal" }
+
+
 class SortBySetting(StrEnum):
     yaml_order = auto()
     alphabet = auto()
     proba = auto()
 
     def _generate_next_value(self, name, _start, _count, _last_values) -> str:
-        logging.warning("Created name", name)
         return name
-
 
 
 def create_label_settings_modal():
@@ -80,47 +80,50 @@ def create_label_settings_modal():
         ),
         withCloseButton=False,
         withOverlay=True,
-        id=ids.LABEL_SETTING_MODAL,
+        id=LABEL_SETTING_MODAL,
         title='Label settings',
         centered=True,
         shadow='xl',
     )
 
 
-@callback(
-    Input(ids.LABEL_SETTING_BTN, 'n_clicks'),
-    output=dict(
-        show_modal=Output(ids.LABEL_SETTING_MODAL, 'opened', allow_duplicate=True),
-    ),
-    prevent_initial_call=True
-)
-def show_label_settings_modal(
-    clicks
-):
-    if clicks is None:
-        raise PreventUpdate
-
-    return dict(
-        show_modal=True
+def register_callbacks(app: Dash):
+    @app.callback(
+        Input(ids.LABEL_SETTING_BTN, 'n_clicks'),
+        output=dict(
+            show_modal=Output(LABEL_SETTING_MODAL, 'opened', allow_duplicate=True),
+        ),
+        prevent_initial_call=True
     )
+    def show_label_settings_modal(
+        clicks
+    ):
+        if clicks is None:
+            raise PreventUpdate
+
+        return dict(
+            show_modal=True
+        )
+    _ = show_label_settings_modal
 
 
-@callback(
-    Input(ids.LABEL_SETTING_CONFIRM_BTN, 'n_clicks'),
-    output=dict(
-        ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
-        show_modal=Output(ids.LABEL_SETTING_MODAL, 'opened', allow_duplicate=True)
-    ),
-    prevent_initial_call=True
-)
-def on_confirm(
-    clicks,
-):
-    if clicks is None:
-        raise PreventUpdate
-
-    return dict(
-        ui_trigger=True,
-        show_modal=False
+    @app.callback(
+        Input(ids.LABEL_SETTING_CONFIRM_BTN, 'n_clicks'),
+        output=dict(
+            ui_trigger=Output(ids.UI_TRIGGER, 'data', allow_duplicate=True),
+            show_modal=Output(LABEL_SETTING_MODAL, 'opened', allow_duplicate=True)
+        ),
+        prevent_initial_call=True
     )
+    def on_confirm(
+        clicks,
+    ):
+        if clicks is None:
+            raise PreventUpdate
+
+        return dict(
+            ui_trigger=True,
+            show_modal=False
+        )
+    _ = on_confirm
 

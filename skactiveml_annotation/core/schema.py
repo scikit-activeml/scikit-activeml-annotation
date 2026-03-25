@@ -1,132 +1,13 @@
+from datetime import datetime, timedelta
 import json
-from enum import Enum
-from dataclasses import dataclass, asdict
-import logging
-from typing import Any, Literal, TypeVar 
+from typing import Self, override
+from dataclasses import dataclass
 
-import hydra
-
+import isodate
 import pydantic
-from pydantic import Field
-
-from sklearn.base import ClassifierMixin
-from skactiveml.base import SingleAnnotatorPoolQueryStrategy
-
-from skactiveml_annotation.embedding.base import EmbeddingBaseAdapter
 
 MISSING_LABEL_MARKER = 'MISSING_LABEL'
 DISCARD_MARKER = 'DISCARDED'
-
-DataTypeLiteral = Literal["skactiveml_annotation.core.schema.DataType"] 
-
-T = TypeVar("T")
-
-class DataType(Enum):
-    AUDIO = "Audio"
-    TEXT = "Text"
-    IMAGE = "Image"
-
-class DataTypeTarget(pydantic.BaseModel):
-    # ... tells pydantic this field is needed
-    target_: DataTypeLiteral = Field(..., alias="_target_")
-    args_: list[str] = Field(..., alias="_args_")
-
-    # Tell pydantic to allow extra keys
-    class Config:
-        extra: str = "allow"
-
-    def instantiate(self, **kwargs: Any) -> DataType:
-        return _instantiate(self, DataType, **kwargs)
-
-
-class QueryStrategyTarget(pydantic.BaseModel):
-    target_: str = Field(..., alias="_target_")
-
-    class Config:
-        extra: str = "allow"
-
-    def instantiate(self, **kwargs: Any) -> SingleAnnotatorPoolQueryStrategy:
-        return _instantiate(self, SingleAnnotatorPoolQueryStrategy, **kwargs)
-
-class ModelTarget(pydantic.BaseModel):
-    target_: str = Field(..., alias="_target_")
-
-    class Config:
-        extra: str = "allow"
-
-    def instantiate(self, **kwargs: Any) -> ClassifierMixin:
-        return _instantiate(self, ClassifierMixin, **kwargs)
-
-class EmbeddingTarget(pydantic.BaseModel):
-    target_: str = Field(..., alias="_target_")
-
-    class Config:
-        extra: str = "allow"
-
-    def instantiate(self, **kwargs: Any) -> EmbeddingBaseAdapter:
-        return _instantiate(self, EmbeddingBaseAdapter, **kwargs)
-
-class EmbeddingConfig(pydantic.BaseModel):
-    id: str
-    display_name: str
-    definition: EmbeddingTarget 
-
-
-class DatasetConfig(pydantic.BaseModel):
-    id: str
-    display_name: str
-    classes: list[str]
-    data_path: str
-    data_type: DataTypeTarget
-
-
-class ModelConfig(pydantic.BaseModel):
-    id: str
-    display_name: str
-    definition: ModelTarget
-
-
-class QueryStrategyConfig(pydantic.BaseModel):
-    id: str
-    display_name: str
-    model_agnostic: bool
-    definition: QueryStrategyTarget
-
-
-class ActiveMlConfig(pydantic.BaseModel):
-    random_seed: int
-    model: ModelConfig
-    dataset: DatasetConfig
-    query_strategy: QueryStrategyConfig
-    embedding: EmbeddingConfig
-
-
-def _instantiate(cfg: pydantic.BaseModel, expected_type: type[T], **kwargs: Any) -> T:
-    try:
-        cfg_dict = cfg.model_dump(by_alias=True)
-        x = hydra.utils.instantiate(cfg_dict, **kwargs)
-        # TODO: instantiate can fail
-    except Exception as e:
-        logging.error(
-            "\n".join([
-                f"Hydra failed to instantiate instance of: {expected_type.__name__}.",
-                f"Config: {cfg.model_dump(by_alias=True)}",
-                f"Exception: {e}",
-            ])
-        )
-        raise
-
-    if not isinstance(x, expected_type):
-        logging.error("\n".join([
-            "Hydra instantiated unexpected type:",
-            f"Expected type: {expected_type.__name__}",
-            f"Actual type:   {type(x).__name__}",
-        ]))
-        raise TypeError(
-            f"Expected instance of {expected_type.__name__}, got {type(x).__name__}"
-        )
-  
-    return x
 
 
 @dataclass
@@ -140,78 +21,22 @@ class SessionConfig:
             self.subsampling = None
 
 
-class Batch:
-    def __init__(
-        self,
-        emb_indices: list[int],
-        classes_sklearn: list[str],
-        class_probas: list[list[float]] | None = None,
-        progress: int = 0
-    ):
-        if not (0 <= progress <= len(emb_indices)):
-            raise ValueError("Initial progress out of range")
-
-        self.emb_indices = emb_indices
-        self.class_probas = class_probas
-        self.classes_sklearn = classes_sklearn
-
-        self._progress = progress
-        self._min_progress = progress
-        self._max_progress = progress
-
-    @property
-    def progress(self) -> int:
-        return self._progress
-
-    # TODO maybe its cleaner if this returns a boolean is completed?
-    def advance(self, step: int):
-        self._progress += step
-
-        if self.is_completed():
-            return
-
-        self._min_progress = min(self._min_progress, self._progress)
-        self._max_progress = max(self._max_progress, self._progress)
-
-    def get_num_annotated(self) -> int:
-        return self._max_progress - self._min_progress + 1
-
-    def is_completed(self) -> bool:
-        return self.progress < 0 or self.progress >= len(self.emb_indices)
-
-    def __len__(self) -> int:
-        return len(self.emb_indices)
-
-    # -- Serialization & Deserialization --
-    def to_json(self) -> str:
-        data = {
-            "emb_indices": self.emb_indices,
-            "class_probas": self.class_probas,
-            "classes_sklearn": self.classes_sklearn,
-            "_progress": self._progress,
-            "_min_progress": self._min_progress,
-            "_max_progress": self._max_progress
-        }
-        return json.dumps(data)
-
-    @classmethod
-    def from_json(cls, json_str: str) -> "Batch":
-        data = json.loads(json_str)
-        batch = cls(
-            emb_indices=data["emb_indices"],
-            class_probas=data.get("class_probas", None),
-            classes_sklearn=data.get("classes_sklearn", None),
-            progress=data["_progress"]
-        )
-        batch._min_progress = data["_min_progress"]
-        batch._max_progress = data["_max_progress"]
-        return batch
-
 class AnnotationMetaData(pydantic.BaseModel):
-    first_view_time: str = ''
-    total_view_duration: str = ''
-    last_edit_time: str = ''
-    skip_intended_cnt: int = 0
+    first_view_time: datetime      # Time when the sample was first presented
+    last_edit_time: datetime       # Last time when a change was made
+    total_view_duration: timedelta # Total presentation time
+    skip_intended_cnt: int = 0     # How many time the sample has been activly skipped
+
+    @pydantic.field_validator("total_view_duration", mode="before")
+    @classmethod
+    def parse_duration(cls, value: str | timedelta) -> timedelta:
+        if isinstance(value, str):
+            return isodate.parse_duration(value)
+        return value
+
+    @pydantic.field_serializer("total_view_duration")
+    def serialize_duration(self, value: timedelta) -> str:
+        return isodate.duration_isoformat(value)
 
 
 class Annotation(pydantic.BaseModel):
@@ -220,12 +45,134 @@ class Annotation(pydantic.BaseModel):
     meta_data: AnnotationMetaData
 
 
-class AnnotationList(pydantic.BaseModel):
-    annotations: list[Annotation | None]
+
+class Batch(pydantic.BaseModel):
+    progress: int = 0
+    emb_indices: list[int]
+    classes_sklearn: list[str]
+    annotations: list[Annotation | None] = []
+    class_probas: list[list[float]] | None = None
+
+    _min_progress: int = pydantic.PrivateAttr()
+    _max_progress: int = pydantic.PrivateAttr()
+
+    def init(self) -> Self:
+        if not (0 <= self.progress <= len(self.emb_indices)):
+            raise ValueError("Initial progress out of range")
+        self._min_progress = self.progress
+        self._max_progress = self.progress
+
+        return self
+
+
+    def get_annotation_not_none(self) -> Annotation:
+        annot = self.get_annotation()
+        if annot is None:
+            # TODO:
+            raise ValueError
+        return annot
+
+
+    def get_emb_index(self) -> int:
+        return self.emb_indices[self.progress]
+
+    def get_annotation(self) -> Annotation | None:
+        return self.annotations[self.progress]
+
+    def add_annotation(self, annot: Annotation):
+        self.annotations[self.progress] = annot
+
+    def get_progress_percent(self) -> float:
+        return (self.progress / len(self.emb_indices)) * 100
+    
+    def concat(self, other: Self, progress: int = 0) -> Self:
+        class_probas = (
+            self.class_probas + other.class_probas
+            if self.class_probas is not None and other.class_probas is not None
+            else None
+        )
+
+        return type(self)(
+            progress=progress,
+            emb_indices=self.emb_indices + other.emb_indices,
+            # TODO: why use only other?
+            classes_sklearn=other.classes_sklearn,
+            class_probas=class_probas,
+            annotations=self.annotations + other.annotations,
+        ).init()
+
+    # Have to override pydantic behaviour because it does not serde
+    # private attributes
+    @override
+    def model_dump(self, *args, **kwargs) -> dict:
+        data = super().model_dump(*args, **kwargs)
+        data["_min_progress"] = self._min_progress
+        data["_max_progress"] = self._max_progress
+        return data
+
+    @override
+    @classmethod
+    def model_validate(cls, data: dict | Self, *args, **kwargs) -> Self:
+        if isinstance(data, cls):
+            return data
+
+        data = dict(data)
+        _min_progress = data.pop("_min_progress")
+        _max_progress = data.pop("_max_progress")
+
+        batch = super().model_validate(data, *args, **kwargs)
+
+        batch._min_progress = _min_progress
+        batch._max_progress = _max_progress
+        return batch
+
+
+    @override
+    def model_dump_json(self, *args, **kwargs) -> str:
+        return json.dumps(self.model_dump(*args, mode='json', **kwargs))
+
+    @override
+    @classmethod
+    def model_validate_json(cls, data: str, *args, **kwargs) -> Self:
+        return cls.model_validate(json.loads(data))
+
+    def advance(self, step: int):
+        if not self.is_advanceable(step):
+            raise ValueError(
+                f"Cannot advance batch by {step} because it would result out of bounds"
+            )
+
+        self.progress += step
+        self._min_progress = min(self._min_progress, self.progress)
+        self._max_progress = max(self._max_progress, self.progress)
+
+    def _is_valid_progress(self, progress: int) -> bool:
+        return 0 <= progress < len(self.emb_indices)
+
+    def get_num_annotated(self) -> int:
+        return self._max_progress - self._min_progress + 1
+
+    def is_advanceable(self, step: int) -> bool:
+        next_progress = self.progress + step
+        return self._is_valid_progress(next_progress)
+
+    def is_completed(self) -> bool:
+        return not self._is_valid_progress(self.progress)
+
+    def __len__(self) -> int:
+        return len(self.emb_indices)
+
 
 class HistoryIdx(pydantic.BaseModel):
     idx: int
 
+
+class AnnotationProgress(pydantic.BaseModel):
+    num_annotated: int
+    num_samples: int
+
+    def is_all_annotated(self) -> bool:
+        return self.num_annotated == self.num_samples
 
 class AutomatedAnnotation(pydantic.BaseModel):
     embedding_idx: int

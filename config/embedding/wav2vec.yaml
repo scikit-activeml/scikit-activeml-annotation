@@ -1,8 +1,7 @@
 display_name: "Wav2Vec"
 
-data_type:
-  _target_: skactiveml_annotation.core.schema.DataType
-  _args_: [Audio]
+modalities:
+  - Audio
 
 definition:
   _target_: skactiveml_annotation.embedding.wav2vec.Wav2Vec2EmbeddingAdapter

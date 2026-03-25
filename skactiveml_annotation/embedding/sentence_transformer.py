@@ -16,7 +16,6 @@ from .base import (
     EmbeddingBaseAdapter
 )
 
-# TODO possibly create template class for this?
 class SentenceTransformerAdapter(EmbeddingBaseAdapter):
     def __init__(
         self,

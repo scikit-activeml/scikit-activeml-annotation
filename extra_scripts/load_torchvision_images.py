@@ -13,7 +13,6 @@ try:
         FashionMNIST
     )
 except ImportError as e:
-    # TODO: Add better error msg
     logging.error(e)
     sys.exit()
 
@@ -98,13 +97,14 @@ def load_stl10_images():
 def _load_torchvision_images(
     name: str,
     path: Path,
-    dataset: VisionDataset
+    dataset: VisionDataset,
 ):
     output_dir = path / f"{name}_images"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Save each image as a PNG file. Each entry is a tuple (image, label)
-    for idx, (image, label) in enumerate(dataset):
+    for idx in range(len(dataset)):
+        image, _ = dataset[idx]
         image.save(output_dir / f'{name}_{idx}.png')
 
     logging.info(f"Saved {len(dataset)} images in '{output_dir}'")

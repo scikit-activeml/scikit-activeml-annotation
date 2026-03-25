@@ -7,7 +7,6 @@ try:
     # Optional dependency
     from datasets import load_dataset  # pyright: ignore[reportAttributeAccessIssue]
 except ImportError as e:
-    # TODO: Add better error msg
     logging.error(e)
     sys.exit()
 
@@ -61,9 +60,6 @@ def _load_hf_texts(name: str, path: Path, dataset_name: str, split: str, text_fi
     dataset = load_dataset(dataset_name, split=split)
     
     texts = list(dataset[text_field]) 
-
-    # TODO must I shuffle here?
-    # random.shuffle(texts)
 
     for idx, text in enumerate(texts):
         file_path = output_dir / f"{name}_{idx}.txt"

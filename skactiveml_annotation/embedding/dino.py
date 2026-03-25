@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Callable
+from typing import Callable, cast
+import logging
 
 import numpy as np
 from PIL import Image
 
-from skactiveml_annotation.util import logging
 
 try:
     import torch # pyright: ignore[reportMissingImports]
@@ -31,26 +31,26 @@ class ImageDataset(torch.utils.data.Dataset):
         return len(self.image_paths)
 
     def _collect_valid_images(self, data_path: Path) -> list[Path]:
-            """
-            Iterate over files in data_path and keep only valid images.
-            Invalid or unreadable images are skipped with a warning.
-            """
-            logging.info("Collecting valid images ...")
+        """
+        Iterate over files in data_path and keep only valid images.
+        Invalid or unreadable images are skipped with a warning.
+        """
+        logging.info("Collecting valid images ...")
 
-            valid_paths: list[Path] = []
+        valid_paths: list[Path] = []
 
-            for path in data_path.iterdir():
-                if not path.is_file():
-                    continue
+        for path in data_path.iterdir():
+            if not path.is_file():
+                continue
 
-                try:
-                    with Image.open(path) as img:
-                        img.verify()  # integrity check
-                    valid_paths.append(path)
-                except Exception as e:
-                    logging.warning(f"Skipping invalid image file: {path} ({e})")
+            try:
+                with Image.open(path) as img:
+                    img.verify()  # integrity check
+                valid_paths.append(path)
+            except Exception as e:
+                logging.warning(f"Skipping invalid image file: {path} ({e})")
 
-            return valid_paths
+        return valid_paths
 
     def __getitem__(self, idx) -> tuple[torch.Tensor, str]:
         image_path = self.image_paths[idx]
@@ -87,7 +87,10 @@ class TorchVisionAdapter(EmbeddingBaseAdapter):
 
         try:
             # Load the pretrained model from PyTorch Hub
-            self.model = torch.hub.load("facebookresearch/dinov2", self.model_variant)
+            self.model = cast(
+                torch.nn.Module,
+                torch.hub.load("facebookresearch/dinov2", self.model_variant)
+            )
         except Exception as e:
             raise RuntimeError("DINOv2 model is not available") from e
 

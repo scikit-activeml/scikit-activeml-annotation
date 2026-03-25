@@ -2,29 +2,34 @@ from collections import Counter
 import json
 from dataclasses import dataclass
 from typing import Final
+import logging
 
 import pydantic
 
 from dash import (
+    Dash,
     Output,
-    Input, 
-    State, 
-    callback,
+    Input,
+    State,
     set_props,
-    ClientsideFunction,
-    clientside_callback,
 )
 from dash.exceptions import PreventUpdate
 
-from dash_extensions import Keyboard
-
-from skactiveml_annotation.util import logging
+from skactiveml_annotation.shared_ids import CLICK_BTN_TRIGGER, KEYMAPPING_CFG
+from skactiveml_annotation.ui.pages.home.ids import URL_INIT
 
 MOD_KEY_MAPPING: Final = {"altKey": "Alt", "ctrlKey": "Control",
                           "shiftKey": "Shift", "metaKey": "Meta"}
 
-# TODO: Keys missing
-VALID_SPECIAL_KEYS = ("Unbound", "Enter", "Backspace") + tuple(MOD_KEY_MAPPING.values())
+VALID_SPECIAL_KEYS: Final = (
+    "Unbound",
+    "Enter",
+    "Backspace",
+    "CapsLock",
+    "Tab",
+    " ", # Space
+    "Escape",
+) + tuple(MOD_KEY_MAPPING.values())
 
 @dataclass
 class ButtonAction:
@@ -64,6 +69,47 @@ def button_actions() -> dict[str, ButtonAction]:
     return __button_actions
 
 
+def register_callbacks(app: Dash):
+    @app.callback(
+        Input(URL_INIT, "pathname"),
+        State(KEYMAPPING_CFG, "data"),
+        output=dict(
+            hotkey_cfg=Output(KEYMAPPING_CFG, "data")
+        )
+    )
+    def ensure_hotkeys_initialized(
+        _,
+        hotkey_cfg_json,
+    ):
+        if hotkey_cfg_json is None:
+            return dict(
+                hotkey_cfg=HotkeyConfig().model_dump()
+            )
+
+        try:
+            hotkey_cfg = HotkeyConfig.model_validate(hotkey_cfg_json)
+        except pydantic.ValidationError:
+            logging.error(
+                "Invalid hotkey configuration json; using defaults instead",
+                exc_info=True
+            )
+            return dict(
+                hotkey_cfg=HotkeyConfig().model_dump()
+            )
+
+        if hotkey_cfg.is_user_defined:
+            # Dont override user defined hotkeys
+            raise PreventUpdate
+
+        # Updating non-user defined hotkeys to latest defaults
+        hotkey_cfg = HotkeyConfig()
+
+        return dict(
+            hotkey_cfg=hotkey_cfg.model_dump()
+        )
+    _ = ensure_hotkeys_initialized
+
+
 def on_key_pressed_handler(
     trigger,
     key_event,
@@ -74,8 +120,6 @@ def on_key_pressed_handler(
     # Prevent Key repeat events from doing anything
     if trigger is None or key_event["repeat"]:
         raise PreventUpdate
-
-    logging.debug15(json.dumps(key_event))
 
     mapping = hotkey_cfg.mapping
 
@@ -94,20 +138,24 @@ def on_key_pressed_handler(
 
     normalized_hotkey = _key_event_to_canonical_str(key_event)
 
-    button_action_id = key_mapping.get(normalized_hotkey, None)
+    key_mapping = modal_mapping.get(modal, None)
+    if key_mapping is None:
+        logging.error(
+            f"Key mapping for modal {modal!r} on page {page!r} does not exist"
+        )
+        raise PreventUpdate
 
+    button_action_id = key_mapping.get(normalized_hotkey, None)
     if button_action_id is None:
-        logging.debug15(f"Key Combo: {normalized_hotkey} is not bound. No Action is fired.")
+        logging.debug(f"Key Combo: {normalized_hotkey} is not bound. No Action is fired.")
         raise PreventUpdate
 
     button_action = __button_actions[button_action_id]
-
     button_id = button_action.btn_id
-    logging.debug15(f"Button id: {button_id}")
 
     # Simulate a button click
     set_props(
-        "click-btn-trigger",
+        CLICK_BTN_TRIGGER,
         dict(data=button_id)
     )
 
@@ -150,68 +198,6 @@ def normalize_hotkey_str(key_combo: str) -> str:
     if len(parts) > 1:
         return key + "+" + "+".join(mod_keys)
     return key
-
-
-# --- Callbacks ---
-# TODO: where to put these callbacks?
-clientside_callback(
-    ClientsideFunction(namespace='clientside', function_name='clickButtonWithId'),
-    Input("click-btn-trigger", "data"),
-)
-
-clientside_callback(
-    ClientsideFunction(namespace='clientside', function_name='focusElementWithId'),
-    Input("focus-el-trigger", "data"),
-)
-
-# INFO: Callback to go back to the previous page
-clientside_callback(
-    ClientsideFunction(namespace='clientside', function_name='goToLastPage'),
-    Input("back-hotkeys-btn", "n_clicks"),
-)
-
-
-@callback(
-    Input("url_home_init", "pathname"),
-    State("keymapping-cfg", "data"),
-    output=dict(
-        hotkey_cfg=Output("keymapping-cfg", "data")
-    )
-)
-def ensure_hotkeys_initialized(
-    _,
-    hotkey_cfg_json,
-):
-    if hotkey_cfg_json is None:
-        logging.debug15("Initializing hotkeys to default bindings.")
-        logging.debug15(DEFAULT_KEYBINDS)
-        return dict(
-            hotkey_cfg=HotkeyConfig().model_dump()
-        )
-
-    try:
-        hotkey_cfg = HotkeyConfig.model_validate(hotkey_cfg_json)
-    except pydantic.ValidationError:
-        logging.error(
-            "Invalid hotkey configuration json; using defaults instead",
-            exc_info=True
-        )
-        return dict(
-            hotkey_cfg=HotkeyConfig().model_dump()
-        )
-
-    if hotkey_cfg.is_user_defined:
-        # Dont override user defined hotkeys
-        raise PreventUpdate
-
-    # Updating non-user defined hotkeys to latest defaults
-    logging.debug15("Updating non-user-defined hotkeys to latest defaults")
-    logging.debug15(DEFAULT_KEYBINDS)
-    hotkey_cfg = HotkeyConfig()
-
-    return dict(
-        hotkey_cfg=hotkey_cfg.model_dump()
-    )
 
 
 # --- Helper Funcions ---

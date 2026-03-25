@@ -1,9 +1,12 @@
 from argparse import ArgumentParser
+import logging
 
-from skactiveml_annotation.app import app
+from dash import Dash
+
+from skactiveml_annotation import util
+from skactiveml_annotation.app import create_app
 import skactiveml_annotation.paths as sap
 
-from skactiveml_annotation.util import logging
 
 PORT = 8050
 
@@ -14,24 +17,26 @@ def main():
     parser.add_argument("--prod", action="store_true", help="Start the app in production mode")
     args = parser.parse_args()
 
+    app = create_app()
+
     if args.profile:
-        run_profile_mode()
+        run_profile_mode(app)
         return
     elif args.prod:
-        run_prod_mode()
+        run_prod_mode(app)
     else:
-        run_debug_mode()
+        run_debug_mode(app)
 
 
-def run_debug_mode():
+def run_debug_mode(app: Dash):
     import os
     if os.environ.get("WERKZEUG_RUN_MAIN") == 'true':
-        logging.setup_logging()
+        util.logging.setup_logging()
 
     app.run(debug=True, host='localhost', dev_tools_hot_reload_interval=1, port=PORT)
 
-def run_profile_mode():
-    logging.setup_logging()
+def run_profile_mode(app: Dash):
+    util.logging.setup_logging()
 
     try:
         from werkzeug.middleware.profiler import ProfilerMiddleware
@@ -40,7 +45,6 @@ def run_profile_mode():
         import sys
         sys.exit(1)
 
-    # TODO Profiler should create a new dir with timestamp for the next log.
     app.server.config["PROFILE"] = True
     app.server.wsgi_app = ProfilerMiddleware(
         app.server.wsgi_app,
@@ -52,8 +56,8 @@ def run_profile_mode():
     app.run(debug=True, host='localhost', dev_tools_hot_reload=False, port=PORT)
 
 
-def run_prod_mode():
-    logging.setup_logging()
+def run_prod_mode(app: Dash):
+    util.logging.setup_logging()
     import webbrowser
     try:
         from waitress import serve  # pyright: ignore[reportMissingModuleSource]

@@ -1,70 +1,61 @@
-from dash import ALL
+from skactiveml_annotation.util.utils import make_ids
 
-# TODO: Use enums to organize these ids into groups and auto assign name
+ids = make_ids(__name__)
 
-ANNOTATION_INIT = 'annotation-init'
-DATA_DISPLAY_CONTAINER = 'data-display-container'
-LABELS_CONTAINER = 'labels-container'
+KEYBOARD = ids('keyboard')
 
-# Action Buttons
-ALL_ANNOTATION_BTNS = {'type': 'action-button', 'index': ALL}
+# --- Data ---
+TIME_STAMP = ids('time-stamp')
 
-UI_TRIGGER = 'ui-trigger'
-QUERY_TRIGGER = 'query-trigger'
-START_TIME_TRIGGER = 'start-time-trigger'
-AUTO_PLAYBACK_TRIGGER = "auto-playback-trigger"
+# --- Containers ---
+DATA_DISPLAY_CONTAINER = ids('data-display-container')
+LABELS_CONTAINER = ids('labels-container')
 
-# Stats
+# --- Triggers---
+ANNOTATION_INIT = ids('annotation-init')
+UI_TRIGGER = ids('ui-trigger')
+QUERY_TRIGGER = ids('query-trigger')
+START_TIME_TRIGGER = ids('start-time-trigger')
+AUTO_PLAYBACK_TRIGGER = ids("auto-playback-trigger")
+
+# --- Buttons ---
+SKIP_BATCH_BTN = ids('skip-batch-btn')
+ACTION_BTN = ids('action-buttons')
+APPLY_PRESENTION_SETTINGS_BTN = ids('apply-presentation-settings-btn')
+
+# --- Inputs ---
+BATCH_SIZE_INPUT = ids('batch-size-input')
+SUBSAMPLING_INPUT = ids('subsampling_input')
+LABEL_CHIPS_INPUT = ids('label_chips_input')
+
 # Annotation Progress
-ANNOT_PROGRESS = 'annot-progress'
-# TODo bad name NUM_SAMPLES_ANNOTATED_TEXT
-NUM_SAMPLES_TEXT = 'num_samples_text'
-ANNOT_PROGRESS_TEXT = 'annot-progress-text'
+ANNOT_PROGRESS = ids('annot-progress')
+NUM_SAMPLES_TEXT = ids('num_samples_text')
+ANNOT_PROGRESS_TEXT = ids('annot-progress-text')
 
-COMPUTING_OVERLAY = 'computing-overlay'
+COMPUTING_OVERLAY = ids('computing-overlay')
 
 # Data Display
-# TODO: cleanup
-DATA_PRESENTATION_SETTINGS_CONTAINER = 'data-presentation-settings-container'
-DATA_PRESENTATION_APPLY_BTN_CONTAINER = "data-presentation-apply-btn-container"
-DATA_DISPLAY_CFG_DATA = 'data-display-cfg-data'
+DATA_PRESENTATION_SETTINGS_CONTAINER = ids('data-presentation-settings-container')
+DATA_DISPLAY_CFG_DATA = ids('data-display-cfg-data')
 
 # --- Data Presentation Settings Inputs ---
-DATA_PRESENTATION_INPUT = 'data-presentation-input'
-# Image
+DATA_PRESENTATION_INPUT = ids('data-presentation-input')
 
-IMAGE_RESAMPLING_METHOD_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'value', 'modality': 'image', 'index': 'resampling_method' }
-IMAGE_RESIZING_FACTOR_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'value', 'modality': 'image', 'index': 'rescale_factor' }
-
-# Text
-TEXT_FONT_SIZE_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'value', 'modality': 'text', 'index': 'font_size' }
-TEXT_LINE_HEIGHT_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'value', 'modality': 'text', 'index': 'line_height' }
-
-# Audio
-AUDIO_AUTOPLAY = { 'type': DATA_PRESENTATION_INPUT, 'property': 'checked', 'modality': 'audio', 'index': 'autoplay' }
-AUDIO_LOOP_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'checked', 'modality': 'audio', 'index': 'loop' }
-AUDIO_PLAYBACK_RATE_INPUT = { 'type': DATA_PRESENTATION_INPUT, 'property': 'value', 'modality': 'audio', 'index': 'playback_rate' }
-
-# Modals
-# LABEL_SETTING_MODAL = 'label-setting-modal'
-# AUTO_ANNOTATE_MODAL = 'auto-annoate-modal'
-LABEL_SETTING_MODAL = { 'type': 'modal', 'index': "LabelSettingsModal"}
-AUTO_ANNOTATE_MODAL = { 'type': 'modal', 'index': "AutoAnnotateModal"}
-
-# Label setting Modal
-LABEL_SETTING_BTN = 'label-setting-btn'
-LABEL_SETTING_CONFIRM_BTN = 'label-setting-confirm-btn'
-LABEL_SETTING_SHOW_PROBAS = 'label-setting-show-probas'
-LABEL_SETTING_SORTBY = 'label-setting-sortby'
+# --- Label setting Modal ---
+LABEL_SETTING_BTN = ids('label-setting-btn')
+LABEL_SETTING_CONFIRM_BTN = ids('label-setting-confirm-btn')
+LABEL_SETTING_SHOW_PROBAS = ids('label-setting-show-probas')
+LABEL_SETTING_SORTBY = ids('label-setting-sortby')
 
 # Auto Annotate Modal
-AUTO_ANNOTATE_BTN = 'auto-annotate-btn'
-AUTO_ANNOTATE_CONFIRM_BTN = 'auto-annotate-confirm-btn'
-AUTO_ANNOTATE_THRESHOLD = 'auto-annotate-threshold'
+AUTO_ANNOTATE_BTN = ids('auto-annotate-btn')
+AUTO_ANNOTATE_CONFIRM_BTN = ids('auto-annotate-confirm-btn')
+AUTO_ANNOTATE_THRESHOLD = ids('auto-annotate-threshold')
 
 # Add Label
-ADD_CLASS_BTN = 'add-class-btn'
-ADDED_CLASS_NAME = 'added-class-name'
+ADD_CLASS_BTN = ids('add-class-btn')
+ADDED_CLASS_NAME = ids('added-class-name')
 
 # Search Input
-LABEL_SEARCH_INPUT = 'label-search-input'
+LABEL_SEARCH_INPUT = ids('label-search-input')

@@ -35,3 +35,18 @@ def get_sort_order(seq: Sequence, key: Callable | None = None) -> SortOrder:
         return SortOrder.DESC
 
     return SortOrder.UNSORTED
+
+
+def make_ids(module_name: str, sep: str = "-"):
+    """
+    Returns an ID factory prefixed by the module's package path.
+
+    module_name: pass __name__ from the calling ids.py
+    sep: separator character (default "-")
+    """
+    page_name = module_name.split(".")[-2]
+
+    def make(component_id: str) -> str:
+        return f"{page_name}{sep}{component_id}"
+
+    return make

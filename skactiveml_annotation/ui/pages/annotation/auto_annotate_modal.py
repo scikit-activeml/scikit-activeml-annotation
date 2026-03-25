@@ -1,21 +1,29 @@
 from dash import (
+    Dash,
     Input,
     Output,
     State,
-    callback 
+    callback,
 )
 
 from dash.exceptions import PreventUpdate
 
 import dash_mantine_components as dmc
 
+from skactiveml_annotation import util
 from skactiveml_annotation.core import api
-from skactiveml_annotation.ui import common
+from skactiveml_annotation.shared_ids import (
+    SELECTION,
+)
 
-from skactiveml_annotation.core.schema import Batch
-from skactiveml_annotation.ui.storekey import StoreKey 
+from skactiveml_annotation.ui import common
+from skactiveml_annotation.ui.pages.home.selection import Selection
+
 
 from . import ids
+
+AUTO_ANNOTATE_MODAL = { 'type': 'modal', 'index': "AutoAnnotateModal" }
+
 
 def create_auto_annotate_modal():
     return dmc.Modal(
@@ -46,7 +54,7 @@ def create_auto_annotate_modal():
                 )
             ],
         ),
-        id=ids.AUTO_ANNOTATE_MODAL,
+        id=AUTO_ANNOTATE_MODAL,
         title='Auto Annotate with Threshold',
         centered=True,
         shadow='xl',
@@ -54,85 +62,56 @@ def create_auto_annotate_modal():
     )
 
 
-@callback(
-    Input(ids.AUTO_ANNOTATE_BTN, 'n_clicks'),
-    output=dict(
-        modal_open=Output(ids.AUTO_ANNOTATE_MODAL, 'opened', allow_duplicate=True),
-    ),
-    prevent_initial_call=True
-)
-def open_modal(
-    clicks
-):
-    if clicks is None:
-        raise PreventUpdate
-
-    return dict(
-        modal_open=True
+def register_callbacks(app: Dash):
+    @app.callback(
+        Input(ids.AUTO_ANNOTATE_BTN, 'n_clicks'),
+        output=dict(
+            modal_open=Output(AUTO_ANNOTATE_MODAL, 'opened', allow_duplicate=True),
+        ),
+        prevent_initial_call=True
     )
+    def open_modal(
+        clicks
+    ):
+        if clicks is None:
+            raise PreventUpdate
+
+        return dict(
+            modal_open=True
+        )
+    _ = open_modal
 
 
-# TODO this should be a background callback
-@callback(
-    Input(ids.AUTO_ANNOTATE_CONFIRM_BTN, 'n_clicks'),
-    State('session-store', 'data'),
-    State(ids.ANNOT_PROGRESS, 'data'),
-    State(ids.AUTO_ANNOTATE_THRESHOLD, 'value'),
-    output=dict(
-        auto_annot_modal_open=Output(ids.AUTO_ANNOTATE_MODAL, 'opened', allow_duplicate=True),
-    ),
-    # output=dict(
-    #     # annot_progress=Output(ANNOT_PROGRESS, 'data', allow_duplicate=True)
-    #     # query_trigger=Output(QUERY_TRIGGER, 'data', allow_duplicate=True)
-    # ),
-    prevent_initial_call=True,
-)
-def on_auto_annotate(
-    click,
-    session_data,
-    annot_progress,
-    threshold,
-):
-    if click is None:
-        raise PreventUpdate
-
-    # TODO what happens with the current batch Write back all annoted before doing it?
-
-    activeml_cfg = common.compose_from_state(session_data)
-    X = api.load_embeddings(
-        activeml_cfg.dataset.id,
-        activeml_cfg.embedding.id
+    @callback(
+        Input(ids.AUTO_ANNOTATE_CONFIRM_BTN, 'n_clicks'),
+        State(SELECTION, 'data'),
+        State(ids.AUTO_ANNOTATE_THRESHOLD, 'value'),
+        output=dict(
+            auto_annot_modal_open=Output(AUTO_ANNOTATE_MODAL, 'opened', allow_duplicate=True),
+        ),
+        prevent_initial_call=True,
+        background=True,
     )
+    def on_auto_annotate(
+        click: int | None,
+        selection_json: str,
+        threshold: float,
+    ):
+        if click is None:
+            raise PreventUpdate
 
-    # TODO some duplicate code
-    batch_json = session_data.pop(StoreKey.BATCH_STATE.value, None)
-    dataset_id = session_data[StoreKey.DATASET_SELECTION.value]
-    embedding_id = session_data[StoreKey.EMBEDDING_SELECTION.value]
-    batch = Batch.from_json(batch_json)
+        util.logging.setup_logging_background_callback()
 
-    # TODO updating annot_progress does not trigger ui update!
-    # num_annotated = save_partial_annotations(batch, dataset_id, embedding_id)
-    # annot_progress[AnnotProgress.PROGRESS.value] = num_annotated
+        selection = Selection.model_validate_json(selection_json)
+        activeml_cfg = common.compose_from_state(selection)
+        X = api.load_embeddings(
+            activeml_cfg.dataset.id,
+            activeml_cfg.embedding.id
+        )
 
-    api.auto_annotate(X, activeml_cfg, threshold)
+        api.auto_annotate(X, activeml_cfg, threshold)
 
-    return dict(
-        auto_annot_modal_open=False,
-    )
-
-    # return dict(
-    #     # query_trigger=True
-    #     # annot_progress=annot_progress
-    # )
-
-
-# Close Modal on confirm
-# TODO should the modal be closed during computation or after?
-# clientside_callback(
-#     ClientsideFunction(namespace='clientside', function_name='false'),
-#     Output(AUTO_ANNOTATE_MODAL, 'opened'),
-#     Input(AUTO_ANNOTATE_CONFIRM_BTN, 'n_clicks')
-# )
-
-
-
+        return dict(
+            auto_annot_modal_open=False,
+        )
+    _ = on_auto_annotate

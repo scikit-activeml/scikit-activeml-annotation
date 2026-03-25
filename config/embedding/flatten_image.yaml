@@ -1,8 +1,8 @@
 display_name: "Basic Flatten Image"
 
-data_type:
-  _target_: skactiveml_annotation.core.schema.DataType
-  _args_: [Image]
+
+modalities:
+  - Image
 
 definition:
   _target_: skactiveml_annotation.embedding.basic_flatten.SimpleFlattenAdapter

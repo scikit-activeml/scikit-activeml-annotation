@@ -89,8 +89,6 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
         },
 
         goToLastPage: function(n_clicks) {
-            if (n_clicks === null) return window.dash_clientside.no_update;
-
             // Use browser api to go back to last page
             window.history.back();
         },
